@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-01-13
+-- Last update: 2020-02-14
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -37,7 +37,6 @@ use lcls_timing_core.TimingPkg.all;
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
-use l2si_core.XpmMiniPkg.all;
 
 library amc_carrier_core;
 use amc_carrier_core.AmcCarrierSysRegPkg.all;
@@ -84,7 +83,7 @@ entity XpmCore is
       obDebugSlave     : out   AxiStreamSlaveType;
       -- Timing Interface (timingClk domain)
 --      timingData        : out   TimingRxType;
-      recStream        : out   XpmMiniStreamType;
+      recStream        : out   XpmStreamType;
       timingPhy        : in    TimingPhyType      := TIMING_PHY_INIT_C;  -- Input for timing generator only
       timingPhyClk     : out   sl;
       timingPhyRst     : out   sl;

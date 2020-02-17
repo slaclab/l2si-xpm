@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-02-12
+-- Last update: 2020-02-14
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -43,7 +43,6 @@ use lcls_timing_core.TimingPkg.all;
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
-use l2si_core.XpmMiniPkg.all;
 
 library amc_carrier_core;
 use amc_carrier_core.AmcCarrierPkg.all;
@@ -169,7 +168,7 @@ architecture top_level of XpmBase is
    -- Timing Interface (timingClk domain)
    --signal recTimingDataI : TimingRxType;
    --signal recTimingData  : TimingRxType;
-   signal recStream : XpmMiniStreamType;
+   signal recStream : XpmStreamType;
    signal timingPhy : TimingPhyType;
 
    -- Reference Clocks and Resets
@@ -245,6 +244,12 @@ architecture top_level of XpmBase is
    signal usRxEnable, cuRxEnable : sl;
    signal groupLinkClear         : slv(XPM_PARTITIONS_C-1 downto 0);
 
+   function xpmTimingFbId(ip : slv) return slv is
+     variable id : slv(31 downto 0);
+   begin
+     id := x"FF" & ip(15 downto 8) & ip(23 downto 16) & ip(31 downto 24);
+     return id;
+   end function;
 begin
 
    amcRstN <= "11";
@@ -441,7 +446,7 @@ begin
          bpTxData        => bpTxData (0),
          bpTxDataK       => bpTxDataK(0),
          bpStatus        => bpStatus,
-         bpRxLinkFull    => bpRxLinkFull,
+         bpRxLinkPause   => bpRxLinkFull,
          ----------------------
          -- Top Level Interface
          ----------------------
@@ -465,7 +470,7 @@ begin
          timingStream    => recStream,
          timingFbClk     => timingPhyClk,
          timingFbRst     => '0',
-         timingFbId      => ipAddr,     --xpmTimingFbId(ipAddr),
+         timingFbId      => xpmTimingFbId(ipAddr),
          timingFb        => timingPhy);
 
    GEN_BP : if GEN_BP_G generate

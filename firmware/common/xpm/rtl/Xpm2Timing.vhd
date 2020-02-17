@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-01-17
+-- Last update: 2020-02-14
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -41,7 +41,7 @@ use lcls_timing_core.TimingPkg.all;
 library l2si_core;
 use l2si_core.CuTimingPkg.all;
 use l2si_core.XpmExtensionPkg.all;
-use l2si_core.XpmMiniPkg.all;
+use l2si_core.XpmPkg.all;
 
 library unisim;
 use unisim.vcomponents.all;
@@ -88,7 +88,7 @@ entity Xpm2Timing is
       --
       timingClk       : out sl;         -- 186 MHz
       timingRst       : out sl;
-      timingStream    : out XpmMiniStreamType);
+      timingStream    : out XpmStreamType);
 end Xpm2Timing;
 
 --
