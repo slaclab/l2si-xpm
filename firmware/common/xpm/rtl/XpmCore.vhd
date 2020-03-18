@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-02-14
+-- Last update: 2020-03-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -121,7 +121,6 @@ entity XpmCore is
       cuRxEnable       : in    sl                 := '0';
       cuRecClk         : out   sl;
       cuRecFiducial    : out   sl;
-      timingDevClk     : in    sl;      -- 186 MHz Tx Clock
       bpTxData         : in    slv(15 downto 0);
       bpTxDataK        : in    slv(1 downto 0);
       cuSync           : out   sl;
@@ -228,6 +227,7 @@ architecture mapping of XpmCore is
    signal localIp    : slv(31 downto 0);
    signal localAppId : slv(15 downto 0);
 
+   signal timingDevClk, iiusRefClk        : sl;
    signal iusRefClk, usRefClk, usRefClkGt : sl;
    signal usRecClk, usRecClkRst           : sl;
    signal usTxOutClk                      : sl;
@@ -280,8 +280,6 @@ begin
 
    regClk <= axilClk;
    regRst <= axilRst;
-
-   timingClkSel <= '0';                 -- timing xbar always receives LCLS-I
 
    -- Send a copy of the timing clock to the AMC's clock cleaner
    ClkOutBufDiff_Inst : entity surf.ClkOutBufDiff
@@ -508,15 +506,23 @@ begin
          ODIV2 => iusRefClk,
          O     => usRefClkGt);
 
-   U_USREFCLK : BUFG_GT
-      port map (I       => iusRefClk,
-                CE      => '1',
-                CEMASK  => '1',
-                CLR     => '0',
-                CLRMASK => '1',
-                DIV     => "000",       -- Divide-by-
-                O       => usRefClk);
+   timingClkSel <= '0'       when CU_RX_ENABLE_INIT_G else '1';
 
+   GEN_USREFCLK : if US_RX_ENABLE_INIT_G generate
+     U_USREFCLK : BUFG_GT
+       port map (I       => iusRefClk,
+                 CE      => '1',
+                 CEMASK  => '1',
+                 CLR     => '0',
+                 CLRMASK => '1',
+                 DIV     => "000",       -- Divide-by-
+                 O       => usRefClk);
+   end generate;
+
+   GEN_NOUSREFCLK : if not US_RX_ENABLE_INIT_G generate
+     usRefClk <= timingDevClk;
+   end generate;
+   
    TimingGtCoreWrapper_1 : entity lcls_timing_core.TimingGtCoreWrapper
       generic map (ADDR_BITS_G      => 14,
                    AXIL_BASE_ADDR_G => DDR_ADDR_C,
@@ -563,14 +569,13 @@ begin
    --  U_BpTx : entity l2si.XpmGthUltrascaleTWrapper
    U_BpTx : entity l2si.XpmGthUltrascaleTWrapperSim
       generic map (GTGCLKRX         => false,
-                   USE_IBUFDS       => false,
                    AXIL_BASE_ADDR_G => MPS_ADDR_C)
       port map (stableClk       => axilClk,
                 gtTxP           => timingTxP,
                 gtTxN           => timingTxN,
                 gtRxP           => timingRxP,  -- LCLS-I input
                 gtRxN           => timingRxN,
-                devClkIn        => timingDevClk,
+                devClkOut       => timingDevClk,
                 timRefClkP      => timingRefClkInP,
                 timRefClkN      => timingRefClkInN,
                 txData          => bpTxData,

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2019-11-05
+-- Last update: 2020-03-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -169,14 +169,14 @@ begin
    GEN_CU_RX_ENABLE : if CU_RX_ENABLE_INIT_G = true generate
       simClk    <= cuClkT(2);
       simClkRst <= not cuRxReady;
+      simSync   <= mmcmRst;
    end generate;
 
    GEN_CU_RX_DISABLE : if CU_RX_ENABLE_INIT_G = false generate
       simClk    <= usRefClk;
       simClkRst <= usRefClkRst;
+      simSync   <= '0';
    end generate;
-
-   simSync <= mmcmRst;
 
    --------------------------
    -- AXI-Lite: Crossbar Core

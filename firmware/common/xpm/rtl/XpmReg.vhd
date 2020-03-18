@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-02-13
+-- Last update: 2020-03-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -85,7 +85,6 @@ architecture rtl of XpmReg is
       partitionCfg   : XpmPartitionConfigType;
       partitionStat  : XpmPartitionStatusType;
       pllCfg         : XpmPllConfigType;
-      pllStat        : XpmPllStatusType;
       inhibitCfg     : XpmInhibitConfigType;
       axilReadSlave  : AxiLiteReadSlaveType;
       axilWriteSlave : AxiLiteWriteSlaveType;
@@ -110,7 +109,6 @@ architecture rtl of XpmReg is
       partitionCfg   => XPM_PARTITION_CONFIG_INIT_C,
       partitionStat  => XPM_PARTITION_STATUS_INIT_C,
       pllCfg         => XPM_PLL_CONFIG_INIT_C,
-      pllStat        => XPM_PLL_STATUS_INIT_C,
       inhibitCfg     => XPM_INHIBIT_CONFIG_INIT_C,
       axilReadSlave  => AXI_LITE_READ_SLAVE_INIT_C,
       axilWriteSlave => AXI_LITE_WRITE_SLAVE_INIT_C,
@@ -130,9 +128,6 @@ architecture rtl of XpmReg is
    signal pllStat  : slv(2*XPM_NUM_AMCS_C-1 downto 0);
    signal pllCount : SlVectorArray(2*XPM_NUM_AMCS_C-1 downto 0, 2 downto 0);
 
-   type AnaRdArray is array (natural range<>) of SlVectorArray(0 downto 0, 31 downto 0);
-   signal anaRdCount : AnaRdArray(XPM_PARTITIONS_C-1 downto 0);
-
    signal s        : XpmStatusType;
    signal linkStat : XpmLinkStatusType;
 
@@ -141,7 +136,7 @@ architecture rtl of XpmReg is
    signal monClkSlow : slv (3 downto 0);
    signal monClkFast : slv (3 downto 0);
 
-   constant DEBUG_C : boolean := false;
+   constant DEBUG_C : boolean := true;
 
    signal p0InhCh  : sl;
    signal p0InhErr : sl;
@@ -165,7 +160,9 @@ begin
             probe0(1)             => p0InhCh,
             probe0(2)             => p0InhErr,
             probe0(66 downto 3)   => resize(s.partition(0).l0Select.inhibited, 64),
-            probe0(255 downto 67) => (others => '0'));
+            probe0(70 downto 67)  => pll_stat,
+            probe0(74 downto 71)  => pllStat,
+            probe0(255 downto 75) => (others => '0'));
 
       process (axilClk) is
          variable p0Inh, p0Inhi : slv(15 downto 0);
@@ -308,20 +305,6 @@ begin
             rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.numAcc,
             dout   => s.partition(i).l0Select.numAcc);
-
-      U_SyncAna : entity surf.SyncStatusVector
-         generic map (
-            TPD_G       => TPD_G,
-            WIDTH_G     => 1,
-            CNT_WIDTH_G => 32)
-         port map (
-            statusIn     => status.partition(i).anaRd(1 downto 1),
-            statusOut    => open,
-            cntRstIn     => r.config.partition(i).analysis.rst(1),
-            rollOverEnIn => (others => '1'),
-            cntOut       => anaRdCount(i),
-            wrClk        => staClk,
-            rdClk        => axilClk);
    end generate;
 
    GEN_LOL : for i in 0 to XPM_NUM_AMCS_C-1 generate
@@ -360,48 +343,18 @@ begin
          mAxisSlave  => r_in.tagSlave);
 
    comb : process (r, axilReadMaster, axilWriteMaster, tagMaster, status, s, axilRst,
-                   pllStatus, pllCount, pllStat, anaRdCount, groupLinkClear,
+                   pllCount, pllStat, groupLinkClear,
                    monClkRate, monClkLock, monClkFast, monClkSlow) is
       variable v              : RegType;
       variable axilEp         : AxiLiteEndpointType;
       variable ip             : integer;
       variable il             : integer;
       variable ia             : integer;
-      variable ra             : integer;
       variable groupL0Reset   : slv(XPM_PARTITIONS_C-1 downto 0);
       variable groupL0Enable  : slv(XPM_PARTITIONS_C-1 downto 0);
       variable groupL0Disable : slv(XPM_PARTITIONS_C-1 downto 0);
       variable groupMsgInsert : slv(XPM_PARTITIONS_C-1 downto 0);
       variable paddr          : slv(XPM_PARTITION_ADDR_LENGTH_C-1 downto 0);
-   -- Shorthand procedures for read/write register
---     procedure axilRegRW(addr : in slv; offset : in integer; reg : inout slv) is
---     begin
---       axiSlaveRegister(axilWriteMaster, axilReadMaster,
---                        v.axilWriteSlave, v.axilReadSlave, axilStatus,
---                        addr, offset, reg, false, "0");
---     end procedure;
---     procedure axilRegRW(addr : in slv; offset : in integer; reg : inout sl) is
---     begin
---       axiSlaveRegister(axilWriteMaster, axilReadMaster,
---                        v.axilWriteSlave, v.axilReadSlave, axilStatus,
---                        addr, offset, reg, false, '0');
---     end procedure;
---     -- Shorthand procedures for read only registers
---     procedure axilRegR (addr : in slv; offset : in integer; reg : in slv) is
---     begin
---       axiSlaveRegister(axilReadMaster, v.axilReadSlave, axilStatus,
---                        addr, offset, reg);
---     end procedure;
---     procedure axilRegR (addr : in slv; offset : in integer; reg : in sl) is
---     begin
---       axiSlaveRegister(axilReadMaster, v.axilReadSlave, axilStatus,
---                        addr, offset, reg);
---     end procedure;
---     procedure axilRegR64 (addr : in slv; reg : in slv) is
---     begin
---       axilRegR(addr+0,0,reg(31 downto  0));
---       axilRegR(addr+4,0,resize(reg(reg'left downto 32),32));
---     end procedure;
    begin
       v                             := r;
       -- reset strobing signals
@@ -454,7 +407,6 @@ begin
          v.linkStat.rxErrCnts := s.bpLink (conv_integer(r.link(2 downto 0))).rxLate;
       end if;
       v.partitionStat := status.partition(ip);
-      v.pllStat       := pllStatus (ia);
 
       -- Determine the transaction type
       axiSlaveWaitTxn(axilEp, axilWriteMaster, axilReadMaster, v.axilWriteSlave, v.axilReadSlave);
@@ -488,7 +440,6 @@ begin
       v.load := '0';
       axiWrDetect(axilEp, X"004", v.load);
 
-      ra := ra+4;                       -- 8
       axiSlaveRegister(axilEp, X"008", 0, v.linkCfg.groupMask);
 --    axiSlaveRegister(axilEp, X"008",  9, v.linkCfg.rxTimeOut);
       axiSlaveRegister(axilEp, X"008", 18, v.linkCfg.txPllReset);
@@ -499,7 +450,6 @@ begin
       axiSlaveRegister(axilEp, X"008", 30, v.linkCfg.rxReset);
       axiSlaveRegister(axilEp, X"008", 31, v.linkCfg.enable);
 
-      ra := ra+4;                       -- C
       axiSlaveRegisterR(axilEp, X"00C", 0, r.linkStat.rxErrCnts);
       axiSlaveRegisterR(axilEp, X"00C", 16, r.linkStat.txResetDone);
       axiSlaveRegisterR(axilEp, X"00C", 17, r.linkStat.txReady);
@@ -507,10 +457,8 @@ begin
       axiSlaveRegisterR(axilEp, X"00C", 19, r.linkStat.rxReady);
       axiSlaveRegisterR(axilEp, X"00C", 20, r.linkStat.rxIsXpm);
 
-      ra := ra+4;                       -- 10
       axiSlaveRegisterR(axilEp, X"010", 0, r.linkStat.rxRcvCnts);
 
-      ra := ra+4;                       -- 14
       axiSlaveRegister(axilEp, X"014", 0, v.pllCfg.bwSel);
       axiSlaveRegister(axilEp, X"014", 4, v.pllCfg.frqTbl);
       axiSlaveRegister(axilEp, X"014", 8, v.pllCfg.frqSel);
@@ -524,13 +472,11 @@ begin
       axiSlaveRegisterR(axilEp, X"014", 28, muxSlVectorArray(pllCount, 2*ia+1));
       axiSlaveRegisterR(axilEp, X"014", 31, pllStat(2*ia+1));
 
-      ra := ra+4;                       -- 18
       --axiSlaveRegister (axilEp, X"018", 0, v.partitionCfg.l0Select.reset);
       axiSlaveRegister (axilEp, X"018", 16, v.partitionCfg.l0Select.enabled);
       axiSlaveRegister (axilEp, X"018", 30, v.partitionCfg.master);
       axiSlaveRegister (axilEp, X"018", 31, v.axilRdEn(ip));
 
-      ra := ra+4;                       -- 1C
       axiSlaveRegister (axilEp, X"01C", 0, v.partitionCfg.l0Select.rateSel);
       axiSlaveRegister (axilEp, X"01C", 16, v.partitionCfg.l0Select.destSel);
 
@@ -544,16 +490,9 @@ begin
       --axiSlaveRegister (axilEp, X"050",  0, v.partitionCfg.l1Select.clear);
       --axiSlaveRegister (axilEp, X"050", 16, v.partitionCfg.l1Select.enable);
 
-      ra := ra+56;
       --axiSlaveRegister (axilEp, X"054",  0, v.partitionCfg.l1Select.trigsrc);
       --axiSlaveRegister (axilEp, X"054",  4, v.partitionCfg.l1Select.trigword);
       --axiSlaveRegister (axilEp, X"054", 16, v.partitionCfg.l1Select.trigwr);
-
-      --axiSlaveRegister (axilEp, X"058", 0, v.partitionCfg.analysis.rst);
-      --axiSlaveRegister (axilEp, X"05C", 0, v.partitionCfg.analysis.tag);
-      --axiSlaveRegister (axilEp, X"060", 0, v.partitionCfg.analysis.push);
-      --axiSlaveRegisterR  (axilEp, X"064", 0, r.anaWrCount(ip));
-      --axiSlaveRegisterR  (axilEp, X"068", 0, muxSlVectorArray( anaRdCount(ip), 0));
 
       axiSlaveRegister (axilEp, X"06C", 0, v.partitionCfg.pipeline.depth_clks);
       axiSlaveRegister (axilEp, X"06C", 16, v.partitionCfg.pipeline.depth_fids);
@@ -561,7 +500,6 @@ begin
       --axiSlaveRegister (axilEp, X"070", 15, v.partitionCfg.message.insert);
       axiSlaveRegister (axilEp, X"070",  0, v.partitionCfg.message.header);
 
-      ra := ra+36;
       axiSlaveRegisterR (axilEp, X"078", 0, r.linkStat.rxId);
 
       for j in r.partitionCfg.inhibit.setup'range loop

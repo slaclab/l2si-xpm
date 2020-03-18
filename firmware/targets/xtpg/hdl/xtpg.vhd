@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-02-16
+-- Last update: 2020-02-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -139,8 +139,11 @@ begin
 
   U_Base : entity l2si.XpmBase
    generic map (
-      TPD_G         =>       TPD_G         , 
-      BUILD_INFO_G  =>       BUILD_INFO_G  )
+      TPD_G                =>       TPD_G         , 
+      BUILD_INFO_G         =>       BUILD_INFO_G,
+      USE_XTPG_G           =>       true,
+      US_RX_ENABLE_INIT_G  =>       false,
+      CU_RX_ENABLE_INIT_G  =>       true )
    port map (
       -----------------------
       -- Application Ports --

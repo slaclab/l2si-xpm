@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2019-12-12
+-- Last update: 2020-03-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -43,7 +43,6 @@ use unisim.vcomponents.all;
 
 entity XpmGthUltrascaleTWrapperSim is
    generic ( GTGCLKRX   : boolean := true;
-             USE_IBUFDS : boolean := true;
              AXIL_BASE_ADDR_G : slv(31 downto 0) );
    port (
       gtTxP            : out sl;
@@ -51,9 +50,6 @@ entity XpmGthUltrascaleTWrapperSim is
       gtRxP            : in  sl;
       gtRxN            : in  sl;
       --  Transmit clocking
-      devClkP          : in  sl := '0';
-      devClkN          : in  sl := '0';
-      devClkIn         : in  sl := '0';
       devClkOut        : out sl;
       --  Receive clocking
       timRefClkP       : in  sl;
@@ -104,7 +100,9 @@ begin
 
   rxRst                <= not cuRxStatus.bufferByDone;
   tpgRst               <= not cuTxStatus.resetDone;
-  
+
+  devClkOut            <= cuRefClk;
+    
   U_TPG : entity lcls_timing_core.TPGMiniStream
     generic map ( NUM_EDEFS => 1,
                   AC_PERIOD => 331534 )   -- 360Hz syncd to 71.4kHz

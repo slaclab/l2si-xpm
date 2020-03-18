@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-02-14
+-- Last update: 2020-03-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -165,12 +165,6 @@ architecture top_level of XpmBase is
    signal regWriteMaster : AxiLiteWriteMasterType;
    signal regWriteSlave  : AxiLiteWriteSlaveType;
 
-   -- Timing Interface (timingClk domain)
-   --signal recTimingDataI : TimingRxType;
-   --signal recTimingData  : TimingRxType;
-   signal recStream : XpmStreamType;
-   signal timingPhy : TimingPhyType;
-
    -- Reference Clocks and Resets
    signal timingPhyClk : sl;
    signal recTimingClk : sl;
@@ -244,12 +238,13 @@ architecture top_level of XpmBase is
    signal usRxEnable, cuRxEnable : sl;
    signal groupLinkClear         : slv(XPM_PARTITIONS_C-1 downto 0);
 
-   function xpmTimingFbId(ip : slv) return slv is
-     variable id : slv(31 downto 0);
-   begin
-     id := x"FF" & ip(15 downto 8) & ip(23 downto 16) & ip(31 downto 24);
-     return id;
-   end function;
+   -- Timing Interface (timingClk domain)
+   --signal recTimingDataI : TimingRxType;
+   --signal recTimingData  : TimingRxType;
+   signal recStream : XpmStreamType;
+   signal timingPhy : TimingPhyType;
+   signal timingPhyId : slv(xpmConfig.paddr'range);
+
 begin
 
    amcRstN <= "11";
@@ -470,7 +465,7 @@ begin
          timingStream    => recStream,
          timingFbClk     => timingPhyClk,
          timingFbRst     => '0',
-         timingFbId      => xpmTimingFbId(ipAddr),
+         timingFbId      => timingPhyId,
          timingFb        => timingPhy);
 
    GEN_BP : if GEN_BP_G generate
@@ -585,7 +580,6 @@ begin
          cuRxEnable       => '0',
          cuRecClk         => cuRecClk,
          cuRecFiducial    => cuRecFiducial,
-         timingDevClk     => dsClkBuf(0),
          bpTxData         => bpTxData(0),
          bpTxDataK        => bpTxDataK(0),
          cuSync           => cuSync,
@@ -696,6 +690,16 @@ begin
             status    => dsLinkStatus (7*i+6 downto 7*i));
    end generate;
 
+   U_SyncPaddrTx : entity surf.SynchronizerVector
+      generic map (
+         TPD_G   => TPD_G,
+         WIDTH_G => xpmConfig.paddr'length-4)
+      port map (
+         clk     => timingPhyClk,
+         dataIn  => xpmConfig.paddr(xpmConfig.paddr'left-4 downto 0),
+         dataOut => timingPhyId(timingPhyId'left downto 4) );
+   timingPhyId(3 downto 0) <= x"F";
+   
    --U_CuRxFiducial : OBUFDS
    --  port map ( I  => cuRxFiducial,
    --             O  => rtmLsP(32),

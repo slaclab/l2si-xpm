@@ -43,11 +43,51 @@ end XpmPllClk;
 
 architecture rtl of XpmPllClk is
 
-   signal clkDdr   : sl;
+   signal clkDdr   : sl := '0';
    signal clk, rst : sl;
 
+   constant DEBUG_C : boolean := true;
+
+   component ila_0
+     port ( clk     : in sl;
+            probe0  : in slv(255 downto 0) );
+   end component;
+
+   signal rstInS, lockedS, rstS : sl := '0';
+   signal clkInRate : slv(31 downto 0) := (others=>'0');
+   
 begin
 
+  GEN_DEBUG : if DEBUG_C generate
+    U_RstInS : entity surf.Synchronizer
+      port map ( clk     => axilClk,
+                 dataIn  => rstIn,
+                 dataOut => rstInS );
+    U_LockedS : entity surf.Synchronizer
+      port map ( clk     => axilClk,
+                 dataIn  => locked,
+                 dataOut => lockedS );
+    U_RstS : entity surf.Synchronizer
+      port map ( clk     => axilClk,
+                 dataIn  => rst,
+                 dataOut => rstS );
+    U_ClkInRate : entity surf.SyncClockFreq
+      generic map ( REF_CLK_FREQ_G => 125.0E+6,
+                    COMMON_CLK_G   => true )
+      port map ( freqOut => clkInRate,
+                 clkIn   => clkIn,
+                 locClk  => axilClk,
+                 refClk  => axilClk );
+    U_ILA : ila_0
+      port map ( clk      => axilClk,
+                 probe0(0)   => axilRst,
+                 probe0(1)   => rstInS,
+                 probe0(2)   => lockedS,
+                 probe0(3)   => rstS,
+                 probe0(35 downto  4) => clkInRate,
+                 probe0(255 downto 36) => (others=>'0') );
+  end generate;
+                 
    --
    --  Can't use the ODDRE1 at fpgaclk_P/N(2) because it shares the
    --  BITSLICE with backplane SALT channel 4
@@ -94,11 +134,7 @@ begin
    seq : process (clk)
    begin
       if rising_edge(clk) then
-         if rstIn = '1' then
-            clkDdr <= '0' after TPD_G;
-         else
-            clkDdr <= not clkDdr after TPD_G;
-         end if;
+        clkDdr <= not clkDdr after TPD_G;
       end if;
    end process seq;
 

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-02-14
+-- Last update: 2020-03-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -137,7 +137,7 @@ architecture mapping of Xpm2Timing is
    signal xpmValid    : sl;
    signal cuRecVector : slv(CU_TIMING_BITS_C-1 downto 0);
    signal cuRecValid  : sl;
-   signal cuRxT       : CuTimingType;
+   signal cuRxT       : CuTimingType := CU_TIMING_INIT_C;
    signal cuRxTS      : CuTimingType;   -- sync'd to txClk
    signal cuRxTSV     : sl;             -- valid
    signal cuRxTSVd    : sl;             -- delayed
@@ -189,7 +189,7 @@ architecture mapping of Xpm2Timing is
    signal c   : CuRegType := CUREG_INIT_C;
    signal cin : CuRegType;
 
-   constant DEBUG_C : boolean := false;
+   constant DEBUG_C : boolean := true;
 
    component ila_0
       port (

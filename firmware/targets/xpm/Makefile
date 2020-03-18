@@ -1,3 +1,4 @@
+export OVERRIDE_SUBMODULE_LOCKS = 1
 export GIT_BYPASS = 1
 ##########################################################################################
 # Applications must define the 32-bitFirmware Version Number
@@ -13,8 +14,9 @@ export GIT_BYPASS = 1
 # PRJ_VERSION = 0x0000001B - Fix transition/L1Accept coincidence
 # PRJ_VERSION = 0x0000001C - Add AMC SFP I2C
 # PRJ_VERSION = 0x0000001D - Changed XpmRxLink feedback state machine
+# PRJ_VERSION = 0x0000001E - Forward and feedback link ID come from the same register
 ##########################################################################################
-export PRJ_VERSION = 0x0000001D
+export PRJ_VERSION = 0x0000001E
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
