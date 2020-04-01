@@ -92,29 +92,31 @@ begin
    --  Can't use the ODDRE1 at fpgaclk_P/N(2) because it shares the
    --  BITSLICE with backplane SALT channel 4
    --
-   --U_FPGACLK0 : entity surf.ClkOutBufDiff
-   --  generic map (
-   --    XIL_DEVICE_G => "ULTRASCALE")
-   --  port map (
-   --    clkIn   => recTimingClk,
-   --    clkOutP => fpgaclk_P(0),
-   --    clkOutN => fpgaclk_N(0));
+   U_FPGACLK0 : entity surf.ClkOutBufDiff
+    generic map (
+      XIL_DEVICE_G => "ULTRASCALE")
+    port map (
+      clkIn   => clk,
+      clkOutP => clkOutP(0),
+      clkOutN => clkOutN(0));
 
-   --U_FPGACLK2 : entity surf.ClkOutBufDiff
-   --  generic map (
-   --    XIL_DEVICE_G => "ULTRASCALE")
-   --  port map (
-   --    clkIn   => recTimingClk,
-   --    clkOutP => fpgaclk_P(2),
-   --    clkOutN => fpgaclk_N(2));
+   U_FPGACLK2 : entity surf.ClkOutBufDiff
+    generic map (
+      XIL_DEVICE_G => "ULTRASCALE")
+    port map (
+      clkIn   => clk,
+      clkOutP => clkOutP(2),
+      clkOutN => clkOutN(2));
 
    U_MMCM : entity l2si.MmcmPhaseLock
       generic map (
          TPD_G             => TPD_G,
          CLKIN_PERIOD_G    => 5.4,
-         CLKOUT_DIVIDE_F_G => 3.0,
+         CLKOUT_DIVIDE_F_G => 6.0,
          CLKFBOUT_MULT_F_G => 6.0,
-         CLKSYNC_DIV_G     => 2,
+--         CLKOUT_DIVIDE_F_G => 3.0,
+--         CLKFBOUT_MULT_F_G => 3.0,
+--         CLKSYNC_DIV_G     => 2,
          SIMULATION_G      => false)
       port map (
          clkIn           => clkIn,
@@ -131,27 +133,27 @@ begin
          axilReadMaster  => axilReadMaster,
          axilReadSlave   => axilReadSlave);
 
-   seq : process (clk)
-   begin
-      if rising_edge(clk) then
-        clkDdr <= not clkDdr after TPD_G;
-      end if;
-   end process seq;
+   -- seq : process (clk)
+   -- begin
+   --    if rising_edge(clk) then
+   --      clkDdr <= not clkDdr after TPD_G;
+   --    end if;
+   -- end process seq;
 
-   -- Differential output buffer
-   U_OBUF_0 : OBUFTDS
-      port map (
-         I  => clkDdr,
-         T  => '0',
-         O  => clkOutP(0),
-         OB => clkOutN(0));
+   -- -- Differential output buffer
+   -- U_OBUF_0 : OBUFTDS
+   --    port map (
+   --       I  => clkDdr,
+   --       T  => '0',
+   --       O  => clkOutP(0),
+   --       OB => clkOutN(0));
 
-   U_OBUF_2 : OBUFTDS
-      port map (
-         I  => clkDdr,
-         T  => '0',
-         O  => clkOutP(2),
-         OB => clkOutN(2));
+   -- U_OBUF_2 : OBUFTDS
+   --    port map (
+   --       I  => clkDdr,
+   --       T  => '0',
+   --       O  => clkOutP(2),
+   --       OB => clkOutN(2));
 
    clkOutP(1) <= '0';
    clkOutN(1) <= '1';

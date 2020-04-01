@@ -2,7 +2,7 @@
 -- File       : MmcmPhaseLock.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2017-02-04
--- Last update: 2019-11-05
+-- Last update: 2020-03-31
 -------------------------------------------------------------------------------
 -- Description: Application Core's Top Level
 --
@@ -274,29 +274,6 @@ begin
       v.resetCount := '0';
       v.ramwr      := '0';
 
-      axiSlaveWaitTxn(ep, axilWriteMaster, axilReadMaster, v.axilWriteSlave, v.axilReadSlave);
-      ep.axiReadSlave.rdata := (others => '0');
-
-      axiSlaveRegister (ep, toSlv(0, 12), 0, v.delaySet);
-      axiSlaveRegisterR(ep, toSlv(4, 12), 0, r.delayValue);
-      axiSlaveRegisterR(ep, toSlv(4, 12), 16, DELAY_END);
-      axiSlaveRegisterR(ep, toSlv(4, 12), 29, lockedS);
-      axiSlaveRegisterR(ep, toSlv(4, 12), 30, r.rstOut);
-      axiSlaveRegisterR(ep, toSlv(4, 12), 31, locked);
-      axiSlaveRegister (ep, toSlv(8, 12), 0, v.ramaddr);
-      axiSlaveRegisterR(ep, toSlv(12, 12), 0, ramdata);
-      axiSlaveRegisterR(ep, toSlv(20, 12), 0, toSlv(HALF_PER, 16));
-      axiSlaveRegisterR(ep, toSlv(20, 12), 16, SUM_PER);
-      axiSlaveRegisterR(ep, toSlv(24, 12), 0, r.minSum);
-      axiSlaveRegisterR(ep, toSlv(24, 12), 16, r.minDelay);
-      axiSlaveRegisterR(ep, toSlv(28, 12), 0, r.maxSum);
-      axiSlaveRegisterR(ep, toSlv(28, 12), 16, r.maxDelay);
-      axiSlaveRegisterR(ep, toSlv(32, 12), 0, ramdata1);
-
-      axiWrDetect(ep, toSlv(16, 12), v.reset);
-
-      axiSlaveDefault(ep, v.axilWriteSlave, v.axilReadSlave);
-
       if SIMULATION_G then
          v.rstOut := '0';
       else
@@ -380,10 +357,37 @@ begin
          end case;
       end if;
 
-      if axilRst = '1' or arstIn = '1' then
+      if arstIn = '1' then
          v := REG_INIT_C;
       end if;
 
+      axiSlaveWaitTxn(ep, axilWriteMaster, axilReadMaster, v.axilWriteSlave, v.axilReadSlave);
+      ep.axiReadSlave.rdata := (others => '0');
+
+      axiSlaveRegister (ep, toSlv(0, 12), 0, v.delaySet);
+      axiSlaveRegisterR(ep, toSlv(4, 12), 0, r.delayValue);
+      axiSlaveRegisterR(ep, toSlv(4, 12), 16, DELAY_END);
+      axiSlaveRegisterR(ep, toSlv(4, 12), 29, lockedS);
+      axiSlaveRegisterR(ep, toSlv(4, 12), 30, r.rstOut);
+      axiSlaveRegisterR(ep, toSlv(4, 12), 31, locked);
+      axiSlaveRegister (ep, toSlv(8, 12), 0, v.ramaddr);
+      axiSlaveRegisterR(ep, toSlv(12, 12), 0, ramdata);
+      axiSlaveRegisterR(ep, toSlv(20, 12), 0, toSlv(HALF_PER, 16));
+      axiSlaveRegisterR(ep, toSlv(20, 12), 16, SUM_PER);
+      axiSlaveRegisterR(ep, toSlv(24, 12), 0, r.minSum);
+      axiSlaveRegisterR(ep, toSlv(24, 12), 16, r.minDelay);
+      axiSlaveRegisterR(ep, toSlv(28, 12), 0, r.maxSum);
+      axiSlaveRegisterR(ep, toSlv(28, 12), 16, r.maxDelay);
+      axiSlaveRegisterR(ep, toSlv(32, 12), 0, ramdata1);
+
+      axiWrDetect(ep, toSlv(16, 12), v.reset);
+
+      axiSlaveDefault(ep, v.axilWriteSlave, v.axilReadSlave);
+
+      if axilRst = '1' then
+         v := REG_INIT_C;
+      end if;
+      
       r_in <= v;
 
       axilReadSlave  <= r.axilReadSlave;

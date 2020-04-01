@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-03-16
+-- Last update: 2020-03-31
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -94,6 +94,7 @@ entity XpmCore is
       -- Reference Clocks and Resets
       recTimingClk     : out   sl;
       recTimingRst     : out   sl;
+      recTimingLkN     : out   sl;
       ref125MHzClk     : out   sl;
       ref125MHzRst     : out   sl;
       ref156MHzClk     : out   sl;
@@ -124,7 +125,6 @@ entity XpmCore is
       bpTxData         : in    slv(15 downto 0);
       bpTxDataK        : in    slv(1 downto 0);
       cuSync           : out   sl;
-      cuLocked         : out   sl;
       -- Upstream Timing Ports
       usRxEnable       : in    sl                 := '1';
       usRxP            : in    sl;
@@ -245,7 +245,7 @@ architecture mapping of XpmCore is
    signal cuRxRst     : sl;
    signal cuRxStatus  : TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
    signal cuRxControl : TimingPhyControlType;
-   signal xbarControl : XpmLinkConfigType;
+   signal xbarControl : XpmLinkConfigType := XPM_LINK_CONFIG_INIT_C;
    signal xbarStatus  : XpmLinkStatusType;
 
    constant AMC_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(2 downto 0) := genAxiLiteConfig(3, BSA_ADDR_C, 24, 20);
@@ -486,9 +486,9 @@ begin
          cuRxControl     => cuRxControl,
          cuRxFiducial    => cuRecFiducial,
          cuSync          => cuSync,
-         cuLocked        => cuLocked,
          timingClk       => irecTimingClk,
          timingRst       => recTimingRst,
+         timingLkN       => recTimingLkN,
          timingStream    => recStream);
 
    -------------------------------------------------------------------------------------------------

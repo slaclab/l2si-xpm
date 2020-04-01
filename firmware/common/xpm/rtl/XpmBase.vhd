@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-03-16
+-- Last update: 2020-03-31
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -169,6 +169,7 @@ architecture top_level of XpmBase is
    signal timingPhyClk : sl;
    signal recTimingClk : sl;
    signal recTimingRst : sl;
+   signal recTimingLkN : sl;
    signal ref125MHzClk : sl;
    signal ref125MHzRst : sl;
    signal ref156MHzClk : sl;
@@ -231,7 +232,6 @@ architecture top_level of XpmBase is
 
 --   signal cuRxFiducial, cuSync : sl;
    signal cuSync        : sl;
-   signal cuLocked      : sl;
    signal cuRecClk      : sl;
    signal cuRecFiducial : sl;
 
@@ -370,7 +370,7 @@ begin
       port map (
          clkIn           => fpgaclk_ret,
          syncClk         => cuRecClk,
-         syncRst         => cuLocked,
+         syncRst         => recTimingLkN,
          syncIn          => cuSync,
          axilClk         => regClk,
          axilRst         => regRst,
@@ -389,7 +389,7 @@ begin
          clkOutP         => fpgaclk_P,
          clkOutN         => fpgaclk_N,
          clkRet          => fpgaclk_ret,
-         syncRst         => cuLocked,
+         syncRst         => recTimingLkN,
          syncIn          => cuSync,
          axilClk         => regClk,
          axilRst         => regRst,
@@ -552,6 +552,7 @@ begin
          -- Reference Clocks and Resets
          timingPhyClk     => timingPhyClk,
          recTimingClk     => recTimingClk,
+         recTimingLkN     => recTimingLkN,
          recTimingRst     => recTimingRst,
          ref125MHzClk     => ref125MHzClk,
          ref125MHzRst     => ref125MHzRst,
@@ -583,7 +584,6 @@ begin
          bpTxData         => bpTxData(0),
          bpTxDataK        => bpTxDataK(0),
          cuSync           => cuSync,
-         cuLocked         => cuLocked,
          -- LCLS-II Timing Ports
          usRxEnable       => usRxEnable,
          usRxP            => usRxP,

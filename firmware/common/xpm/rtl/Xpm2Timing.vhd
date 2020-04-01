@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-03-15
+-- Last update: 2020-03-31
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -84,10 +84,10 @@ entity Xpm2Timing is
       cuRxControl     : out TimingPhyControlType;
       cuSync          : out sl;
       cuRxFiducial    : out sl;
-      cuLocked        : out sl;
       --
       timingClk       : out sl;         -- 186 MHz
       timingRst       : out sl;
+      timingLkN       : out sl;
       timingStream    : out XpmStreamType);
 end Xpm2Timing;
 
@@ -145,13 +145,15 @@ architecture mapping of Xpm2Timing is
 
    signal itimingClk : sl;
    signal itimingRst : sl;
+   signal itimingLkN : sl;
 
    signal simClk, simRst : sl;
 
    signal simStream   : TimingSerialType;
    signal simFiducial : sl;
    signal simSync     : sl;
-
+   signal simLockedN  : sl;
+   
    signal cuStream   : TimingSerialType;
    signal recStreams : TimingSerialArray(2 downto 0);
 
@@ -237,7 +239,8 @@ begin
 
    timingClk <= itimingClk;
    timingRst <= itimingRst;
-
+   timingLkN <= itimingLkN;
+   
    cuRxFiducial <= cuFiducial;
 
    GEN_XTPG : if (USE_XTPG_G) generate
@@ -247,6 +250,8 @@ begin
                     simRst;
       itimingClk <= usRecClk when usRxEnable = '1' else
                     simClk;
+      itimingLkN <= usRecClkRst when usRxEnable = '1' else
+                    simLockedN;
       txStreams(0) <= recStreams(0) when usRxEnable = '1' else
                       simStream;
       txStreams(1) <= TIMING_SERIAL_INIT_C;
@@ -261,6 +266,7 @@ begin
          cuSync       <= usRxStrobe and usRxMessage.fixedRates(1);
          itimingRst   <= usRecClkRst;
          itimingClk   <= usRecClk;
+         itimingLkN   <= usRecClkRst;
          txStreams(0) <= recStreams(0);
          txStreams(2) <= recStreams(2);
          txFiducial   <= usRxStrobe;
@@ -270,6 +276,7 @@ begin
          cuSync       <= simSync;
          itimingRst   <= simRst;
          itimingClk   <= simClk;
+         itimingLkN   <= simLockedN;
          txStreams(0) <= simStream;
          txStreams(2) <= TIMING_SERIAL_INIT_C;
          txFiducial   <= simFiducial;
@@ -325,7 +332,6 @@ begin
          cuTiming        => cuRxTS,
          cuDelay         => cuDelay,
          cuTimingV       => cuRxTSVd,
-         cuLocked        => cuLocked,
          usRefClk        => usRefClk,
          usRefClkRst     => usRefClkRst,
          cuRecClk        => cuRecClk,
@@ -334,6 +340,7 @@ begin
          cuFiducialIntv  => c.cntFidL,
          simClk          => simClk,
          simClkRst       => simRst,
+         simLockedN      => simLockedN,
          simFiducial     => simFiducial,
          simSync         => simSync,
          simAdvance      => txAdvance(0),

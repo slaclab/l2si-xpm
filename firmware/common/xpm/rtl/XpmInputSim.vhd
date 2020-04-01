@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-03-16
+-- Last update: 2020-03-31
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -70,7 +70,6 @@ entity XpmInputSim is
       cuTiming        : in  CuTimingType;
       cuTimingV       : in  sl;
       cuDelay         : out slv(17 downto 0);
-      cuLocked        : out sl;
       --  SC timing input
       usRefClk        : in  sl;         -- 186 MHz
       usRefClkRst     : in  sl;
@@ -82,6 +81,7 @@ entity XpmInputSim is
       --
       simClk          : out sl;         -- 186 MHz
       simClkRst       : out sl;
+      simLockedN      : out sl;
       simFiducial     : out sl;
       simSync         : out sl;
       simAdvance      : in  sl;
@@ -164,18 +164,19 @@ begin
 
    isimClk  <= timingClk;
    isimRst  <= timingClkRst;
-   cuLocked <= cuRstT(2);
 
    GEN_CU_RX_ENABLE : if CU_RX_ENABLE_INIT_G = true generate
-      simClk    <= cuClkT(2);
-      simClkRst <= not cuRxReady;
-      simSync   <= mmcmRst;
+      simClk     <= cuClkT(2);
+      simClkRst  <= not cuRxReady;
+      simLockedN <= cuRstT(2);
+      simSync    <= mmcmRst;
    end generate;
 
    GEN_CU_RX_DISABLE : if CU_RX_ENABLE_INIT_G = false generate
-      simClk    <= usRefClk;
-      simClkRst <= usRefClkRst;
-      simSync   <= '0';
+      simClk     <= usRefClk;
+      simClkRst  <= usRefClkRst;
+      simLockedN <= usRefClkRst;
+      simSync    <= '0';
    end generate;
 
    --------------------------
