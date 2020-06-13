@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-03-15
+-- Last update: 2020-06-12
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -71,6 +71,19 @@ architecture rtl of XpmReg is
 
    type StateType is (IDLE_S, READING_S);
 
+   type StepType is record
+      enable   : sl;
+      numL0Acc : slv(31 downto 0);
+      groups   : slv(XPM_PARTITIONS_C-1 downto 0);
+   end record;
+
+   constant STEP_INIT_C : StepType := (
+      enable   => '0',
+      numL0Acc => (others=>'0'),
+      groups   => (others=>'0') );
+
+   type StepArray is array (natural range<>) of StepType;
+   
    type RegType is record
       state          : StateType;
       tagSlave       : AxiStreamSlaveType;
@@ -93,6 +106,7 @@ architecture rtl of XpmReg is
       anaWrCount     : Slv32Array(XPM_PARTITIONS_C-1 downto 0);
       usRxEnable     : sl;
       cuRxEnable     : sl;
+      step           : StepArray(XPM_PARTITIONS_C-1 downto 0);
    end record RegType;
 
    constant REG_INIT_C : RegType := (
@@ -116,13 +130,28 @@ architecture rtl of XpmReg is
       linkDebug      => (others => '0'),
       anaWrCount     => (others => (others => '0')),
       usRxEnable     => toSl(US_RX_ENABLE_INIT_G),
-      cuRxEnable     => toSl(CU_RX_ENABLE_INIT_G));
-
-   constant TAG_AXIS_CONFIG_C : AxiStreamConfigType := ssiAxiStreamConfig(8);
-   signal tagMaster           : AxiStreamMasterType;
+      cuRxEnable     => toSl(CU_RX_ENABLE_INIT_G),
+      step           => (others=>STEP_INIT_C) );
 
    signal r    : RegType := REG_INIT_C;
    signal r_in : RegType;
+
+   type QRegType is record
+      cnt       : slv(19 downto 0);
+      staUpdate : sl;
+      stepDone  : slv(XPM_PARTITIONS_C-1 downto 0);
+   end record;
+
+   constant QREG_INIT_C : QRegType := (
+      cnt       => (others=>'0'),
+      staUpdate => '0',
+      stepDone  => (others=>'0') );
+   
+   signal q    : QRegType := QREG_INIT_C;
+   signal q_in : QRegType;
+
+   constant TAG_AXIS_CONFIG_C : AxiStreamConfigType := ssiAxiStreamConfig(8);
+   signal tagMaster           : AxiStreamMasterType;
 
    signal pll_stat : slv(2*XPM_NUM_AMCS_C-1 downto 0);
    signal pllStat  : slv(2*XPM_NUM_AMCS_C-1 downto 0);
@@ -130,7 +159,8 @@ architecture rtl of XpmReg is
 
    signal s        : XpmStatusType;
    signal linkStat : XpmLinkStatusType;
-
+   signal staRst   : sl;
+   
    signal monClkRate : Slv32Array(3 downto 0);
    signal monClkLock : slv (3 downto 0);
    signal monClkSlow : slv (3 downto 0);
@@ -142,8 +172,9 @@ architecture rtl of XpmReg is
    signal p0InhErr : sl;
    signal pInhV    : slv(XPM_PARTITIONS_C-1 downto 0);
 
-   signal staUpdate : sl;
-
+   signal step     : StepArray(XPM_PARTITIONS_C-1 downto 0);
+   signal stepDone : slv      (XPM_PARTITIONS_C-1 downto 0);
+   
    component ila_0
       port (
          clk    : in sl;
@@ -251,7 +282,7 @@ begin
             DATA_WIDTH_G => XPM_LCTR_DEPTH_C)
          port map (
             wr_clk => staClk,
-            wr_en  => staUpdate,
+            wr_en  => q.staUpdate,
             rd_clk => axilClk,
             rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.enabled,
@@ -263,7 +294,7 @@ begin
             DATA_WIDTH_G => XPM_LCTR_DEPTH_C)
          port map (
             wr_clk => staClk,
-            wr_en  => staUpdate,
+            wr_en  => q.staUpdate,
             rd_clk => axilClk,
             rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.inhibited,
@@ -276,7 +307,7 @@ begin
             DATA_WIDTH_G => XPM_LCTR_DEPTH_C)
          port map (
             wr_clk => staClk,
-            wr_en  => staUpdate,
+            wr_en  => q.staUpdate,
             rd_clk => axilClk,
             rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.num,
@@ -288,7 +319,7 @@ begin
             DATA_WIDTH_G => XPM_LCTR_DEPTH_C)
          port map (
             wr_clk => staClk,
-            wr_en  => staUpdate,
+            wr_en  => q.staUpdate,
             rd_clk => axilClk,
             rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.numInh,
@@ -300,7 +331,7 @@ begin
             DATA_WIDTH_G => XPM_LCTR_DEPTH_C)
          port map (
             wr_clk => staClk,
-            wr_en  => staUpdate,
+            wr_en  => q.staUpdate,
             rd_clk => axilClk,
             rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.numAcc,
@@ -343,7 +374,7 @@ begin
          mAxisSlave  => r_in.tagSlave);
 
    comb : process (r, axilReadMaster, axilWriteMaster, tagMaster, status, s, axilRst,
-                   pllCount, pllStat, groupLinkClear,
+                   pllCount, pllStat, groupLinkClear, stepDone,
                    monClkRate, monClkLock, monClkFast, monClkSlow) is
       variable v              : RegType;
       variable axilEp         : AxiLiteEndpointType;
@@ -534,6 +565,13 @@ begin
       axiSlaveRegister (axilEp, X"20C", 0, groupMsgInsert);
 
       for i in 0 to XPM_PARTITIONS_C-1 loop
+         if r.step(i).enable = '1' and stepDone(i) = '1' then
+            groupL0Disable(i) := r.step(i).groups;
+            v.step(i).enable  := '0';
+         end if;
+      end loop;
+      
+      for i in 0 to XPM_PARTITIONS_C-1 loop
          if groupL0Reset(i) = '1' then
             v.config.partition(i).l0Select.reset := '1';
             v.load                               := '1';
@@ -552,6 +590,12 @@ begin
          end if;
       end loop;
 
+      for i in 0 to XPM_PARTITIONS_C-1 loop
+         axiSlaveRegister (axilEp, toSlv(528+8*i+0,12), 0, v.step(i).groups);
+         axiSlaveRegister (axilEp, toSlv(528+8*i+4,12), 8, v.step(i).numL0Acc);
+         v.step(i).enable := uOr(r.step(i).groups);
+      end loop;
+      
       if r.link(4) = '0' and r.linkStat.rxIsXpm = '0' then
          v.linkCfg.groupMask := v.linkCfg.groupMask and not groupLinkClear;
       end if;
@@ -596,22 +640,61 @@ begin
       end if;
    end process;
 
-   rseq : process (staClk, axilRst) is
+   rcomb : process ( staRst, q, step, status ) is
       constant STATUS_INTERVAL_C : slv(19 downto 0) := toSlv(910000-1, 20);
-      variable cnt               : slv(19 downto 0) := (others => '0');
+      variable v : QRegType;
    begin
-      if axilRst = '1' then
-         cnt       := (others => '0');
-         staUpdate <= '0' after TPD_G;
-      elsif rising_edge(staClk) then
-         if cnt = STATUS_INTERVAL_C then
-            cnt       := (others => '0');
-            staUpdate <= '1' after TPD_G;
-         else
-            cnt       := cnt+1;
-            staUpdate <= '0' after TPD_G;
+      v := q;
+
+      if q.cnt = STATUS_INTERVAL_C then
+         v.cnt       := (others=>'0');
+         v.staUpdate := '1';
+      else
+         v.cnt       := q.cnt + 1;
+         v.staUpdate := '0';
+      end if;
+
+      for i in 0 to XPM_PARTITIONS_C-1 loop
+         if status.partition(i).l0Select.numAcc = step(i).numL0Acc then
+            v.stepDone(i) := '1';
          end if;
+         if step(i).enable = '0' then
+            v.stepDone(i) := '0';
+         end if;
+      end loop;
+      
+      if staRst = '1' then
+         v := SREG_INIT_C;
+      end if;
+      
+      q_in <= v;
+   end process rcomb;
+   
+   rseq : process (staClk) is
+   begin
+      if rising_edge(staClk) then
+         q <= q_in;
       end if;
    end process rseq;
-
+   
+   STEP_SYNC : for i in 0 to XPM_PARTITIONS_C-1 generate
+      U_SyncEnable : entity surf.Synchronizer
+        port map ( clk     => staClk,
+                   dataIn  => r.step(i).enable,
+                   dataOut => step(i).enable );
+      U_SyncNumL0 : entity surf.SynchronizerVector
+         generic map ( WIDTH_G => 24 )
+         port map ( clk     => staClk,
+                    dataIn  => r.step(i).numL0Acc,
+                    dataOut => step(i).numL0Acc );
+      U_SyncGroups : entity surf.SynchronizerVector
+         port map ( clk     => staClk,
+                    dataIn  => r.step(i).groups,
+                    dataOut => step(i).groups );
+      U_SyncDone : entity surf.Synchronizer
+         port map ( clk     => axilClk,
+                    dataIn  => q.stepDone(i),
+                    dataOut => stepDone(i) );
+   end generate;
+   
 end rtl;

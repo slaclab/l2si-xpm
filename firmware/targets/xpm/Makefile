@@ -16,8 +16,9 @@ export GIT_BYPASS = 1
 # PRJ_VERSION = 0x0000001D - Changed XpmRxLink feedback state machine
 # PRJ_VERSION = 0x0000001E - Forward and feedback link ID come from the same register
 # PRJ_VERSION = 0x0000001F - Fix transition alignment across readout groups bug
+# PRJ_VERSION = 0x00000020 - Add transitions which can be inhibited by deadtime and group step limits
 ##########################################################################################
-export PRJ_VERSION = 0x0000001F
+export PRJ_VERSION = 0x00000020
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
