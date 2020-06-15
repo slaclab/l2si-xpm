@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-03-31
+-- Last update: 2020-06-13
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -223,6 +223,8 @@ architecture top_level of XpmBase is
    signal ibDebugSlave  : AxiStreamSlaveType;
    signal obDebugMaster : AxiStreamMasterType;
    signal obDebugSlave  : AxiStreamSlaveType;
+   signal stepMaster, seqMaster : AxiStreamMasterType;
+   signal stepSlave , seqSlave  : AxiStreamSlaveType;
 
    signal dsClkBuf    : slv(1 downto 0);
    signal fpgaclk_ret : sl;
@@ -456,8 +458,8 @@ begin
          axilWriteSlave  => axilWriteSlaves(2),
          groupLinkClear  => groupLinkClear,
          -- Async Notification
-         obAppMaster     => obDebugMaster,
-         obAppSlave      => obDebugSlave,
+         obAppMaster     => seqMaster,
+         obAppSlave      => seqSlave,
          -- Timing Interface (timingClk domain) 
          timingClk       => recTimingClk,
          timingRst       => recTimingRst,
@@ -521,6 +523,17 @@ begin
       end generate;
    end generate;
 
+   U_MasterMux : entity surf.AxiStreamMux
+     generic map ( NUM_SLAVES_G => 2 )
+     port map ( axisClk         => regClk,
+                axisRst         => regRst,
+                sAxisMasters(0) => seqMaster,
+                sAxisMasters(1) => stepMaster,
+                sAxisSlaves (0) => seqSlave,
+                sAxisSlaves (1) => stepSlave,
+                mAxisMaster     => obDebugMaster,
+                mAxisSlave      => obDebugSlave );
+                
    U_Core : entity l2si.XpmCore
       generic map (
          TPD_G               => TPD_G,
@@ -595,7 +608,6 @@ begin
          timingRecClkOutP => timingRecClkOutP,  -- to AMC PLL
          timingRecClkOutN => timingRecClkOutN,
          --
-         timingRefClkOut  => open,
          timingClkScl     => timingClkScl,
          timingClkSda     => timingClkSda,
          -- Timing Reference (standalone system only)
@@ -648,6 +660,8 @@ begin
          -- Streaming input (regClk domain)
          ibDebugMaster   => ibDebugMaster,
          ibDebugSlave    => ibDebugSlave,
+         obDebugMaster   => stepMaster,
+         obDebugSlave    => stepSlave,
          staClk          => recTimingClk,
          pllStatus       => pllStatus,
          status          => xpmStatus,

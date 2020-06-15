@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-06-12
+-- Last update: 2020-06-13
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -30,6 +30,7 @@ use surf.StdRtlPkg.all;
 use surf.AxiLitePkg.all;
 use surf.AxiStreamPkg.all;
 use surf.SsiPkg.all;
+use surf.EthMacPkg.all;
 
 library amc_carrier_core;
 use amc_carrier_core.AmcCarrierPkg.all;  -- ETH_AXIS_CONFIG_C
@@ -56,6 +57,8 @@ entity XpmReg is
       -- Application Debug Interface (sysclk domain)
       ibDebugMaster   : in  AxiStreamMasterType;
       ibDebugSlave    : out AxiStreamSlaveType;
+      obDebugMaster   : out AxiStreamMasterType;
+      obDebugSlave    : in  AxiStreamSlaveType;
       --
       staClk          : in  sl;
       pllStatus       : in  XpmPllStatusArray(XPM_NUM_AMCS_C-1 downto 0);
@@ -107,6 +110,7 @@ architecture rtl of XpmReg is
       usRxEnable     : sl;
       cuRxEnable     : sl;
       step           : StepArray(XPM_PARTITIONS_C-1 downto 0);
+      stepMaster     : AxiStreamMasterType;
    end record RegType;
 
    constant REG_INIT_C : RegType := (
@@ -131,7 +135,8 @@ architecture rtl of XpmReg is
       anaWrCount     => (others => (others => '0')),
       usRxEnable     => toSl(US_RX_ENABLE_INIT_G),
       cuRxEnable     => toSl(CU_RX_ENABLE_INIT_G),
-      step           => (others=>STEP_INIT_C) );
+      step           => (others=>STEP_INIT_C),
+      stepMaster     => AxiStreamMasterInit(EMAC_AXIS_CONFIG_C) );
 
    signal r    : RegType := REG_INIT_C;
    signal r_in : RegType;
@@ -222,7 +227,8 @@ begin
    axilUpdate     <= r.axilRdEn;
    usRxEnable     <= r.usRxEnable;
    cuRxEnable     <= r.cuRxEnable;
-
+   obDebugMaster  <= r.stepMaster;
+   
    GEN_MONCLK : for i in 0 to 3 generate
       U_SYNC : entity surf.SyncClockFreq
          generic map (
@@ -374,7 +380,7 @@ begin
          mAxisSlave  => r_in.tagSlave);
 
    comb : process (r, axilReadMaster, axilWriteMaster, tagMaster, status, s, axilRst,
-                   pllCount, pllStat, groupLinkClear, stepDone,
+                   pllCount, pllStat, groupLinkClear, stepDone, obDebugSlave,
                    monClkRate, monClkLock, monClkFast, monClkSlow) is
       variable v              : RegType;
       variable axilEp         : AxiLiteEndpointType;
@@ -564,10 +570,26 @@ begin
       axiSlaveRegister (axilEp, X"208", 0, groupL0Disable);
       axiSlaveRegister (axilEp, X"20C", 0, groupMsgInsert);
 
+      v.stepMaster.tLast  := '1';
+      ssiSetUserSof (EMAC_AXIS_CONFIG_C, v.stepMaster, '1');
+      ssiSetUserEofe(EMAC_AXIS_CONFIG_C, v.stepMaster, '0');
+      
+      if obDebugSlave.tReady = '1' then
+         v.stepMaster.tValid := '0';
+      end if;
+      
       for i in 0 to XPM_PARTITIONS_C-1 loop
-         if r.step(i).enable = '1' and stepDone(i) = '1' then
-            groupL0Disable(i) := r.step(i).groups;
+         if stepDone(i) = '0' and r.step(i).groups /= 0 then
+            v.step(i).enable := '1';
+         end if;
+         if stepDone(i) = '1' and r.step(i).enable = '1' and v.stepMaster.tValid = '0' then
             v.step(i).enable  := '0';
+            for j in 0 to XPM_PARTITIONS_C-1 loop
+               groupL0Disable(j) := r.step(i).groups(j);
+            end loop;
+            v.stepMaster.tValid := '1';
+            v.stepMaster.tData(31 downto  0) := toSlv(i,16) & toSlv(1,16);
+            v.stepMaster.tData(63 downto 32) := r.step(i).numL0Acc;
          end if;
       end loop;
       
@@ -592,8 +614,7 @@ begin
 
       for i in 0 to XPM_PARTITIONS_C-1 loop
          axiSlaveRegister (axilEp, toSlv(528+8*i+0,12), 0, v.step(i).groups);
-         axiSlaveRegister (axilEp, toSlv(528+8*i+4,12), 8, v.step(i).numL0Acc);
-         v.step(i).enable := uOr(r.step(i).groups);
+         axiSlaveRegister (axilEp, toSlv(528+8*i+4,12), 0, v.step(i).numL0Acc);
       end loop;
       
       if r.link(4) = '0' and r.linkStat.rxIsXpm = '0' then
@@ -655,16 +676,14 @@ begin
       end if;
 
       for i in 0 to XPM_PARTITIONS_C-1 loop
+         v.stepDone(i) := '0';
          if status.partition(i).l0Select.numAcc = step(i).numL0Acc then
-            v.stepDone(i) := '1';
-         end if;
-         if step(i).enable = '0' then
-            v.stepDone(i) := '0';
+           v.stepDone(i) := '1';
          end if;
       end loop;
       
       if staRst = '1' then
-         v := SREG_INIT_C;
+         v := QREG_INIT_C;
       end if;
       
       q_in <= v;
@@ -683,11 +702,12 @@ begin
                    dataIn  => r.step(i).enable,
                    dataOut => step(i).enable );
       U_SyncNumL0 : entity surf.SynchronizerVector
-         generic map ( WIDTH_G => 24 )
+         generic map ( WIDTH_G => 32 )
          port map ( clk     => staClk,
                     dataIn  => r.step(i).numL0Acc,
                     dataOut => step(i).numL0Acc );
       U_SyncGroups : entity surf.SynchronizerVector
+         generic map ( WIDTH_G => XPM_PARTITIONS_C )
          port map ( clk     => staClk,
                     dataIn  => r.step(i).groups,
                     dataOut => step(i).groups );

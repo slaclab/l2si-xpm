@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-03-31
+-- Last update: 2020-06-13
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -134,7 +134,6 @@ entity XpmCore is
       usRefClkP        : in    sl;
       usRefClkN        : in    sl;
       --
-      timingRefClkOut  : out   sl;
       timingRecClkOutP : out   sl;
       timingRecClkOutN : out   sl;
       timingClkScl     : inout sl;
