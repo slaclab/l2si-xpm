@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver  <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-11-09
--- Last update: 2019-10-28
+-- Last update: 2020-06-29
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -184,6 +184,7 @@ begin
     v.eventcode_redux := cuTiming.eventCodes(16*i+15 downto 16*i);
     
     if baseEnable = '1' then
+      v.timeStamp       := r.timeStamp+1;
       v.pulseId         := r.pulseId+1;
       v.pulseId(63)     := '1';
       v.beamRequest     := '0';
