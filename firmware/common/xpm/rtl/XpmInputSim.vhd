@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-03-31
+-- Last update: 2020-07-01
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -445,9 +445,10 @@ begin
    begin
       v := cr;
 
-      v.fiducialTest := cr.fiducialTest + 1666;
       if cr.fiducialTest = cuFiducialIntv then
          v.fiducialErr := '0';
+      elsif cr.fiducialTest < cuFiducialIntv then
+         v.fiducialTest := cr.fiducialTest + 1666;
       end if;
 
       if cuFiducial = '1' then
