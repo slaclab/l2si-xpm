@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver  <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-11-09
--- Last update: 2020-06-29
+-- Last update: 2020-07-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -227,6 +227,9 @@ begin
     
     if txRst = '1' then
       v := REG_INIT_C;
+      -- prevent reset of these registers
+      v.pulseId   := r.pulseId;
+      v.timeStamp := r.timeStamp;
     end if;
 
     rin <= v;
