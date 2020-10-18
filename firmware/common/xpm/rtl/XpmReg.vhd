@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-10-16
+-- Last update: 2020-10-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -37,6 +37,8 @@ use amc_carrier_core.AmcCarrierPkg.all;  -- ETH_AXIS_CONFIG_C
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
+
+library l2si;
 
 entity XpmReg is
    generic(
@@ -113,6 +115,8 @@ architecture rtl of XpmReg is
       cuRxEnable     : sl;
       step           : StepArray(XPM_PARTITIONS_C-1 downto 0);
       stepMaster     : AxiStreamMasterType;
+      monStreamEnable: sl;
+      monStreamPeriod: slv(26 downto 0);
    end record RegType;
 
    constant REG_INIT_C : RegType := (
@@ -138,7 +142,9 @@ architecture rtl of XpmReg is
       usRxEnable     => toSl(US_RX_ENABLE_INIT_G),
       cuRxEnable     => toSl(CU_RX_ENABLE_INIT_G),
       step           => (others=>STEP_INIT_C),
-      stepMaster     => AxiStreamMasterInit(EMAC_AXIS_CONFIG_C) );
+      stepMaster     => AxiStreamMasterInit(EMAC_AXIS_CONFIG_C),
+      monStreamEnable=> '0',
+      monStreamPeriod=> toSlv(125000000,27) );
 
    signal r    : RegType := REG_INIT_C;
    signal r_in : RegType;
@@ -181,7 +187,7 @@ architecture rtl of XpmReg is
 
    signal step     : StepArray(XPM_PARTITIONS_C-1 downto 0);
    signal stepDone : slv      (XPM_PARTITIONS_C-1 downto 0);
-   
+
    component ila_0
       port (
          clk    : in sl;
@@ -628,6 +634,9 @@ begin
          end if;
       end loop;
 
+      axiSlaveRegister (axilEp, x"240",  0, v.monStreamPeriod);
+      axiSlaveRegister (axilEp, x"240", 31, v.monStreamEnable);
+      
 --if r.partitionCfg.analysis.rst(1)='1' then
 --  v.anaWrCount(ip) := (others=>'0');
 --elsif r.partitionCfg.analysis.push(1)='1' then
@@ -667,12 +676,13 @@ begin
      port map (
       axilClk         => axilClk,
       axilRst         => axilRst,
-      axilUpdate      : out slv(XPM_PARTITIONS_C-1 downto 0);
-      enable          => monStreamEnable,
-      status          => status,
+      enable          => r.monStreamEnable,
+      period          => r.monStreamPeriod,
       pllCount        => pllCount,
       pllStat         => pllStat,
       monClkRate      => monClkRate,
+      status          => status,
+      staClk          => staClk,
       -- Application Debug Interface (sysclk domain)
       obMonitorMaster => obMonitorMaster,
       obMonitorSlave  => obMonitorSlave );

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-10-16
+-- Last update: 2020-10-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -223,8 +223,8 @@ architecture top_level of XpmBase is
    signal ibDebugSlave  : AxiStreamSlaveType;
    signal obDebugMaster : AxiStreamMasterType;
    signal obDebugSlave  : AxiStreamSlaveType;
-   signal stepMaster, seqMaster : AxiStreamMasterType;
-   signal stepSlave , seqSlave  : AxiStreamSlaveType;
+   signal stepMaster, seqMaster, monMaster : AxiStreamMasterType;
+   signal stepSlave , seqSlave , monSlave  : AxiStreamSlaveType;
 
    signal dsClkBuf    : slv(1 downto 0);
    signal fpgaclk_ret : sl;

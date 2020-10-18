@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-10-17
+-- Last update: 2020-10-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -42,7 +42,6 @@ entity XpmMonitorStream is
    port (
       axilClk         : in  sl;
       axilRst         : in  sl;
-      axilUpdate      : out slv(XPM_PARTITIONS_C-1 downto 0);
       enable          : in  sl;
       period          : in  slv(26 downto 0);
       pllCount        : in  SlVectorArray(3 downto 0, 2 downto 0);
@@ -78,8 +77,10 @@ architecture rtl of XpmMonitorStream is
        assignSlv(i, v, toSlv(0,10));                       -- 10b
      end loop; -- 14*12B
      for j in 0 to XPM_PARTITIONS_C-1 loop
-       assignSlv(i, v, s.partition(j).inhibit.evcounts  ); -- 32*32b -- regclk
-       assignSlv(i, v, s.partition(j).inhibit.tmcounts  ); -- 32*32b -- regclk
+       for k in 0 to 31 loop
+         assignSlv(i, v, s.partition(j).inhibit.evcounts(k)); -- 32*32b -- regclk
+         assignSlv(i, v, s.partition(j).inhibit.tmcounts(k)); -- 32*32b -- regclk
+       end loop;
        assignSlv(i, v, sL0Stats(j) ); -- 200b
      end loop; -- 8*456B
      for j in 2 to 3 loop
@@ -93,6 +94,7 @@ architecture rtl of XpmMonitorStream is
    end function toSlv;
    
    type RegType is record
+      busy           : sl;
       count          : slv(period'range);
       id             : slv(31 downto 0);
       index          : integer range 0 to LAST_WORD_C;
@@ -101,6 +103,7 @@ architecture rtl of XpmMonitorStream is
    end record RegType;
 
    constant REG_INIT_C : RegType := (
+      busy           => '0',
       count          => (others => '0'),
       id             => (others => '0'),
       index          => 0,
@@ -123,10 +126,10 @@ begin
                  din(159 downto 120) => status.partition(i).l0Select.numInh,
                  din(199 downto 160) => status.partition(i).l0Select.numAcc,
                  rd_clk              => axilClk,
-                 dout                => sL0Stats );
+                 dout                => sL0Stats(i) );
   end generate GEN_L0;
   
-  comb : process ( axilRst, enable, period, status, sL0Stats,
+  comb : process ( axilRst, r, enable, period, status, sL0Stats,
                    pllCount, pllStat, monClkRate,
                    obMonitorSlave ) is
     variable v  : RegType;
@@ -147,7 +150,7 @@ begin
           v.data := toSlv(0,64) & r.data(r.data'left downto 64);
           if v.index = LAST_WORD_C then
             v.master.tLast := '1';
-            v.state := IDLE_S;
+            v.busy         := '0';
           else
             v.index := r.index + 1;
           end if;
