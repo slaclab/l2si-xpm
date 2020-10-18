@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-06-13
+-- Last update: 2020-10-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -524,13 +524,15 @@ begin
    end generate;
 
    U_MasterMux : entity surf.AxiStreamMux
-     generic map ( NUM_SLAVES_G => 2 )
+     generic map ( NUM_SLAVES_G => 3 )
      port map ( axisClk         => regClk,
                 axisRst         => regRst,
                 sAxisMasters(0) => seqMaster,
                 sAxisMasters(1) => stepMaster,
+                sAxisMasters(2) => monMaster,
                 sAxisSlaves (0) => seqSlave,
                 sAxisSlaves (1) => stepSlave,
+                sAxisSlaves (2) => monSlave,
                 mAxisMaster     => obDebugMaster,
                 mAxisSlave      => obDebugSlave );
                 
@@ -662,6 +664,8 @@ begin
          ibDebugSlave    => ibDebugSlave,
          obDebugMaster   => stepMaster,
          obDebugSlave    => stepSlave,
+         obMonitorMaster => monMaster,
+         obMonitorSlave  => monSlave,
          staClk          => recTimingClk,
          pllStatus       => pllStatus,
          status          => xpmStatus,

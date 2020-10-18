@@ -6,8 +6,9 @@ export GIT_BYPASS = 1
 # PRJ_VERSION = 0x00000001 - Use MMCM phase shift to narrow arbitrary phase upon reset
 # PRJ_VERSION = 0x00010001 - Hardwire UsRxEnable=1
 # PRJ_VERSION = 0x00000002 - Make usRxEnable programmable.  Fix last MMCM phase scan.
+# PRJ_VERSION = 0x00000003 - Push stats via UDP.
 ##########################################################################################
-export PRJ_VERSION = 0x00000002
+export PRJ_VERSION = 0x00000003
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build

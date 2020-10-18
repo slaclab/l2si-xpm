@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-06-13
+-- Last update: 2020-10-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -59,6 +59,8 @@ entity XpmReg is
       ibDebugSlave    : out AxiStreamSlaveType;
       obDebugMaster   : out AxiStreamMasterType;
       obDebugSlave    : in  AxiStreamSlaveType;
+      obMonitorMaster : out AxiStreamMasterType;
+      obMonitorSlave  : in  AxiStreamSlaveType;
       --
       staClk          : in  sl;
       pllStatus       : in  XpmPllStatusArray(XPM_NUM_AMCS_C-1 downto 0);
@@ -661,6 +663,20 @@ begin
       end if;
    end process;
 
+   U_MONSTREAM : entity l2si.XpmMonitorStream
+     port map (
+      axilClk         => axilClk,
+      axilRst         => axilRst,
+      axilUpdate      : out slv(XPM_PARTITIONS_C-1 downto 0);
+      enable          => monStreamEnable,
+      status          => status,
+      pllCount        => pllCount,
+      pllStat         => pllStat,
+      monClkRate      => monClkRate,
+      -- Application Debug Interface (sysclk domain)
+      obMonitorMaster => obMonitorMaster,
+      obMonitorSlave  => obMonitorSlave );
+   
    rcomb : process ( staRst, q, step, status ) is
       constant STATUS_INTERVAL_C : slv(19 downto 0) := toSlv(910000-1, 20);
       variable v : QRegType;
