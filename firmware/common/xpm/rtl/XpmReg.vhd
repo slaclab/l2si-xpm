@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-10-18
+-- Last update: 2020-10-19
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -568,6 +568,9 @@ begin
          axiSlaveRegisterR (axilEp, X"120" + toSlv(j*4, 12), 0, r.partitionStat.inhibit.tmcounts(j));
       end loop;
 
+      axiSlaveRegister (axilEp, x"1a0",  0, v.monStreamPeriod);
+      axiSlaveRegister (axilEp, x"1a0", 31, v.monStreamEnable);
+      
       groupL0Reset   := (others => '0');
       groupL0Enable  := (others => '0');
       groupL0Disable := (others => '0');
@@ -634,9 +637,6 @@ begin
          end if;
       end loop;
 
-      axiSlaveRegister (axilEp, x"240",  0, v.monStreamPeriod);
-      axiSlaveRegister (axilEp, x"240", 31, v.monStreamEnable);
-      
 --if r.partitionCfg.analysis.rst(1)='1' then
 --  v.anaWrCount(ip) := (others=>'0');
 --elsif r.partitionCfg.analysis.push(1)='1' then
