@@ -58,7 +58,7 @@ architecture rtl of XpmMonitorStream is
 
    signal sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);
   
-   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + 8*456 + 13);
+   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + 8*456 + 14);
    constant LAST_WORD_C       : integer := (XPM_STATUS_BITS_C) / 64; -- 479
    
    function toSlv(packetId : slv(31 downto 0);
@@ -83,10 +83,10 @@ architecture rtl of XpmMonitorStream is
        end loop;
        assignSlv(i, v, sL0Stats(j) ); -- 200b
      end loop; -- 8*456B
-     for j in 2 to 3 loop
-       assignSlv(i, v, muxSlVectorArray(pllCount,j));
+     for j in 0 to 3 loop
        assignSlv(i, v, pllStat(j));
-     end loop; -- 1B
+       assignSlv(i, v, muxSlVectorArray(pllCount,j));
+     end loop; -- 2B
      for j in 0 to 3 loop
        assignSlv(i, v, monClkR(j));
      end loop; --12B
