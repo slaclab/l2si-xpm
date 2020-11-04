@@ -555,8 +555,7 @@ begin
    end generate;
 
    U_MasterMux : entity surf.AxiStreamMux
-     generic map ( NUM_SLAVES_G => 3,
-                   DEBUG_G => true )
+     generic map ( NUM_SLAVES_G => 3 )
      port map ( axisClk         => regClk,
                 axisRst         => regRst,
                 sAxisMasters(0) => seqMaster,
