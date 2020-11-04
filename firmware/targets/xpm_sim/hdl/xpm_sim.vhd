@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2020-02-12
+-- Last update: 2020-10-21
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -42,6 +42,8 @@ library l2si_core;
 use l2si_core.XpmPkg.all;
 use l2si_core.XpmMiniPkg.all;
 
+library l2si;
+
 --use work.AxiLiteSimPkg.all;
 
 library unisim;
@@ -69,7 +71,7 @@ architecture top_level_app of xpm_sim is
    signal usRx  : TimingRxType := TIMING_RX_INIT_C;
    signal usRxStatus : TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
 
-   signal xpmStream  : XpmMiniStreamType := XPM_MINI_STREAM_INIT_C;
+   signal xpmStream  : XpmStreamType := XPM_STREAM_INIT_C;
    signal xData      : TimingRxType := TIMING_RX_INIT_C;
    signal xDataStatus: TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
 
@@ -86,6 +88,13 @@ architecture top_level_app of xpm_sim is
    signal r    : RegType := REG_INIT_C;
    signal rin  : RegType;
 
+   signal pllCount : SlVectorArray(3 downto 0,2 downto 0) := (others=>(others=>'0'));
+   signal pllStat  : slv(3 downto 0) := "1011";
+   signal monClkRate : Slv32Array(3 downto 0) := ( toSlv(3,32), toSlv(2,32), toSlv(1,32), toSlv(0,32));
+   signal status     : XpmStatusType := XPM_STATUS_INIT_C;
+   signal obMonitorMaster : AxiStreamMasterType;
+   signal obMonitorSlave  : AxiStreamSlaveType := AXI_STREAM_SLAVE_FORCE_C;
+   
 begin
 
    xpmConfig.partition.l0Select.enabled <= '1';
@@ -164,10 +173,10 @@ begin
        timingRst       => usRst,
        timingStream    => xpmStream );
 
-   U_WriteX : entity work.XpmFile
-     generic map ( filename => "xpmmini.dat" )
-     port map ( clk  => dsClk(0),
-                data => dsTx(0).data );
+--   U_WriteX : entity work.XpmFile
+--     generic map ( filename => "xpmmini.dat" )
+--     port map ( clk  => dsClk(0),
+--                data => dsTx(0).data );
 
    comb : process ( r, usRst, tpgFiducial, tpgStream ) is
      variable v : RegType;
@@ -191,5 +200,20 @@ begin
        r <= rin;
      end if;
    end process;
+
+   U_MONSTREAM : entity l2si.XpmMonitorStream
+     port map (
+      axilClk         => regClk,
+      axilRst         => regRst,
+      enable          => '1',
+      period          => toSlv(1000,27),
+      pllCount        => pllCount,
+      pllStat         => pllStat,
+      monClkRate      => monClkRate,
+      status          => status,
+      staClk          => usClk,
+      -- Application Debug Interface (sysclk domain)
+      obMonitorMaster => obMonitorMaster,
+      obMonitorSlave  => obMonitorSlave );
    
 end top_level_app;

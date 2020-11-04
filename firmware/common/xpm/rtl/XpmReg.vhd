@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-10-19
+-- Last update: 2020-10-24
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -188,6 +188,11 @@ architecture rtl of XpmReg is
    signal step     : StepArray(XPM_PARTITIONS_C-1 downto 0);
    signal stepDone : slv      (XPM_PARTITIONS_C-1 downto 0);
 
+   signal monBusy  : sl;
+   signal monCount : slv(26 downto 0);
+   signal monId    : slv(31 downto 0);
+   signal monIndex : slv( 9 downto 0);
+   
    component ila_0
       port (
          clk    : in sl;
@@ -389,7 +394,8 @@ begin
 
    comb : process (r, axilReadMaster, axilWriteMaster, tagMaster, status, s, axilRst,
                    pllCount, pllStat, groupLinkClear, stepDone, obDebugSlave,
-                   monClkRate, monClkLock, monClkFast, monClkSlow) is
+                   monClkRate, monClkLock, monClkFast, monClkSlow,
+                   monCount, monIndex, monBusy, monId) is
       variable v              : RegType;
       variable axilEp         : AxiLiteEndpointType;
       variable ip             : integer;
@@ -568,8 +574,12 @@ begin
          axiSlaveRegisterR (axilEp, X"120" + toSlv(j*4, 12), 0, r.partitionStat.inhibit.tmcounts(j));
       end loop;
 
-      axiSlaveRegister (axilEp, x"1a0",  0, v.monStreamPeriod);
-      axiSlaveRegister (axilEp, x"1a0", 31, v.monStreamEnable);
+      axiSlaveRegister (axilEp, X"1A0",  0, v.monStreamPeriod);
+      axiSlaveRegister (axilEp, X"1A0", 31, v.monStreamEnable);
+      axiSlaveRegisterR(axilEp, X"1A4",  0, monCount);
+      axiSlaveRegisterR(axilEp, X"1A8",  0, monIndex);
+      axiSlaveRegisterR(axilEp, X"1A8", 31, monBusy);
+      axiSlaveRegisterR(axilEp, X"1AC",  0, monId);
       
       groupL0Reset   := (others => '0');
       groupL0Enable  := (others => '0');
@@ -683,6 +693,11 @@ begin
       monClkRate      => monClkRate,
       status          => status,
       staClk          => staClk,
+      -- status
+      busy            => monBusy,
+      count           => monCount,
+      id              => monId,
+      index           => monIndex,
       -- Application Debug Interface (sysclk domain)
       obMonitorMaster => obMonitorMaster,
       obMonitorSlave  => obMonitorSlave );

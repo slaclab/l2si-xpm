@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-10-18
+-- Last update: 2020-11-03
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -49,6 +49,11 @@ entity XpmMonitorStream is
       monClkRate      : in  Slv32Array   (3 downto 0);
       status          : in  XpmStatusType;
       staClk          : in  sl;
+      -- Status
+      busy            : out sl;
+      count           : out slv(26 downto 0);
+      id              : out slv(31 downto 0);
+      index           : out slv( 9 downto 0);
       -- Application Debug Interface (sysclk domain)
       obMonitorMaster : out AxiStreamMasterType;
       obMonitorSlave  : in  AxiStreamSlaveType );
@@ -57,11 +62,12 @@ end XpmMonitorStream;
 architecture rtl of XpmMonitorStream is
 
    signal sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);
-  
-   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + 8*456 + 14);
-   constant LAST_WORD_C       : integer := (XPM_STATUS_BITS_C) / 64; -- 479
+
+   constant TDATA_SIZE_C      : integer := EMAC_AXIS_CONFIG_C.TDATA_BYTES_C*8;
+   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + 8*382 + 16);
+   constant LAST_WORD_C       : integer := (XPM_STATUS_BITS_C-1) / TDATA_SIZE_C;
    
-   function toSlv(packetId : slv(31 downto 0);
+   function toSlv(packetId : slv(15 downto 0);
                   s        : XpmStatusType;
                   sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);      
                   pllCount : SlVectorArray(3 downto 0, 2 downto 0);
@@ -70,7 +76,8 @@ architecture rtl of XpmMonitorStream is
      variable v : slv(XPM_STATUS_BITS_C-1 downto 0) := (others=>'0');
      variable i : integer := 0;
    begin
-     assignSlv(i, v, packetId); -- 4B
+     assignSlv(i, v, x"0002"); -- 2B
+     assignSlv(i, v, packetId); -- 2B
      -- dsLinkStatus
      for j in 0 to 13 loop
        assignSlv(i, v, toSlv(s.dsLink(j)));                -- 86b
@@ -82,21 +89,22 @@ architecture rtl of XpmMonitorStream is
          assignSlv(i, v, s.partition(j).inhibit.tmcounts(k)); -- 32*32b -- regclk
        end loop;
        assignSlv(i, v, sL0Stats(j) ); -- 200b
-     end loop; -- 8*456B
+       assignSlv(i, v, x"ee"); -- 1B
+     end loop; -- 8*382B
      for j in 0 to 3 loop
        assignSlv(i, v, pllStat(j));
        assignSlv(i, v, muxSlVectorArray(pllCount,j));
      end loop; -- 2B
      for j in 0 to 3 loop
        assignSlv(i, v, monClkR(j));
-     end loop; --12B
-     return v;
+     end loop; --16B
+     return v; --
    end function toSlv;
    
    type RegType is record
       busy           : sl;
       count          : slv(period'range);
-      id             : slv(31 downto 0);
+      id             : slv(15 downto 0);
       index          : integer range 0 to LAST_WORD_C;
       data           : slv(XPM_STATUS_BITS_C-1 downto 0);
       master         : AxiStreamMasterType;
@@ -115,6 +123,12 @@ architecture rtl of XpmMonitorStream is
 
 begin
 
+  busy  <= r.busy;
+  count <= r.count;
+  id    <= x"0000" & r.id;
+  index <= toSlv(r.index,10);
+  obMonitorMaster <= r.master;
+  
   GEN_L0 : for i in 0 to XPM_PARTITIONS_C-1 generate
     SYNC_L0 : entity surf.SynchronizerFifo
       generic map ( DATA_WIDTH_G => 200 )
@@ -146,9 +160,17 @@ begin
         if v.master.tValid = '0' then
           v.master.tValid := '1';
           v.master.tLast  := '0';
-          v.master.tData(63 downto 0) := r.data(63 downto 0);
-          v.data := toSlv(0,64) & r.data(r.data'left downto 64);
-          if v.index = LAST_WORD_C then
+          v.master.tData(TDATA_SIZE_C-1 downto 0) := r.data(TDATA_SIZE_C-1 downto 0);
+          v.data := toSlv(0,TDATA_SIZE_C) & r.data(r.data'left downto TDATA_SIZE_C);
+
+          if r.index = 0 then
+            ssiSetUserSof (EMAC_AXIS_CONFIG_C, v.master, '1');
+          else
+            ssiSetUserSof (EMAC_AXIS_CONFIG_C, v.master, '0');
+          end if;
+          ssiSetUserEofe(EMAC_AXIS_CONFIG_C, v.master, '0');
+          
+          if r.index = LAST_WORD_C then
             v.master.tLast := '1';
             v.busy         := '0';
           else
@@ -176,7 +198,14 @@ begin
     end if;
 
     r_in <= v;
-    
+
   end process comb;
 
+  seq : process ( axilClk) is
+  begin
+    if rising_edge(axilClk) then
+      r <= r_in;
+    end if;
+  end process seq;
+  
 end rtl;

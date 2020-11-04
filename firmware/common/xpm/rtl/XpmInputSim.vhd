@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-07-01
+-- Last update: 2020-11-04
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -237,6 +237,7 @@ begin
          CLKIN_PERIOD_G    => 8.4,      -- ClkIn  = 119MHz
          CLKOUT_DIVIDE_F_G => 17.0,     -- ClkOut =  70MHz
          CLKFBOUT_MULT_F_G => 10.0,     -- VCO    = 1190MHz
+         NUM_LOCKS_G       => 1,
          SIMULATION_G      => SIMULATION_G)
       port map (
          clkIn           => cuRecClk,
@@ -258,6 +259,7 @@ begin
          CLKIN_PERIOD_G    => 14.286,   -- ClkIn  =  70MHz
          CLKOUT_DIVIDE_F_G => 7.0,      -- ClkOut = 130MHz
          CLKFBOUT_MULT_F_G => 13.0,     -- VCO    = 910MHz
+         NUM_LOCKS_G       => 1,
          SIMULATION_G      => SIMULATION_G)
       port map (
          clkIn           => cuClkT(0),
@@ -279,6 +281,7 @@ begin
          CLKIN_PERIOD_G    => 7.692,    -- ClkIn  = 130MHz
          CLKOUT_DIVIDE_F_G => 7.0,      -- ClkOut = 185.7MHz
          CLKFBOUT_MULT_F_G => 10.0,     -- VCO    = 1300MHz
+         NUM_LOCKS_G       => 1,
          SIMULATION_G      => SIMULATION_G)
       port map (
          clkIn           => cuClkT(1),

@@ -27,7 +27,7 @@ entity XpmPllClk is
    port (
       clkIn           : in  sl;
       rstIn           : in  sl;
-      locked          : in  sl;
+      locked          : in  slv(1 downto 0);
       clkOutP         : out slv(3 downto 0);
       clkOutN         : out slv(3 downto 0);
       clkRet          : in  sl;
@@ -65,7 +65,7 @@ begin
                  dataOut => rstInS );
     U_LockedS : entity surf.Synchronizer
       port map ( clk     => axilClk,
-                 dataIn  => locked,
+                 dataIn  => locked(0),
                  dataOut => lockedS );
     U_RstS : entity surf.Synchronizer
       port map ( clk     => axilClk,
@@ -117,6 +117,7 @@ begin
 --         CLKOUT_DIVIDE_F_G => 3.0,
 --         CLKFBOUT_MULT_F_G => 3.0,
 --         CLKSYNC_DIV_G     => 2,
+         NUM_LOCKS_G       => locked'length,
          SIMULATION_G      => false)
       port map (
          clkIn           => clkIn,

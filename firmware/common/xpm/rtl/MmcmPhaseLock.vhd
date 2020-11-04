@@ -2,7 +2,7 @@
 -- File       : MmcmPhaseLock.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2017-02-04
--- Last update: 2020-03-31
+-- Last update: 2020-11-04
 -------------------------------------------------------------------------------
 -- Description: Application Core's Top Level
 --
@@ -39,13 +39,14 @@ entity MmcmPhaseLock is
       CLKOUT_DIVIDE_F_G : real;
       CLKFBOUT_MULT_F_G : real;
       CLKSYNC_DIV_G     : integer := 1;
+      NUM_LOCKS_G       : integer := 1;
       SIMULATION_G      : boolean := false);
    port (
       -- Clocks and resets
       clkIn           : in  sl;
       rstIn           : in  sl;
       clkSync         : in  sl;
-      lockedSync      : in  sl := '1';
+      lockedSync      : in  slv(NUM_LOCKS_G-1 downto 0) := (others=>'1');
       syncIn          : in  sl;
       clkOut          : out sl;
       rstOut          : out sl;
@@ -90,6 +91,7 @@ architecture behavior of MmcmPhaseLock is
       reset          : sl;
       resetCount     : sl;
       rstOut         : sl;
+      lockBypass     : slv(NUM_LOCKS_G-1 downto 0);
       psEn           : sl;
       psIncNdec      : sl;
       psState        : PS_State;
@@ -111,6 +113,7 @@ architecture behavior of MmcmPhaseLock is
       reset          => '0',
       resetCount     => '1',
       rstOut         => '1',
+      lockBypass     => (others=>'0'),
       psEn           => '0',
       psIncNdec      => '0',
       psState        => IDLE_S,
@@ -125,7 +128,7 @@ architecture behavior of MmcmPhaseLock is
    signal isyncIn, syncOut          : sl;
    signal clkHigh                   : sl;
    signal arstIn                    : sl;
-   signal lockedS                   : sl;
+   signal lockedS                   : slv(lockedSync'range);
 
    signal ready : sl;
 
@@ -183,9 +186,10 @@ begin
          asyncRst => rstIn,
          syncRst  => arstIn);
 
-   U_SyncLocked : entity surf.Synchronizer
+   U_SyncLocked : entity surf.SynchronizerVector
       generic map (
-         TPD_G => TPD_G)
+         TPD_G   => TPD_G,
+         WIDTH_G => lockedSync'length )
       port map (
          clk     => axilClk,
          dataIn  => lockedSync,
@@ -286,7 +290,8 @@ begin
                v.sum      := (others => '0');
                v.minSum   := (others => '1');
                v.maxSum   := (others => '0');
-               if arstIn = '0' and locked = '1' and lockedS = '1' then
+               if (arstIn = '0' and locked = '1' and
+                   ((lockedS and not r.lockBypass) = not r.lockBypass)) then
                   v.pdState := SCAN_S;
                end if;
             when SCAN_S =>
@@ -365,6 +370,7 @@ begin
       ep.axiReadSlave.rdata := (others => '0');
 
       axiSlaveRegister (ep, toSlv(0, 12), 0, v.delaySet);
+      axiSlaveRegister (ep, toSlv(0, 12), 16, v.lockBypass);
       axiSlaveRegisterR(ep, toSlv(4, 12), 0, r.delayValue);
       axiSlaveRegisterR(ep, toSlv(4, 12), 16, DELAY_END);
       axiSlaveRegisterR(ep, toSlv(4, 12), 29, lockedS);

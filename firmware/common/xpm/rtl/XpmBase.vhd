@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-10-18
+-- Last update: 2020-11-04
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -53,6 +53,7 @@ entity XpmBase is
    generic (
       TPD_G               : time    := 1 ns;
       BUILD_INFO_G        : BuildInfoType;
+      USE_RTM_G           : boolean := true;
       USE_XTPG_G          : boolean := false;
       US_RX_ENABLE_INIT_G : boolean := true;
       CU_RX_ENABLE_INIT_G : boolean := false;
@@ -175,14 +176,15 @@ architecture top_level of XpmBase is
    signal ref156MHzClk : sl;
    signal ref156MHzRst : sl;
 
-   constant NUM_DS_LINKS_C : integer := 14;
+   constant NUM_DS_LINKS_C : integer := ite(USE_RTM_G,14,13);
+   constant NUM_FP_LINKS_C : integer := 14;
    constant NUM_BP_LINKS_C : integer := 6;
 
    signal xpmConfig : XpmConfigType;
    signal xpmStatus : XpmStatusType;
    signal bpStatus  : XpmBpLinkStatusArray(NUM_BP_LINKS_C downto 0);
    signal pllStatus : XpmPllStatusArray (1 downto 0);
-   signal pllLocked : sl;
+   signal pllLocked : slv(1 downto 0);
 
    signal dsClockP : slv(1 downto 0);
    signal dsClockN : slv(1 downto 0);
@@ -191,15 +193,15 @@ architecture top_level of XpmBase is
    signal idsTxP   : Slv7Array(1 downto 0);
    signal idsTxN   : Slv7Array(1 downto 0);
 
-   signal dsLinkStatus : XpmLinkStatusArray(NUM_DS_LINKS_C-1 downto 0);
-   signal dsTxData     : Slv16Array(NUM_DS_LINKS_C-1 downto 0);
-   signal dsTxDataK    : Slv2Array (NUM_DS_LINKS_C-1 downto 0);
-   signal dsRxData     : Slv16Array(NUM_DS_LINKS_C-1 downto 0);
-   signal dsRxDataK    : Slv2Array (NUM_DS_LINKS_C-1 downto 0);
-   signal dsRxClk      : slv (NUM_DS_LINKS_C-1 downto 0);
-   signal dsRxRst      : slv (NUM_DS_LINKS_C-1 downto 0);
-   signal dsRxErr      : slv (NUM_DS_LINKS_C-1 downto 0);
-   signal dsTxOutClk   : slv (NUM_DS_LINKS_C-1 downto 0);
+   signal dsLinkStatus : XpmLinkStatusArray(NUM_FP_LINKS_C-1 downto 0);
+   signal dsTxData     : Slv16Array(NUM_FP_LINKS_C-1 downto 0);
+   signal dsTxDataK    : Slv2Array (NUM_FP_LINKS_C-1 downto 0);
+   signal dsRxData     : Slv16Array(NUM_FP_LINKS_C-1 downto 0);
+   signal dsRxDataK    : Slv2Array (NUM_FP_LINKS_C-1 downto 0);
+   signal dsRxClk      : slv (NUM_FP_LINKS_C-1 downto 0);
+   signal dsRxRst      : slv (NUM_FP_LINKS_C-1 downto 0);
+   signal dsRxErr      : slv (NUM_FP_LINKS_C-1 downto 0);
+   signal dsTxOutClk   : slv (NUM_FP_LINKS_C-1 downto 0);
 
    signal bpRxLinkUp   : slv (NUM_BP_LINKS_C-1 downto 0);
    signal bpRxLinkFull : Slv16Array (NUM_BP_LINKS_C-1 downto 0);
@@ -209,8 +211,8 @@ architecture top_level of XpmBase is
    signal dbgChan   : slv(4 downto 0);
    signal dbgChanS  : slv(4 downto 0);
    signal ringData  : slv(19 downto 0);
-   signal ringDataI : Slv19Array(NUM_DS_LINKS_C-1 downto 0);
-   signal ringDataV : slv (NUM_DS_LINKS_C-1 downto 0);
+   signal ringDataI : Slv19Array(NUM_FP_LINKS_C-1 downto 0);
+   signal ringDataV : slv (NUM_FP_LINKS_C-1 downto 0);
 
    constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(5 downto 0) := genAxiLiteConfig(6, x"80000000", 23, 16);
 
@@ -247,6 +249,16 @@ architecture top_level of XpmBase is
    signal timingPhy : TimingPhyType;
    signal timingPhyId : slv(xpmConfig.paddr'range);
 
+   signal itimingTxP, itimingTxN : sl;
+   signal itimingRxP, itimingRxN : sl;
+
+   constant AMC_DS_LINKS_C : IntegerArray(1 downto 0) :=
+     ( ite(USE_RTM_G,7,6), 7 );
+   constant AMC_DS_FIRST_C : IntegerArray(1 downto 0) :=
+     ( AMC_DS_LINKS_C(0), 0 );
+   constant AMC_DS_LAST_C  : IntegerArray(1 downto 0) :=
+     ( AMC_DS_LINKS_C(0)+AMC_DS_LINKS_C(1)-1,
+       AMC_DS_LINKS_C(0)-1 );
 begin
 
    amcRstN <= "11";
@@ -282,6 +294,25 @@ begin
       end loop;
    end process;
 
+   GEN_RTM : if USE_RTM_G generate
+     itimingRxP <= timingRxP;
+     itimingRxN <= timingRxN;
+     timingTxP  <= itimingTxP;
+     timingTxN  <= itimingTxN;
+   end generate;
+   GEN_NO_RTM : if not USE_RTM_G generate
+     itimingRxP   <= idsRxP(1)(6);
+     itimingRxN   <= idsRxN(1)(6);
+     idsTxP(1)(6) <= itimingTxP;
+     idsTxN(1)(6) <= itimingTxN;
+     U_GTH : entity surf.Gthe3ChannelDummy
+       port map ( refClk   => dsClkBuf(0),
+                  gtRxP(0) => timingRxP,
+                  gtRxN(0) => timingRxN,
+                  gtTxP(0) => timingTxP,
+                  gtTxN(0) => timingTxN );
+   end generate;
+   
    U_XBAR : entity surf.AxiLiteCrossbar
       generic map (
          TPD_G              => TPD_G,
@@ -363,8 +394,8 @@ begin
          DIV     => "000",              -- Divide-by-1
          I       => dsTxOutClk(0));
 
-   pllLocked <= not (pllStatus(0).lol or pllStatus(1).lol or
-                     pllStatus(0).los or pllStatus(1).los);
+   pllLocked <= not (pllStatus(1).lol or pllStatus(1).los) &
+                not (pllStatus(0).lol or pllStatus(0).los);
 
    U_Phase : entity l2si.XpmPhase
       generic map (
@@ -431,14 +462,14 @@ begin
          -- Application Ports --
          -----------------------
          -- -- AMC's DS Ports
-         dsLinkStatus    => dsLinkStatus,
-         dsRxData        => dsRxData,
-         dsRxDataK       => dsRxDataK,
-         dsTxData        => dsTxData,
-         dsTxDataK       => dsTxDataK,
-         dsRxClk         => dsRxClk,
-         dsRxRst         => dsRxRst,
-         dsRxErr         => dsRxErr,
+         dsLinkStatus    => dsLinkStatus(NUM_DS_LINKS_C-1 downto 0),
+         dsRxData        => dsRxData    (NUM_DS_LINKS_C-1 downto 0),
+         dsRxDataK       => dsRxDataK   (NUM_DS_LINKS_C-1 downto 0),
+         dsTxData        => dsTxData    (NUM_DS_LINKS_C-1 downto 0),
+         dsTxDataK       => dsTxDataK   (NUM_DS_LINKS_C-1 downto 0),
+         dsRxClk         => dsRxClk     (NUM_DS_LINKS_C-1 downto 0),
+         dsRxRst         => dsRxRst     (NUM_DS_LINKS_C-1 downto 0),
+         dsRxErr         => dsRxErr     (NUM_DS_LINKS_C-1 downto 0),
          --  BP DS Ports
          bpTxData        => bpTxData (0),
          bpTxDataK       => bpTxDataK(0),
@@ -524,7 +555,8 @@ begin
    end generate;
 
    U_MasterMux : entity surf.AxiStreamMux
-     generic map ( NUM_SLAVES_G => 3 )
+     generic map ( NUM_SLAVES_G => 3,
+                   DEBUG_G => true )
      port map ( axisClk         => regClk,
                 axisRst         => regRst,
                 sAxisMasters(0) => seqMaster,
@@ -616,10 +648,10 @@ begin
          timingClkSel     => timingClkSel,
          timingRefClkInP  => timingRefClkInP,
          timingRefClkInN  => timingRefClkInN,
-         timingRxP        => timingRxP,
-         timingRxN        => timingRxN,
-         timingTxP        => timingTxP,
-         timingTxN        => timingTxN,
+         timingRxP        => itimingRxP,
+         timingRxN        => itimingRxN,
+         timingTxP        => itimingTxP,
+         timingTxN        => itimingTxN,
          -- Crossbar Ports
          xBarSin          => xBarSin,
          xBarSout         => xBarSout,
@@ -646,7 +678,7 @@ begin
    U_Reg : entity l2si.XpmReg
       generic map(
          TPD_G               => TPD_G,
-         NUM_DS_LINKS_G      => NUM_DS_LINKS_C,
+         NUM_DS_LINKS_G      => NUM_FP_LINKS_C,
          NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G)
@@ -682,30 +714,30 @@ begin
       U_Rcvr : entity l2si.XpmGthUltrascaleWrapper
          generic map (
             GTGCLKRX   => false,
-            NLINKS_G   => 7,
+            NLINKS_G   => AMC_DS_LINKS_C(i),
             USE_IBUFDS => true)
          port map (
             stableClk => regClk,
-            gtTxP     => idsTxP (i),
-            gtTxN     => idsTxN (i),
-            gtRxP     => idsRxP (i),
-            gtRxN     => idsRxN (i),
+            gtTxP     => idsTxP (i)(AMC_DS_LINKS_C(i)-1 downto 0),
+            gtTxN     => idsTxN (i)(AMC_DS_LINKS_C(i)-1 downto 0),
+            gtRxP     => idsRxP (i)(AMC_DS_LINKS_C(i)-1 downto 0),
+            gtRxN     => idsRxN (i)(AMC_DS_LINKS_C(i)-1 downto 0),
             devClkP   => dsClockP (i),
             devClkN   => dsClockN (i),
             devClkOut => dsClkBuf (i),
             devClkBuf => dsTxOutClk(7*i),
-            txData    => dsTxData (7*i+6 downto 7*i),
-            txDataK   => dsTxDataK (7*i+6 downto 7*i),
-            rxData    => dsRxData (7*i+6 downto 7*i),
-            rxDataK   => dsRxDataK (7*i+6 downto 7*i),
-            rxClk     => dsRxClk (7*i+6 downto 7*i),
-            rxRst     => dsRxRst (7*i+6 downto 7*i),
-            rxErr     => dsRxErr (7*i+6 downto 7*i),
+            txData    => dsTxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+            txDataK   => dsTxDataK (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+            rxData    => dsRxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+            rxDataK   => dsRxDataK (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+            rxClk     => dsRxClk   (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+            rxRst     => dsRxRst   (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+            rxErr     => dsRxErr   (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
 --                 txOutClk        => dsTxOutClk(7*i+6 downto 7*i),
             txClk     => open,
             txClkIn   => recTimingClk,
-            config    => xpmConfig.dsLink(7*i+6 downto 7*i),
-            status    => dsLinkStatus (7*i+6 downto 7*i));
+            config    => xpmConfig.dsLink(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+            status    => dsLinkStatus    (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)));
    end generate;
 
    U_SyncPaddrTx : entity surf.SynchronizerVector

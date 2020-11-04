@@ -19,7 +19,7 @@ export GIT_BYPASS = 1
 # PRJ_VERSION = 0x00000020 - Add transitions which can be inhibited by deadtime and group step limits
 # PRJ_VERSION = 0x00000021 - Add XpmMonitorStream
 ##########################################################################################
-export PRJ_VERSION = 0x00000020
+export PRJ_VERSION = 0x00000021
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
