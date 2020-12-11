@@ -23,7 +23,8 @@ library l2si;
 
 entity XpmPllClk is
    generic (
-      TPD_G : time := 1 ns);
+      TPD_G   : time    := 1 ns;
+      ASYNC_G : boolean := false );
    port (
       clkIn           : in  sl;
       rstIn           : in  sl;
@@ -118,6 +119,7 @@ begin
 --         CLKFBOUT_MULT_F_G => 3.0,
 --         CLKSYNC_DIV_G     => 2,
          NUM_LOCKS_G       => locked'length,
+         ASYNC_G           => ASYNC_G,
          SIMULATION_G      => false)
       port map (
          clkIn           => clkIn,

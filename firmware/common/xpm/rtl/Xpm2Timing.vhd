@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-03-31
+-- Last update: 2020-12-06
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -54,7 +54,8 @@ entity Xpm2Timing is
       SIMULATION_G     : boolean := false;
       USE_XTPG_G : boolean := false;
       US_RX_ENABLE_INIT_G : boolean := true;
-      CU_RX_ENABLE_INIT_G : boolean := false);
+      CU_RX_ENABLE_INIT_G : boolean := false;
+      CU_ASYNC_G          : boolean := false );
    port (
       -- AXI-Lite Interface (axilClk domain)
       axilClk         : in  sl;
@@ -317,9 +318,10 @@ begin
 
    U_InputSim : entity l2si.XpmInputSim
       generic map (
-         AXIL_BASE_ADDR_G => AXI_CROSSBAR_MASTERS_CONFIG_C(SIM_INDEX_C).baseAddr,
-         SIMULATION_G     => SIMULATION_G,
-         CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G)
+         AXIL_BASE_ADDR_G    => AXI_CROSSBAR_MASTERS_CONFIG_C(SIM_INDEX_C).baseAddr,
+         SIMULATION_G        => SIMULATION_G,
+         CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
+         CU_ASYNC_G          => CU_ASYNC_G )
       port map (
          axilClk         => axilClk,
          axilRst         => axilRst,

@@ -2,7 +2,7 @@
 -- File       : MmcmPhaseLock.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2017-02-04
--- Last update: 2020-12-09
+-- Last update: 2020-11-04
 -------------------------------------------------------------------------------
 -- Description: Application Core's Top Level
 --
@@ -40,7 +40,7 @@ entity MmcmPhaseLock is
       CLKFBOUT_MULT_F_G : real;
       CLKSYNC_DIV_G     : integer := 1;
       NUM_LOCKS_G       : integer := 1;
-      ASYNC_G           : boolean := false;
+      ASYNC_G           : boolea
       SIMULATION_G      : boolean := false);
    port (
       -- Clocks and resets
@@ -291,13 +291,12 @@ begin
                v.sum      := (others => '0');
                v.minSum   := (others => '1');
                v.maxSum   := (others => '0');
-               if (arstIn = '0' and locked = '1' and
-                   ((lockedS and not r.lockBypass) = not r.lockBypass)) then
+               if (arstIn = '0' and locked = '1') then
                   v.pdState := SCAN_S;
                end if;
-               if ASYNC_G then
-                  v.rstOut  := '0';
-                  v.pdState := RESET_S;
+               if ((lockedS and not r.lockBypass) = not r.lockBypass)) then
+               if r.lockBypass then
+                 
                end if;
             when SCAN_S =>
                v.resetCount := '1';

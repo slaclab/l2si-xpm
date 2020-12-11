@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-11-04
+-- Last update: 2020-12-07
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -53,7 +53,8 @@ entity XpmInputSim is
       TPD_G               : time    := 1 ns;
       AXIL_BASE_ADDR_G    : slv(31 downto 0);
       SIMULATION_G        : boolean := false;
-      CU_RX_ENABLE_INIT_G : boolean := false);
+      CU_RX_ENABLE_INIT_G : boolean := false;
+      CU_ASYNC_G          : boolean := false );
    port (
       -- AXI-Lite Interface (axilClk domain)
       axilClk         : in  sl;
@@ -94,7 +95,6 @@ architecture mapping of XpmInputSim is
    signal cuRstT     : slv(2 downto 0);
    signal cuSync     : slv(1 downto 0);
    signal mmcmRst    : sl;
-   signal cuRxReady  : sl;
    signal cuRxReadyN : sl;
    signal cuBeamCode : slv(7 downto 0);
 
@@ -147,19 +147,22 @@ architecture mapping of XpmInputSim is
       fiducialErr  : sl;
       fiducialErrL : sl;
       fiducialTest : slv(cuFiducialIntv'range);
+      cuRxReady    : sl;
    end record;
 
    constant CUREG_INIT_C : CuRegType := (
       fiducialErr  => '0',
       fiducialErrL => '0',
-      fiducialTest => (others => '0'));
+      fiducialTest => (others => '0'),
+      cuRxReady    => '0' );
 
    signal cr   : CuRegType := CUREG_INIT_C;
    signal crin : CuRegType;
 
    signal cuFiducialIntvS : slv(cuFiducialIntv'range);
    signal cuFiducialErrS  : sl;
-
+   signal phaseReset      : sl;
+   
 begin
 
    isimClk  <= timingClk;
@@ -167,7 +170,7 @@ begin
 
    GEN_CU_RX_ENABLE : if CU_RX_ENABLE_INIT_G = true generate
       simClk     <= cuClkT(2);
-      simClkRst  <= not cuRxReady;
+      simClkRst  <= not cr.cuRxReady;
       simLockedN <= cuRstT(2);
       simSync    <= mmcmRst;
    end generate;
@@ -200,36 +203,32 @@ begin
          mAxiReadMasters     => axilReadMasters,
          mAxiReadSlaves      => axilReadSlaves);
 
-   P_SyncMiniReset : process (cuRecClk, cuRecClkRst) is
-   begin
-      if cuRecClkRst = '1' then
-         cuRxReady <= '0' after TPD_G;
-      elsif rising_edge(cuRecClk) then
-         if cuFiducial = '1' then
-            cuRxReady <= '1' after TPD_G;
-         end if;
-      end if;
-   end process;
-
    --
    --  How to insure each of these lock at a fixed phase with respect to 71kHz
    --  strobe?
    --
    --  Measure phase offset at 71kHz and shift to a known value.
    --
+   GEN_SYNC: if not CU_ASYNC_G generate
+     phaseReset <= cuFiducial;
+   end generate GEN_SYNC;
+   GEN_ASYNC: if CU_ASYNC_G generate
+     phaseReset <= cuFiducial and not cr.cuRxReady;
+   end generate GEN_ASYNC;
+   
    BaseEnableDivider : entity lcls_timing_core.Divider
       generic map (
          TPD_G => TPD_G,
          Width => 11)
       port map (
          sysClk   => cuRecClk,
-         sysReset => cuFiducial,
-         enable   => cuRxReady,
+         sysReset => phaseReset,
+         enable   => cr.cuRxReady,
          clear    => '0',
          divisor  => toSlv(1666, 11),
          trigO    => mmcmRst);
 
-   cuRxReadyN <= not cuRxReady;
+   cuRxReadyN <= not cr.cuRxReady;
 
    U_MMCM0 : entity l2si.MmcmPhaseLock
       generic map (
@@ -337,7 +336,8 @@ begin
       -- translated LCLS2 stream
       U_XTPG : entity l2si.XpmStreamFromCu
          generic map (
-            TPD_G => TPD_G)
+           TPD_G   => TPD_G,
+           ASYNC_G => CU_ASYNC_G )
          port map (
             statusO   => tpgStatus,
             configI   => tpgConfig,
@@ -455,6 +455,7 @@ begin
       end if;
 
       if cuFiducial = '1' then
+         v.cuRxReady    := '1';
          v.fiducialErrL := cr.fiducialErr;
          v.fiducialErr  := '1';
          v.fiducialTest := (others => '0');

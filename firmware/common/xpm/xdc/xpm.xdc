@@ -235,6 +235,8 @@ set_false_path -to [get_cells -hierarchical -filter {NAME =~ *RX_ENABLE.SaltRx_I
 set_false_path -to [get_cells -hierarchical -filter {NAME =~ *RX_ENABLE.SaltRx_Inst/FIFO_TX/U_Fifo/U_Fifo/ONE_STAGE.Fifo_1xStage/NON_BUILT_IN_GEN.FIFO_ASYNC_Gen.FifoAsync_Inst/READ_RstSync/Synchronizer_1/GEN.ASYNC_RST.crossDomainSyncReg_reg[0]}]
 set_false_path -to [get_cells -hierarchical -filter {NAME =~ *RX_ENABLE.SaltRx_Inst/FIFO_TX/U_Fifo/U_Fifo/ONE_STAGE.Fifo_1xStage/NON_BUILT_IN_GEN.FIFO_ASYNC_Gen.FifoAsync_Inst/READ_RstSync/Synchronizer_1/GEN.ASYNC_RST.crossDomainSyncReg_reg[1]}]
 
+set_false_path -through [get_nets U_Base/U_Reg/U_MONSTREAM/axilRst]
+
 ##########################
 ## Misc. Configurations ##
 ##########################

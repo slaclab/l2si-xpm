@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-11-04
+-- Last update: 2020-12-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -57,6 +57,7 @@ entity XpmBase is
       USE_XTPG_G          : boolean := false;
       US_RX_ENABLE_INIT_G : boolean := true;
       CU_RX_ENABLE_INIT_G : boolean := false;
+      CU_ASYNC_G          : boolean := false;
       GEN_BP_G            : boolean := false);
    port (
       -----------------------
@@ -414,7 +415,8 @@ begin
 
    U_PLLCLK : entity l2si.XpmPllClk
       generic map (
-         TPD_G => TPD_G)
+         TPD_G   => TPD_G,
+         ASYNC_G => CU_ASYNC_G )
       port map (
          clkIn           => recTimingClk,
          rstIn           => recTimingRst,
@@ -573,7 +575,8 @@ begin
          BUILD_INFO_G        => BUILD_INFO_G,
          USE_XTPG_G          => USE_XTPG_G,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
-         CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G)
+         CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
+         CU_ASYNC_G          => CU_ASYNC_G )
       port map (
          ----------------------
          -- Top Level Interface

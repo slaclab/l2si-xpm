@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-06-13
+-- Last update: 2020-12-06
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -63,7 +63,8 @@ entity XpmCore is
       DIAGNOSTIC_CONFIG_G : AxiStreamConfigType := ssiAxiStreamConfig(4);
       USE_XTPG_G          : boolean             := false;
       US_RX_ENABLE_INIT_G : boolean             := true;
-      CU_RX_ENABLE_INIT_G : boolean             := false);
+      CU_RX_ENABLE_INIT_G : boolean             := false;
+      CU_ASYNC_G          : boolean             := false );
    port (
       ----------------------
       -- Top Level Interface
@@ -460,7 +461,8 @@ begin
          AXIL_BASE_ADDR_G    => TIMING_ADDR_C,
          USE_XTPG_G          => USE_XTPG_G,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
-         CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G)
+         CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
+         CU_ASYNC_G          => CU_ASYNC_G )
       port map (
          -- AXI-Lite Interface (axilClk domain)
          axilClk         => axilClk,

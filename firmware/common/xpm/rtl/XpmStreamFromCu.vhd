@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver  <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-11-09
--- Last update: 2020-07-27
+-- Last update: 2020-12-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -37,8 +37,14 @@ use l2si_core.CuTimingPkg.all;
 
 library l2si; 
 
+--  ASYNC_G indicates the cuTiming can come at anytime but never more
+--  frequent than once every two base periods, otherwise it is
+--  expected to come at multiples of the base period (config.baseDivisor).
+--  ASYNC_G will realign the cuTiming to the established base frequency.
+
 entity XpmStreamFromCu is
-  generic ( TPD_G : time := 1 ns );
+  generic ( TPD_G   : time    := 1 ns;
+            ASYNC_G : boolean := false );
   port (
     txClk      : in  sl;
     txRst      : in  sl;
@@ -61,7 +67,6 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
   signal frame : TimingMessageType := TIMING_MESSAGE_INIT_C;
 
   signal baseEnable   : sl;
-  signal cuTimingEdge : sl;
   
   constant FixedRateWidth : integer := 20;
   constant FixedRateDepth : integer := lcls_timing_core.TPGPkg.FIXEDRATEDEPTH;
@@ -80,7 +85,6 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
   
   type RegType is record
     baseEnable      : sl;
-    cuTimingV       : sl;
     beamRequest     : sl;
     pulseId         : slv(63 downto 0);
     timeStamp       : slv(63 downto 0);
@@ -93,11 +97,12 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
     bsaDone         : slv(19 downto 0);
     control         : Slv16Array(0 to 17);
     eventcode_redux : slv(15 downto 0);
+    running         : sl;
+    frame           : TimingMessageType;
   end record;
 
   constant REG_INIT_C : RegType := (
     baseEnable      => '0',
-    cuTimingV       => '0',
     beamRequest     => '0',
     pulseId         => (others=>'0'), 
     timeStamp       => (others=>'0'), 
@@ -109,13 +114,39 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
     bsaAvgDone      => (others=>'0'), 
     bsaDone         => (others=>'0'),
     control         => (others=>(others=>'0')),
-    eventcode_redux => (others=>'0') );
+    eventcode_redux => (others=>'0'),
+    running         => '0',
+    frame           => TIMING_MESSAGE_INIT_C );
 
   signal r   : RegType := REG_INIT_C;
   signal rin : RegType;
-  
+
+  constant DEBUG_C : boolean := true;
+
+  component ila_0
+    port (
+      clk    : in sl;
+      probe0 : in slv(255 downto 0));
+  end component;
 begin
 
+  GEN_DEBUG: if DEBUG_C generate
+    U_ILA : ila_0
+      port map (
+        clk                  => txClk,
+        probe0(15 downto  0) => r.frame.pulseId(15 downto 0),
+        probe0(31 downto 16) => r.frame.timeStamp(31 downto 16),
+        probe0(39 downto 32) => r.frame.control(0)(7 downto 0),
+        probe0(47 downto 40) => r.frame.control(2)(15 downto 8),
+        probe0(48)           => baseEnable,
+        probe0(49)           => syncReset,
+        probe0(50)           => advance,
+        probe0(51)           => istream.ready,
+        probe0(67 downto 52) => istream.data,
+        probe0(68)           => istream.last,
+        probe0(255 downto 69) => (others=>'0') );
+  end generate GEN_DEBUG;
+  
   stream    <= istream;
 --  streamId <= istreamId;
   iiadvance <= advance;
@@ -135,6 +166,14 @@ begin
 
   status.pulseId        <= frame.pulseId;
   status.timeStamp      <= frame.timeStamp;
+
+  GEN_SYNC: if not ASYNC_G generate
+    syncReset <= cuTimingV;
+  end generate GEN_SYNC;
+
+  GEN_ASYNC: if ASYNC_G generate
+    syncReset <= cuTimingV and not r.running;
+  end generate GEN_ASYNC;
   
   BaseEnableDivider : entity l2si.SyncDivider
     generic map (
@@ -142,7 +181,7 @@ begin
       Width => 16)
     port map (
       sysClk   => txClk,
-      sync     => cuTimingV,
+      sync     => syncReset,
       enable   => '1',
       divisor  => config.baseDivisor,
       trigO    => baseEnable);
@@ -166,27 +205,28 @@ begin
     port map ( txClk      => txClk,
                txRst      => txRst,
                fiducial   => baseEnable,
-               msg        => frame,
+               msg        => r.frame,
                advance    => iiadvance ,
                stream     => istream   ,
                streamId   => istreamId );
 
-  comb : process (txRst, r, config, baseEnable, beamCode, cuTiming, cuTimingV)
+  comb : process (txRst, r, config, baseEnable, beamCode, cuTiming, cuTimingV, frame)
     variable v          : RegType;
     variable i          : integer;
   begin  -- process
     v := r;
 
     v.baseEnable := baseEnable;
-    v.cuTimingV  := cuTimingV;
-    
+
     i := conv_integer(beamCode(7 downto 4));
     v.eventcode_redux := cuTiming.eventCodes(16*i+15 downto 16*i);
     
     if baseEnable = '1' then
-      v.timeStamp       := r.timeStamp+1;
+      v.running         := '1';
+      v.frame           := frame;
       v.pulseId         := r.pulseId+1;
       v.pulseId(63)     := '1';
+      v.timeStamp       := r.timeStamp+1;
       v.beamRequest     := '0';
       v.acRates         := (others=>'0');
       v.acTimeSlotPhase := r.acTimeSlotPhase+1;
@@ -195,34 +235,36 @@ begin
       v.bsaActive       := (others=>'0');
       v.bsaAvgDone      := (others=>'0');
       v.bsaDone         := (others=>'0');
-      if r.cuTimingV = '1' then
-        v.timeStamp     := cuTiming.epicsTime;
-        if r.eventcode_redux(conv_integer(beamCode(3 downto 0)))='1' then
-          v.beamRequest := '1';
-        end if;
-        for i in 1 to 6 loop
-          for j in 0 to 5 loop
-            if cuTiming.eventCodes(10*i+1+j)='1' then
-              v.acRates(j) := '1';
-            end if;
-          end loop;
-          if cuTiming.eventCodes(10*i+1)='1' then
-            v.acTimeSlot      := toSlv(i,3);
-            v.acTimeSlotPhase := (others=>'0');
-          end if;
-        end loop;
-        for i in 0 to 15 loop
-          v.control(i) := cuTiming.eventCodes(16*i+15 downto 16*i);
-        end loop;
-        v.bsaInit         := cuTiming.bsaInit;
-        v.bsaActive       := cuTiming.bsaActive;
-        v.bsaAvgDone      := cuTiming.bsaAvgDone;
-        v.bsaDone         := cuTiming.bsaInit;
-      end if;
     end if;
 
+    if cuTimingV='1' then
+      v.timeStamp     := cuTiming.epicsTime;
+      if r.eventcode_redux(conv_integer(beamCode(3 downto 0)))='1' then
+        v.beamRequest := '1';
+      end if;
+      for i in 1 to 6 loop
+        for j in 0 to 5 loop
+          if cuTiming.eventCodes(10*i+1+j)='1' then
+            v.acRates(j) := '1';
+          end if;
+        end loop;
+        if cuTiming.eventCodes(10*i+1)='1' then
+          v.acTimeSlot      := toSlv(i,3);
+          v.acTimeSlotPhase := (others=>'0');
+        end if;
+      end loop;
+      for i in 0 to 15 loop
+        v.control(i) := cuTiming.eventCodes(16*i+15 downto 16*i);
+      end loop;
+      v.bsaInit         := cuTiming.bsaInit;
+      v.bsaActive       := cuTiming.bsaActive;
+      v.bsaAvgDone      := cuTiming.bsaAvgDone;
+      v.bsaDone         := cuTiming.bsaInit;
+    end if;
+    
     if config.pulseIdWrEn = '1' then
       v.pulseId := config.pulseId;
+      v.running := '0';
     end if;
     
     if txRst = '1' then

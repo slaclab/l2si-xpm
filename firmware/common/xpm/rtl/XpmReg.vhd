@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-10-24
+-- Last update: 2020-12-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -117,6 +117,7 @@ architecture rtl of XpmReg is
       stepMaster     : AxiStreamMasterType;
       monStreamEnable: sl;
       monStreamPeriod: slv(26 downto 0);
+      l0Select_reset : sl;
    end record RegType;
 
    constant REG_INIT_C : RegType := (
@@ -144,7 +145,8 @@ architecture rtl of XpmReg is
       step           => (others=>STEP_INIT_C),
       stepMaster     => AxiStreamMasterInit(EMAC_AXIS_CONFIG_C),
       monStreamEnable=> '0',
-      monStreamPeriod=> toSlv(125000000,27) );
+      monStreamPeriod=> toSlv(125000000,27),
+      l0Select_reset => '0' );
 
    signal r    : RegType := REG_INIT_C;
    signal r_in : RegType;
@@ -179,7 +181,7 @@ architecture rtl of XpmReg is
    signal monClkSlow : slv (3 downto 0);
    signal monClkFast : slv (3 downto 0);
 
-   constant DEBUG_C : boolean := true;
+   constant DEBUG_C : boolean := false;
 
    signal p0InhCh  : sl;
    signal p0InhErr : sl;
@@ -199,6 +201,8 @@ architecture rtl of XpmReg is
          probe0 : in slv(255 downto 0));
    end component;
 
+   constant REMOVE_MONREG_C : boolean := true;
+   
 begin
 
    GEN_DBUG : if DEBUG_C generate
@@ -437,7 +441,7 @@ begin
 
       --  strobing signals only set by group registers
       for i in 0 to XPM_PARTITIONS_C-1 loop
-         v.config.partition(i).l0Select.reset := '0';
+         v.config.partition(i).l0Select.reset := r.l0Select_reset;
          v.config.partition(i).message.insert := '0';
       end loop;
       
@@ -501,15 +505,17 @@ begin
       axiSlaveRegister(axilEp, X"008", 30, v.linkCfg.rxReset);
       axiSlaveRegister(axilEp, X"008", 31, v.linkCfg.enable);
 
-      axiSlaveRegisterR(axilEp, X"00C", 0, r.linkStat.rxErrCnts);
-      axiSlaveRegisterR(axilEp, X"00C", 16, r.linkStat.txResetDone);
-      axiSlaveRegisterR(axilEp, X"00C", 17, r.linkStat.txReady);
-      axiSlaveRegisterR(axilEp, X"00C", 18, r.linkStat.rxResetDone);
-      axiSlaveRegisterR(axilEp, X"00C", 19, r.linkStat.rxReady);
-      axiSlaveRegisterR(axilEp, X"00C", 20, r.linkStat.rxIsXpm);
+      if not REMOVE_MONREG_C then
+        axiSlaveRegisterR(axilEp, X"00C", 0, r.linkStat.rxErrCnts);
+        axiSlaveRegisterR(axilEp, X"00C", 16, r.linkStat.txResetDone);
+        axiSlaveRegisterR(axilEp, X"00C", 17, r.linkStat.txReady);
+        axiSlaveRegisterR(axilEp, X"00C", 18, r.linkStat.rxResetDone);
+        axiSlaveRegisterR(axilEp, X"00C", 19, r.linkStat.rxReady);
+        axiSlaveRegisterR(axilEp, X"00C", 20, r.linkStat.rxIsXpm);
 
-      axiSlaveRegisterR(axilEp, X"010", 0, r.linkStat.rxRcvCnts);
-
+        axiSlaveRegisterR(axilEp, X"010", 0, r.linkStat.rxRcvCnts);
+      end if;
+      
       axiSlaveRegister(axilEp, X"014", 0, v.pllCfg.bwSel);
       axiSlaveRegister(axilEp, X"014", 4, v.pllCfg.frqTbl);
       axiSlaveRegister(axilEp, X"014", 8, v.pllCfg.frqSel);
@@ -518,12 +524,14 @@ begin
       axiSlaveRegister(axilEp, X"014", 21, v.pllCfg.dec);
       axiSlaveRegister(axilEp, X"014", 22, v.pllCfg.bypass);
       axiSlaveRegister(axilEp, X"014", 23, v.pllCfg.rstn);
-      axiSlaveRegisterR(axilEp, X"014", 24, muxSlVectorArray(pllCount, 2*ia+0));
-      axiSlaveRegisterR(axilEp, X"014", 27, pllStat(2*ia+0));
-      axiSlaveRegisterR(axilEp, X"014", 28, muxSlVectorArray(pllCount, 2*ia+1));
-      axiSlaveRegisterR(axilEp, X"014", 31, pllStat(2*ia+1));
-
-      --axiSlaveRegister (axilEp, X"018", 0, v.partitionCfg.l0Select.reset);
+      if not REMOVE_MONREG_C then
+        axiSlaveRegisterR(axilEp, X"014", 24, muxSlVectorArray(pllCount, 2*ia+0));
+        axiSlaveRegisterR(axilEp, X"014", 27, pllStat(2*ia+0));
+        axiSlaveRegisterR(axilEp, X"014", 28, muxSlVectorArray(pllCount, 2*ia+1));
+        axiSlaveRegisterR(axilEp, X"014", 31, pllStat(2*ia+1));
+      end if;
+      
+--      axiSlaveRegister (axilEp, X"018", 0, v.partitionCfg.l0Select.reset);
       axiSlaveRegister (axilEp, X"018", 16, v.partitionCfg.l0Select.enabled);
       axiSlaveRegister (axilEp, X"018", 30, v.partitionCfg.master);
       axiSlaveRegister (axilEp, X"018", 31, v.axilRdEn(ip));
@@ -531,11 +539,13 @@ begin
       axiSlaveRegister (axilEp, X"01C", 0, v.partitionCfg.l0Select.rateSel);
       axiSlaveRegister (axilEp, X"01C", 16, v.partitionCfg.l0Select.destSel);
 
-      axiSlaveRegisterR(axilEp, X"020", 0, s.partition(ip).l0Select.enabled);
-      axiSlaveRegisterR(axilEp, X"028", 0, s.partition(ip).l0Select.inhibited);
-      axiSlaveRegisterR(axilEp, X"030", 0, s.partition(ip).l0Select.num);
-      axiSlaveRegisterR(axilEp, X"038", 0, s.partition(ip).l0Select.numInh);
-      axiSlaveRegisterR(axilEp, X"040", 0, s.partition(ip).l0Select.numAcc);
+      if not REMOVE_MONREG_C then
+        axiSlaveRegisterR(axilEp, X"020", 0, s.partition(ip).l0Select.enabled);
+        axiSlaveRegisterR(axilEp, X"028", 0, s.partition(ip).l0Select.inhibited);
+        axiSlaveRegisterR(axilEp, X"030", 0, s.partition(ip).l0Select.num);
+        axiSlaveRegisterR(axilEp, X"038", 0, s.partition(ip).l0Select.numInh);
+        axiSlaveRegisterR(axilEp, X"040", 0, s.partition(ip).l0Select.numAcc);
+      end if;
       axiSlaveRegisterR(axilEp, X"048", 0, s.partition(ip).l1Select.numAcc);
 
       --axiSlaveRegister (axilEp, X"050",  0, v.partitionCfg.l1Select.clear);
@@ -545,13 +555,17 @@ begin
       --axiSlaveRegister (axilEp, X"054",  4, v.partitionCfg.l1Select.trigword);
       --axiSlaveRegister (axilEp, X"054", 16, v.partitionCfg.l1Select.trigwr);
 
+      axiSlaveRegister (axilEp, X"068", 0, v.l0Select_reset);
+      
       axiSlaveRegister (axilEp, X"06C", 0, v.partitionCfg.pipeline.depth_clks);
       axiSlaveRegister (axilEp, X"06C", 16, v.partitionCfg.pipeline.depth_fids);
 
       --axiSlaveRegister (axilEp, X"070", 15, v.partitionCfg.message.insert);
       axiSlaveRegister (axilEp, X"070",  0, v.partitionCfg.message.header);
 
-      axiSlaveRegisterR (axilEp, X"078", 0, r.linkStat.rxId);
+      if not REMOVE_MONREG_C then
+        axiSlaveRegisterR (axilEp, X"078", 0, r.linkStat.rxId);
+      end if;
 
       for j in r.partitionCfg.inhibit.setup'range loop
          axiSlaveRegister (axilEp, X"080" + toSlv(j*4, 12), 0, v.partitionCfg.inhibit.setup(j).interval);
@@ -559,20 +573,24 @@ begin
          axiSlaveRegister (axilEp, X"080" + toSlv(j*4, 12), 31, v.partitionCfg.inhibit.setup(j).enable);
       end loop;
 
-      for j in 0 to 31 loop
-         axiSlaveRegisterR (axilEp, X"090" + toSlv(j*4, 12), 0, r.partitionStat.inhibit.evcounts(j));
-      end loop;
+      if not REMOVE_MONREG_C then
+        for j in 0 to 31 loop
+          axiSlaveRegisterR (axilEp, X"090" + toSlv(j*4, 12), 0, r.partitionStat.inhibit.evcounts(j));
+        end loop;
+      end if;
 
-      for j in 0 to 3 loop
-         axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 0, monClkRate(j)(28 downto 0));
-         axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 29, monClkSlow(j));
-         axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 30, monClkFast(j));
-         axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 31, monClkLock(j));
-      end loop;
+      if not REMOVE_MONREG_C then
+        for j in 0 to 3 loop
+          axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 0, monClkRate(j)(28 downto 0));
+          axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 29, monClkSlow(j));
+          axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 30, monClkFast(j));
+          axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 31, monClkLock(j));
+        end loop;
 
-      for j in 0 to 31 loop
-         axiSlaveRegisterR (axilEp, X"120" + toSlv(j*4, 12), 0, r.partitionStat.inhibit.tmcounts(j));
-      end loop;
+        for j in 0 to 31 loop
+          axiSlaveRegisterR (axilEp, X"120" + toSlv(j*4, 12), 0, r.partitionStat.inhibit.tmcounts(j));
+        end loop;
+      end if;
 
       axiSlaveRegister (axilEp, X"1A0",  0, v.monStreamPeriod);
       axiSlaveRegister (axilEp, X"1A0", 31, v.monStreamEnable);
@@ -580,7 +598,7 @@ begin
       axiSlaveRegisterR(axilEp, X"1A8",  0, monIndex);
       axiSlaveRegisterR(axilEp, X"1A8", 31, monBusy);
       axiSlaveRegisterR(axilEp, X"1AC",  0, monId);
-      
+
       groupL0Reset   := (others => '0');
       groupL0Enable  := (others => '0');
       groupL0Disable := (others => '0');
