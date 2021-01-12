@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-12-08
+-- Last update: 2021-01-04
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -46,7 +46,8 @@ entity XpmReg is
       NUM_DS_LINKS_G      : integer;
       NUM_BP_LINKS_G      : integer;
       US_RX_ENABLE_INIT_G : boolean := true;
-      CU_RX_ENABLE_INIT_G : boolean := false);
+      CU_RX_ENABLE_INIT_G : boolean := false;
+      DSCLK_119MHZ_G      : boolean := false );
    port (
       axilClk         : in  sl;
       axilRst         : in  sl;
@@ -90,6 +91,17 @@ architecture rtl of XpmReg is
       groups   => (others=>'0') );
 
    type StepArray is array (natural range<>) of StepType;
+
+   constant XPM_PLL_INIT_C : XpmPllConfigType := (
+      bwSel  => "0111",
+      frqTbl => "10",
+      frqSel => ite(DSCLK_119MHZ_G, "01000010", "01101001"),  -- 120/185 MHz
+      rate   => "1010",
+      sfOut  => "0110",
+      inc    => '0',
+      dec    => '0',
+      bypass => '0',
+      rstn   => '1');
    
    type RegType is record
       state          : StateType;
@@ -133,7 +145,7 @@ architecture rtl of XpmReg is
       linkStat       => XPM_LINK_STATUS_INIT_C,
       partitionCfg   => XPM_PARTITION_CONFIG_INIT_C,
       partitionStat  => XPM_PARTITION_STATUS_INIT_C,
-      pllCfg         => XPM_PLL_CONFIG_INIT_C,
+      pllCfg         => XPM_PLL_INIT_C,
       inhibitCfg     => XPM_INHIBIT_CONFIG_INIT_C,
       axilReadSlave  => AXI_LITE_READ_SLAVE_INIT_C,
       axilWriteSlave => AXI_LITE_WRITE_SLAVE_INIT_C,

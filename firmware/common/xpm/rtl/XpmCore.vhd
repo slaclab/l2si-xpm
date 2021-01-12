@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-12-06
+-- Last update: 2021-01-04
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -64,7 +64,8 @@ entity XpmCore is
       USE_XTPG_G          : boolean             := false;
       US_RX_ENABLE_INIT_G : boolean             := true;
       CU_RX_ENABLE_INIT_G : boolean             := false;
-      CU_ASYNC_G          : boolean             := false );
+      CU_ASYNC_G          : boolean             := false;
+      L2_FROM_CU_G        : boolean             := false );
    port (
       ----------------------
       -- Top Level Interface
@@ -456,14 +457,44 @@ begin
    --------------
    -- Timing Core
    --------------
-   U_Timing : entity l2si.Xpm2Timing
-      generic map (
+   GEN_L2_FROM_CU: if L2_FROM_CU_G generate
+     U_Timing : entity l2si.Xpm2TimingFromUsRx
+       generic map (
+         AXIL_BASE_ADDR_G    => TIMING_ADDR_C )
+       port map (
+         -- AXI-Lite Interface (axilClk domain)
+         axilClk         => axilClk,
+         axilRst         => axilRst,
+         axilReadMaster  => timingReadMaster,
+         axilReadSlave   => timingReadSlave,
+         axilWriteMaster => timingWriteMaster,
+         axilWriteSlave  => timingWriteSlave,
+         usRefClk        => cuRefClk,
+         usRefClkRst     => axilRst,
+         usRecClk        => cuRxClk,
+         usRecClkRst     => cuRxRst,
+         usRxEnable      => '1',
+         usRx            => cuRx,
+         usRxStatus      => cuRxStatus,
+         usRxControl     => cuRxControl,
+         timingClk       => irecTimingClk,
+         timingRst       => recTimingRst,
+         timingLkN       => recTimingLkN,
+         timingStream    => recStream);
+
+     cuRecFiducial <= '0';
+     cuSync        <= '0';
+   end generate;
+   
+   NO_GEN_L2_FROM_CU: if not L2_FROM_CU_G generate
+     U_Timing : entity l2si.Xpm2Timing
+       generic map (
          AXIL_BASE_ADDR_G    => TIMING_ADDR_C,
          USE_XTPG_G          => USE_XTPG_G,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
          CU_ASYNC_G          => CU_ASYNC_G )
-      port map (
+       port map (
          -- AXI-Lite Interface (axilClk domain)
          axilClk         => axilClk,
          axilRst         => axilRst,
@@ -491,7 +522,8 @@ begin
          timingRst       => recTimingRst,
          timingLkN       => recTimingLkN,
          timingStream    => recStream);
-
+   end generate;
+   
    -------------------------------------------------------------------------------------------------
    -- Clock Buffers
    -------------------------------------------------------------------------------------------------

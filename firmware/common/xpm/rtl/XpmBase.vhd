@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-12-09
+-- Last update: 2021-01-12
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -53,11 +53,13 @@ entity XpmBase is
    generic (
       TPD_G               : time    := 1 ns;
       BUILD_INFO_G        : BuildInfoType;
-      USE_RTM_G           : boolean := true;
-      USE_XTPG_G          : boolean := false;
-      US_RX_ENABLE_INIT_G : boolean := true;
-      CU_RX_ENABLE_INIT_G : boolean := false;
-      CU_ASYNC_G          : boolean := false;
+      USE_RTM_G           : boolean := true;  -- Get LCLS2 input from RTM vs AMC
+      USE_XTPG_G          : boolean := false; -- 
+      US_RX_ENABLE_INIT_G : boolean := true;  -- Enable XPM upsteam input/feedback
+      CU_RX_ENABLE_INIT_G : boolean := false; -- Enable LCLS1 input via Xbar
+      CU_ASYNC_G          : boolean := false; -- Latch Cu input to nearest 1MHz
+                                              -- fiducial
+      L2_FROM_CU_G        : boolean := false; -- LCLS2 timing input via Xbar
       GEN_BP_G            : boolean := false);
    port (
       -----------------------
@@ -576,8 +578,9 @@ begin
          USE_XTPG_G          => USE_XTPG_G,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
-         CU_ASYNC_G          => CU_ASYNC_G )
-      port map (
+         CU_ASYNC_G          => CU_ASYNC_G,
+         L2_FROM_CU_G        => L2_FROM_CU_G )
+     port map (
          ----------------------
          -- Top Level Interface
          ----------------------
@@ -683,7 +686,8 @@ begin
          NUM_DS_LINKS_G      => NUM_FP_LINKS_C,
          NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
-         CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G)
+         CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
+         DSCLK_119MHZ_G      => L2_FROM_CU_G )
       port map (
          axilClk         => regClk,
          axilRst         => regRst,
