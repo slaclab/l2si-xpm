@@ -25,10 +25,10 @@ set_property -dict {PACKAGE_PIN AH13 IOSTANDARD LVDS_25} [get_ports timingRecClk
 set_property -dict {PACKAGE_PIN AJ13 IOSTANDARD LVDS_25} [get_ports timingRecClkOutN]
 set_property -dict {PACKAGE_PIN K22 IOSTANDARD LVCMOS25} [get_ports timingClkSel]
 
-set_property PACKAGE_PIN AJ3 [get_ports timingRxN]
 set_property PACKAGE_PIN AJ4 [get_ports timingRxP]
-set_property PACKAGE_PIN AK5 [get_ports timingTxN]
+set_property PACKAGE_PIN AJ3 [get_ports timingRxN]
 set_property PACKAGE_PIN AK6 [get_ports timingTxP]
+set_property PACKAGE_PIN AK5 [get_ports timingTxN]
 set_property PACKAGE_PIN Y5 [get_ports timingRefClkInN]
 set_property PACKAGE_PIN Y6 [get_ports timingRefClkInP]
 
@@ -206,6 +206,8 @@ set_property -dict { PACKAGE_PIN C16 IOSTANDARD SSTL15     OUTPUT_IMPEDANCE RDRV
 set_property -dict { PACKAGE_PIN K17 IOSTANDARD LVCMOS15 } [get_ports {ddrPwrEnL}]
 set_property -dict { PACKAGE_PIN K18 IOSTANDARD LVCMOS15 } [get_ports {ddrAlertL}]
 set_property -dict { PACKAGE_PIN J15 IOSTANDARD LVCMOS15 } [get_ports {ddrPg}]
+
+
 
 
 

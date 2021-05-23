@@ -5,11 +5,28 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-01-12
+-- Last update: 2021-05-22
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
 -- Description: Firmware Target's Top Level
+--
+-- This module may be configured in one of many ways depending upon the
+-- application:
+--
+-- "XTPG"     : 119MHz LCLS-1 timing is received via the crossbar.
+--              186MHz LCLS-2 timing is generated from the LCLS-1 input.
+-- "XPM"      : 186MHz LCLS-2 timing is received via the RTM (FPGA_0) inputs.
+-- "XTPG_UED" : 119MHz LCLS-1 timing is received via the front panel.
+--              186MHz LCLS-2 timing is generated from the LCLS-1 input.
+-- "XPM_UED"  : 119MHz LCLS-2 timing is received via the front panel.
+--
+-- The MGT clocking has the following constraints:
+-- timing,AMC0 ports can only be clocked by the timingRefClk (238/371 MHz)
+--      or the devClk ports.
+-- rtm,AMC1 ports can only be clocked by the genRefClk (reload with 371 MHz)
+--      or the devClk ports.
+-- The devClk ports are driven by a Si5317A PLL with the FPGA output
 -- 
 -- Note: Common-to-Application interface defined here (see URL below)
 --       https://confluence.slac.stanford.edu/x/rLyMCw
@@ -60,6 +77,7 @@ entity XpmBase is
       CU_ASYNC_G          : boolean := false; -- Latch Cu input to nearest 1MHz
                                               -- fiducial
       L2_FROM_CU_G        : boolean := false; -- LCLS2 timing input via Xbar
+      UED_MODE_G          : boolean := false;
       GEN_BP_G            : boolean := false);
    port (
       -----------------------
@@ -254,14 +272,25 @@ architecture top_level of XpmBase is
 
    signal itimingTxP, itimingTxN : sl;
    signal itimingRxP, itimingRxN : sl;
+   signal timingRefClk, itimingRefClk, timingRefClkGt : sl;
+   signal usRefClk, usRefClkO, usRefClkGt : sl;
+   
+   signal iusTxP, iusTxN : sl;
+   signal iusRxP, iusRxN : sl;
+   signal iusRefClk, iusRefClkGt : sl;
 
+   constant AMC_DS_PORT0_C : IntegerArray(1 downto 0) :=
+     ( 0, ite(USE_RTM_G,0,1) );
+   constant AMC_DS_PORTN_C : IntegerArray(1 downto 0) :=
+     ( 6, 6 );
+   
    constant AMC_DS_LINKS_C : IntegerArray(1 downto 0) :=
-     ( ite(USE_RTM_G,7,6), 7 );
+     ( 7, ite(USE_RTM_G,7,6) );
    constant AMC_DS_FIRST_C : IntegerArray(1 downto 0) :=
-     ( AMC_DS_LINKS_C(0), 0 );
+     ( AMC_DS_LINKS_C(0), ite(USE_RTM_G,1,0) );
    constant AMC_DS_LAST_C  : IntegerArray(1 downto 0) :=
-     ( AMC_DS_LINKS_C(0)+AMC_DS_LINKS_C(1)-1,
-       AMC_DS_LINKS_C(0)-1 );
+     ( AMC_DS_LINKS_C(1)+AMC_DS_FIRST_C(1)-1,
+       AMC_DS_LINKS_C(0)+AMC_DS_FIRST_C(0)-1 );
 begin
 
    amcRstN <= "11";
@@ -297,23 +326,101 @@ begin
       end loop;
    end process;
 
+   TIMREFCLK_IBUFDS_GTE3 : IBUFDS_GTE3
+     generic map (
+       REFCLK_EN_TX_PATH  => '0',
+       REFCLK_HROW_CK_SEL => "01",    -- 2'b01: ODIV2 = Divide-by-2 version of O
+       REFCLK_ICNTL_RX    => "00")
+     port map (
+       I     => timingRefClkInP,
+       IB    => timingRefClkInN,
+       CEB   => '0',
+       ODIV2 => itimingRefClk,   -- 119 MHz
+       O     => timingRefClkGt); -- 238 MHz
+
+   U_BUFG_GT : BUFG_GT
+     port map ( O       => timingRefClk,
+                CE      => '1',
+                CEMASK  => '1',
+                CLR     => '0',
+                CLRMASK => '1',
+                DIV     => "000",           -- Divide-by-1
+                I       => itimingRefClk );
+
+   TIMING_REFCLK_IBUFDS_GTE3 : IBUFDS_GTE3
+      generic map (
+         REFCLK_EN_TX_PATH  => '0',
+         REFCLK_HROW_CK_SEL => "01",    -- 2'b01: ODIV2 = Divide-by-2 version of O
+         REFCLK_ICNTL_RX    => "00")
+      port map (
+         I     => usClkP,
+         IB    => usClkN,
+         CEB   => '0',
+         ODIV2 => usRefClkO,
+         O     => usRefClkGt);
+
+   GEN_USREFCLK : if US_RX_ENABLE_INIT_G generate
+     U_USREFCLK : BUFG_GT
+       port map (I       => usRefClkO,
+                 CE      => '1',
+                 CEMASK  => '1',
+                 CLR     => '0',
+                 CLRMASK => '1',
+                 DIV     => "000",       -- Divide-by-
+                 O       => usRefClk);
+   end generate;
+
    GEN_RTM : if USE_RTM_G generate
-     itimingRxP <= timingRxP;
-     itimingRxN <= timingRxN;
-     timingTxP  <= itimingTxP;
-     timingTxN  <= itimingTxN;
+     itimingRxP  <= timingRxP;
+     itimingRxN  <= timingRxN;
+     timingTxP   <= itimingTxP;
+     timingTxN   <= itimingTxN;
+     iusRxP      <= usRxP;
+     iusRxN      <= usRxN;
+     usTxP       <= iusTxP;
+     usTxN       <= iusTxN;
+     iusRefClk   <= usRefClk;
+     iusRefClkGt <= usRefClkGt;
    end generate;
    GEN_NO_RTM : if not USE_RTM_G generate
-     itimingRxP   <= idsRxP(1)(6);
-     itimingRxN   <= idsRxN(1)(6);
-     idsTxP(1)(6) <= itimingTxP;
-     idsTxN(1)(6) <= itimingTxN;
-     U_GTH : entity surf.Gthe3ChannelDummy
-       port map ( refClk   => dsClkBuf(0),
-                  gtRxP(0) => timingRxP,
-                  gtRxN(0) => timingRxN,
-                  gtTxP(0) => timingTxP,
-                  gtTxN(0) => timingTxN );
+     --  No RTM
+     --  Is dsRx(0) CuTiming or UsTiming
+     GEN_US_RX: if US_RX_ENABLE_INIT_G generate
+       itimingRxP   <= timingRxP;
+       itimingRxN   <= timingRxN;
+       timingTxP    <= itimingTxP;
+       timingTxN    <= itimingTxN;
+       iusRxP       <= idsRxP(0)(0);
+       iusRxN       <= idsRxN(0)(0);
+       idsTxP(0)(0) <= iusTxP;
+       idsTxN(0)(0) <= iusTxN;
+       iusRefClk    <= timingRefClk;
+       iusRefClkGt  <= timingRefClkGt;
+       U_GTH : entity surf.Gthe3ChannelDummy
+         port map ( refClk   => dsClkBuf(1),
+                    gtRxP(0) => usRxP,
+                    gtRxN(0) => usRxN,
+                    gtTxP(0) => usTxP,
+                    gtTxN(0) => usTxN );
+     end generate GEN_US_RX;
+     GEN_CU_RX: if not US_RX_ENABLE_INIT_G generate
+       iusRxP       <= usRxP;
+       iusRxN       <= usRxN;
+       usTxP        <= iusTxP;
+       usTxN        <= iusTxN;
+       iusRefClk    <= usRefClk;
+       iusRefClkGt  <= usRefClkGt;
+       itimingRxP   <= idsRxP(0)(0);
+       itimingRxN   <= idsRxN(0)(0);
+       idsTxP(0)(0) <= itimingTxP;
+       idsTxN(0)(0) <= itimingTxN;
+       U_GTH : entity surf.Gthe3ChannelDummy
+         port map ( refClk   => dsClkBuf(0),
+                    gtRxP(0) => timingRxP,
+                    gtRxN(0) => timingRxN,
+                    gtTxP(0) => timingTxP,
+                    gtTxN(0) => timingTxN );
+     end generate GEN_CU_RX;
    end generate;
    
    U_XBAR : entity surf.AxiLiteCrossbar
@@ -579,7 +686,8 @@ begin
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
          CU_ASYNC_G          => CU_ASYNC_G,
-         L2_FROM_CU_G        => L2_FROM_CU_G )
+         L2_FROM_CU_G        => L2_FROM_CU_G,
+         UED_MODE_G          => UED_MODE_G )
      port map (
          ----------------------
          -- Top Level Interface
@@ -638,12 +746,12 @@ begin
          cuSync           => cuSync,
          -- LCLS-II Timing Ports
          usRxEnable       => usRxEnable,
-         usRxP            => usRxP,
-         usRxN            => usRxN,
-         usTxP            => usTxP,
-         usTxN            => usTxN,
-         usRefClkP        => usClkP,            -- GEN0 REF
-         usRefClkN        => usClkN,
+         usRxP            => iusRxP,
+         usRxN            => iusRxN,
+         usTxP            => iusTxP,
+         usTxN            => iusTxN,
+         usRefClk         => iusRefClk,
+         usRefClkGt       => iusRefClkGt,
          timingRecClkOutP => timingRecClkOutP,  -- to AMC PLL
          timingRecClkOutN => timingRecClkOutN,
          --
@@ -651,8 +759,8 @@ begin
          timingClkSda     => timingClkSda,
          -- Timing Reference (standalone system only)
          timingClkSel     => timingClkSel,
-         timingRefClkInP  => timingRefClkInP,
-         timingRefClkInN  => timingRefClkInN,
+         timingRefClkGt   => timingRefClkGt,
+         timingRefClk     => timingRefClk,
          timingRxP        => itimingRxP,
          timingRxN        => itimingRxN,
          timingTxP        => itimingTxP,
@@ -687,7 +795,8 @@ begin
          NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
-         DSCLK_119MHZ_G      => L2_FROM_CU_G )
+         STA_INTERVAL_C      => ite(UED_MODE_G, 500000, 910000),
+         DSCLK_119MHZ_G      => (L2_FROM_CU_G or UED_MODE_G) )
       port map (
          axilClk         => regClk,
          axilRst         => regRst,
@@ -710,7 +819,7 @@ begin
          monClk(0)       => bpMonClk,
          monClk(1)       => timingPhyClk,
          monClk(2)       => recTimingClk,
-         monClk(3)       => bpMonClk,
+         monClk(3)       => iusRefClk,
          config          => xpmConfig,
          usRxEnable      => usRxEnable,
          cuRxEnable      => cuRxEnable,
@@ -724,10 +833,10 @@ begin
             USE_IBUFDS => true)
          port map (
             stableClk => regClk,
-            gtTxP     => idsTxP (i)(AMC_DS_LINKS_C(i)-1 downto 0),
-            gtTxN     => idsTxN (i)(AMC_DS_LINKS_C(i)-1 downto 0),
-            gtRxP     => idsRxP (i)(AMC_DS_LINKS_C(i)-1 downto 0),
-            gtRxN     => idsRxN (i)(AMC_DS_LINKS_C(i)-1 downto 0),
+            gtTxP     => idsTxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
+            gtTxN     => idsTxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
+            gtRxP     => idsRxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
+            gtRxN     => idsRxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
             devClkP   => dsClockP (i),
             devClkN   => dsClockN (i),
             devClkOut => dsClkBuf (i),

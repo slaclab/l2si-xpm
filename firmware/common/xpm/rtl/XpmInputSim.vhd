@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2020-12-07
+-- Last update: 2021-03-07
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -162,7 +162,7 @@ architecture mapping of XpmInputSim is
    signal cuFiducialIntvS : slv(cuFiducialIntv'range);
    signal cuFiducialErrS  : sl;
    signal phaseReset      : sl;
-   
+
 begin
 
    isimClk  <= timingClk;

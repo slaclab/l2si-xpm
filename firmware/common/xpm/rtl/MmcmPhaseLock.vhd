@@ -2,7 +2,7 @@
 -- File       : MmcmPhaseLock.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2017-02-04
--- Last update: 2020-12-09
+-- Last update: 2021-05-13
 -------------------------------------------------------------------------------
 -- Description: Application Core's Top Level
 --
@@ -369,6 +369,7 @@ begin
 
       if arstIn = '1' then
          v := REG_INIT_C;
+         v.lockBypass := r.lockBypass;
       end if;
 
       axiSlaveWaitTxn(ep, axilWriteMaster, axilReadMaster, v.axilWriteSlave, v.axilReadSlave);

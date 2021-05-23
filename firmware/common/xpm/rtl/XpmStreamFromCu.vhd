@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver  <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-11-09
--- Last update: 2020-12-10
+-- Last update: 2021-03-31
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -88,6 +88,7 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
     beamRequest     : sl;
     pulseId         : slv(63 downto 0);
     timeStamp       : slv(63 downto 0);
+    dtimeStamp      : slv( 7 downto 0);
     acTimeSlot      : slv( 2 downto 0);
     acTimeSlotPhase : slv(11 downto 0);
     acRates         : slv( 5 downto 0);
@@ -99,6 +100,11 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
     eventcode_redux : slv(15 downto 0);
     running         : sl;
     frame           : TimingMessageType;
+    cuValid         : sl;
+    cuValidCount    : slv(7 downto 0);
+    cuValidCountL   : slv(7 downto 0);
+    cuValidPulse    : slv(11 downto 0);
+    cuValidPulseL   : slv(11 downto 0);
   end record;
 
   constant REG_INIT_C : RegType := (
@@ -106,6 +112,7 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
     beamRequest     => '0',
     pulseId         => (others=>'0'), 
     timeStamp       => (others=>'0'), 
+    dtimeStamp      => (others=>'0'), 
     acTimeSlot      => (others=>'0'), 
     acTimeSlotPhase => (others=>'0'),
     acRates         => (others=>'0'),
@@ -116,7 +123,12 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
     control         => (others=>(others=>'0')),
     eventcode_redux => (others=>'0'),
     running         => '0',
-    frame           => TIMING_MESSAGE_INIT_C );
+    frame           => TIMING_MESSAGE_INIT_C,
+    cuValid         => '0',
+    cuValidCount    => (others=>'0'),
+    cuValidCountL   => (others=>'0'),
+    cuValidPulse    => (others=>'0'),
+    cuValidPulseL   => (others=>'0') );
 
   signal r   : RegType := REG_INIT_C;
   signal rin : RegType;
@@ -144,7 +156,10 @@ begin
         probe0(51)           => istream.ready,
         probe0(67 downto 52) => istream.data,
         probe0(68)           => istream.last,
-        probe0(255 downto 69) => (others=>'0') );
+        probe0(76 downto 69) => r.cuValidCountL,
+        probe0(88 downto 77) => r.cuValidPulse,
+        probe0(96 downto 89) => r.dtimeStamp,
+        probe0(255 downto 97) => (others=>'0') );
   end generate GEN_DEBUG;
   
   stream    <= istream;
@@ -235,10 +250,21 @@ begin
       v.bsaActive       := (others=>'0');
       v.bsaAvgDone      := (others=>'0');
       v.bsaDone         := (others=>'0');
+      v.cuValid         := '0';
+      v.cuValidCountL   := r.cuValidCount;
+      v.cuValidPulse    := r.cuValidPulse+1;
+    elsif r.cuValid = '1' then
+      v.cuValidCount    := r.cuValidCount + 1;
     end if;
 
     if cuTimingV='1' then
+      v.cuValid       := '1';
+      v.cuValidCount  := (others=>'0');
+      v.cuValidPulse  := (others=>'0');
+      v.cuValidPulseL := r.cuValidPulse;
       v.timeStamp     := cuTiming.epicsTime;
+      v.dtimeStamp    := cuTiming.epicsTime(7 downto 0) -
+                         r.timeStamp       (7 downto 0);
       if r.eventcode_redux(conv_integer(beamCode(3 downto 0)))='1' then
         v.beamRequest := '1';
       end if;
@@ -266,7 +292,7 @@ begin
       v.pulseId := config.pulseId;
       v.running := '0';
     end if;
-    
+
     if txRst = '1' then
       v := REG_INIT_C;
       -- prevent reset of these registers

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-01-04
+-- Last update: 2021-05-23
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -47,6 +47,7 @@ entity XpmReg is
       NUM_BP_LINKS_G      : integer;
       US_RX_ENABLE_INIT_G : boolean := true;
       CU_RX_ENABLE_INIT_G : boolean := false;
+      STA_INTERVAL_C      : integer := 910000;
       DSCLK_119MHZ_G      : boolean := false );
    port (
       axilClk         : in  sl;
@@ -202,10 +203,10 @@ architecture rtl of XpmReg is
    signal step     : StepArray(XPM_PARTITIONS_C-1 downto 0);
    signal stepDone : slv      (XPM_PARTITIONS_C-1 downto 0);
 
-   signal monBusy  : sl;
-   signal monCount : slv(26 downto 0);
-   signal monId    : slv(31 downto 0);
-   signal monIndex : slv( 9 downto 0);
+   signal monBusy  : sl := '0';
+   signal monCount : slv(26 downto 0) := (others=>'0');
+   signal monId    : slv(31 downto 0) := (others=>'0');
+   signal monIndex : slv( 9 downto 0) := (others=>'0');
    
    component ila_0
       port (
@@ -699,7 +700,8 @@ begin
 -- Reset
 ----------------------------------------------------------------------------------------------
       if (axilRst = '1') then
-         v := REG_INIT_C;
+        v := REG_INIT_C;
+        v.config.pll := (others=>XPM_PLL_INIT_C);
       end if;
 
       r_in <= v;
@@ -731,9 +733,10 @@ begin
       -- Application Debug Interface (sysclk domain)
       obMonitorMaster => obMonitorMaster,
       obMonitorSlave  => obMonitorSlave );
+--   obMonitorMaster <= AXI_STREAM_MASTER_INIT_C;
    
    rcomb : process ( staRst, q, step, status ) is
-      constant STATUS_INTERVAL_C : slv(19 downto 0) := toSlv(910000-1, 20);
+      constant STATUS_INTERVAL_C : slv(19 downto 0) := toSlv(STA_INTERVAL_C-1, 20);
       variable v : QRegType;
    begin
       v := q;
@@ -782,7 +785,7 @@ begin
          port map ( clk     => staClk,
                     dataIn  => r.step(i).groups,
                     dataOut => step(i).groups );
-      U_SyncDone : entity surf.Synchronizer
+      U_SyncDone : entity surf.SynchronizerOneShot
          port map ( clk     => axilClk,
                     dataIn  => q.stepDone(i),
                     dataOut => stepDone(i) );

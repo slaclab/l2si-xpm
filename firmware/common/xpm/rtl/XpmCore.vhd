@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2021-01-04
+-- Last update: 2021-05-21
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -65,7 +65,8 @@ entity XpmCore is
       US_RX_ENABLE_INIT_G : boolean             := true;
       CU_RX_ENABLE_INIT_G : boolean             := false;
       CU_ASYNC_G          : boolean             := false;
-      L2_FROM_CU_G        : boolean             := false );
+      L2_FROM_CU_G        : boolean             := false;
+      UED_MODE_G          : boolean             := false );
    port (
       ----------------------
       -- Top Level Interface
@@ -133,8 +134,8 @@ entity XpmCore is
       usRxN            : in    sl;
       usTxP            : out   sl;
       usTxN            : out   sl;
-      usRefClkP        : in    sl;
-      usRefClkN        : in    sl;
+      usRefClk         : in    sl;
+      usRefClkGt       : in    sl;
       --
       timingRecClkOutP : out   sl;
       timingRecClkOutN : out   sl;
@@ -142,8 +143,8 @@ entity XpmCore is
       timingClkSda     : inout sl;
       -- Timing Reference
       timingClkSel     : out   sl;
-      timingRefClkInP  : in    sl;
-      timingRefClkInN  : in    sl;
+      timingRefClkGt   : in    sl;
+      timingRefClk     : in    sl;
       timingRxP        : in    sl;
       timingRxN        : in    sl;
       timingTxP        : out   sl;
@@ -228,8 +229,7 @@ architecture mapping of XpmCore is
    signal localIp    : slv(31 downto 0);
    signal localAppId : slv(15 downto 0);
 
-   signal timingDevClk, iiusRefClk        : sl;
-   signal iusRefClk, usRefClk, usRefClkGt : sl;
+   signal iusRefClk                       : sl;
    signal usRecClk, usRecClkRst           : sl;
    signal usTxOutClk                      : sl;
 
@@ -268,7 +268,7 @@ begin
    ipAddr       <= localIp;
    recTimingClk <= irecTimingClk;
    cuRecClk     <= cuRxClk;
-
+   
    GEN_BSI_OVERRIDE : if OVERRIDE_BSI_G = true generate
       localIp  <= IP_ADDR_G;
       localMac <= MAC_ADDR_G;
@@ -502,7 +502,7 @@ begin
          axilReadSlave   => timingReadSlave,
          axilWriteMaster => timingWriteMaster,
          axilWriteSlave  => timingWriteSlave,
-         usRefClk        => usRefClk,
+         usRefClk        => iusRefClk,
          usRefClkRst     => axilRst,
          usRecClk        => usRecClk,
          usRecClkRst     => usRecClkRst,
@@ -527,39 +527,20 @@ begin
    -------------------------------------------------------------------------------------------------
    -- Clock Buffers
    -------------------------------------------------------------------------------------------------
-   TIMING_REFCLK_IBUFDS_GTE3 : IBUFDS_GTE3
-      generic map (
-         REFCLK_EN_TX_PATH  => '0',
-         REFCLK_HROW_CK_SEL => "01",    -- 2'b01: ODIV2 = Divide-by-2 version of O
-         REFCLK_ICNTL_RX    => "00")
-      port map (
-         I     => usRefClkP,
-         IB    => usRefClkN,
-         CEB   => '0',
-         ODIV2 => iusRefClk,
-         O     => usRefClkGt);
+   timingClkSel <= '0'       when (CU_RX_ENABLE_INIT_G or UED_MODE_G) else '1';
 
-   timingClkSel <= '0'       when CU_RX_ENABLE_INIT_G else '1';
-
-   GEN_USREFCLK : if US_RX_ENABLE_INIT_G generate
-     U_USREFCLK : BUFG_GT
-       port map (I       => iusRefClk,
-                 CE      => '1',
-                 CEMASK  => '1',
-                 CLR     => '0',
-                 CLRMASK => '1',
-                 DIV     => "000",       -- Divide-by-
-                 O       => usRefClk);
+   GEN_USREFCLK   : if US_RX_ENABLE_INIT_G generate
+     iusRefClk <= usRefClk;
    end generate;
-
    GEN_NOUSREFCLK : if not US_RX_ENABLE_INIT_G generate
-     usRefClk <= timingDevClk;
+     iusRefClk <= timingRefClk;
    end generate;
    
    TimingGtCoreWrapper_1 : entity lcls_timing_core.TimingGtCoreWrapper
       generic map (ADDR_BITS_G      => 14,
                    AXIL_BASE_ADDR_G => DDR_ADDR_C,
-                   GTH_DRP_OFFSET_G => x"00004000")
+                   GTH_DRP_OFFSET_G => x"00004000",
+                   DEBUG_G          => true)
       port map (
          axilClk         => axilClk,
          axilRst         => axilRst,
@@ -608,9 +589,7 @@ begin
                 gtTxN           => timingTxN,
                 gtRxP           => timingRxP,  -- LCLS-I input
                 gtRxN           => timingRxN,
-                devClkOut       => timingDevClk,
-                timRefClkP      => timingRefClkInP,
-                timRefClkN      => timingRefClkInN,
+                timRefClkGt     => timingRefClkGt,
                 txData          => bpTxData,
                 txDataK         => bpTxDataK,
                 rxData          => cuRx,

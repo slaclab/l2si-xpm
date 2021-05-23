@@ -10,12 +10,12 @@
 ###################
 ## Carrier Ports ##
 ###################
-set_property PACKAGE_PIN AD15 [get_ports {fpgaclk_N[0]}]
 set_property PACKAGE_PIN AD16 [get_ports {fpgaclk_P[0]}]
+set_property PACKAGE_PIN AD15 [get_ports {fpgaclk_N[0]}]
 set_property PACKAGE_PIN AE17 [get_ports {fpgaclk_P[1]}]
 set_property PACKAGE_PIN AF17 [get_ports {fpgaclk_N[1]}]
-set_property PACKAGE_PIN AE15 [get_ports {fpgaclk_N[2]}]
 set_property PACKAGE_PIN AE16 [get_ports {fpgaclk_P[2]}]
+set_property PACKAGE_PIN AE15 [get_ports {fpgaclk_N[2]}]
 set_property PACKAGE_PIN AE18 [get_ports {fpgaclk_P[3]}]
 set_property PACKAGE_PIN AF18 [get_ports {fpgaclk_N[3]}]
 
@@ -79,9 +79,11 @@ set_property -dict {PACKAGE_PIN AD8 IOSTANDARD LVCMOS25} [get_ports {hsrSda[1][0
 set_property -dict {PACKAGE_PIN AE10 IOSTANDARD LVCMOS25} [get_ports {hsrSda[1][1]}]
 set_property -dict {PACKAGE_PIN AH8 IOSTANDARD LVCMOS25} [get_ports {hsrSda[1][2]}]
 
-set_property -dict {PACKAGE_PIN AP9  IOSTANDARD LVCMOS25} [get_ports {amcScl[1]}]
+set_property -dict {PACKAGE_PIN AP9 IOSTANDARD LVCMOS25} [get_ports {amcScl[1]}]
 set_property -dict {PACKAGE_PIN AL10 IOSTANDARD LVCMOS25} [get_ports {amcSda[1]}]
 set_property -dict {PACKAGE_PIN AM10 IOSTANDARD LVCMOS25} [get_ports {amcRstN[1]}]
+
+
 
 
 

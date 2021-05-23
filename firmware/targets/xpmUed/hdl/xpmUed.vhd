@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-01-04
+-- Last update: 2021-05-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -143,7 +143,7 @@ begin
       TPD_G         =>       TPD_G         ,
       BUILD_INFO_G  =>       BUILD_INFO_G  ,
       USE_RTM_G     =>       false         ,
-      L2_FROM_CU_G  =>       true          )
+      UED_MODE_G    =>       true          ) -- 119MHz + long delays
    port map (
       -----------------------
       -- Application Ports --

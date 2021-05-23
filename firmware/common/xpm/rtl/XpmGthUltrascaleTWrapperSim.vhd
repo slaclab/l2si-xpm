@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-03-16
+-- Last update: 2021-04-03
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -49,11 +49,7 @@ entity XpmGthUltrascaleTWrapperSim is
       gtTxN            : out sl;
       gtRxP            : in  sl;
       gtRxN            : in  sl;
-      --  Transmit clocking
-      devClkOut        : out sl;
-      --  Receive clocking
-      timRefClkP       : in  sl;
-      timRefClkN       : in  sl;
+      timRefClkGt      : in  sl;
       --
       stableClk        : in  sl;
       txData           : in  slv(15 downto 0);
@@ -77,9 +73,6 @@ end XpmGthUltrascaleTWrapperSim;
 
 architecture rtl of XpmGthUltrascaleTWrapperSim is
 
-   signal icuRefClk      : sl;
-   signal cuRefClk       : sl;
-   signal cuRefClkGt     : sl;
    signal cuTxClk        : sl;
    signal cuRxClk        : sl;
    signal cuTx           : TimingPhyType := TIMING_PHY_INIT_C;
@@ -101,8 +94,6 @@ begin
   rxRst                <= not cuRxStatus.bufferByDone;
   tpgRst               <= not cuTxStatus.resetDone;
 
-  devClkOut            <= cuRefClk;
-    
   U_TPG : entity lcls_timing_core.TPGMiniStream
     generic map ( NUM_EDEFS => 1,
                   AC_PERIOD => 331534 )   -- 360Hz syncd to 71.4kHz
@@ -113,27 +104,6 @@ begin
                txRdy      => '1',
                txData     => cuTx.data,
                txDataK    => cuTx.dataK );
-
-  TIMREFCLK_IBUFDS_GTE3 : IBUFDS_GTE3
-    generic map (
-      REFCLK_EN_TX_PATH  => '0',
-      REFCLK_HROW_CK_SEL => "01",    -- 2'b01: ODIV2 = Divide-by-2 version of O
-      REFCLK_ICNTL_RX    => "00")
-    port map (
-      I     => timRefClkP,
-      IB    => timRefClkN,
-      CEB   => '0',
-      ODIV2 => icuRefClk,   -- 119 MHz
-      O     => cuRefClkGt); -- 238 MHz
-
-  U_BUFG_GT : BUFG_GT
-    port map ( O       => cuRefClk,
-               CE      => '1',
-               CEMASK  => '1',
-               CLR     => '0',
-               CLRMASK => '1',
-               DIV     => "000",           -- Divide-by-1
-               I       => icuRefClk );
 
   U_BpTx : entity lcls_timing_core.TimingGtCoreWrapper
     generic map ( ADDR_BITS_G       => 14,
@@ -149,7 +119,7 @@ begin
 
       stableClk       => regClk,
       stableRst       => regRst,
-      gtRefClk        => cuRefClkGt,
+      gtRefClk        => timRefClkGt,
       gtRefClkDiv2    => '0',
       gtRxP           => gtRxP,
       gtRxN           => gtRxN,

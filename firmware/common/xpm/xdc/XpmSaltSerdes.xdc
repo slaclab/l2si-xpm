@@ -133,3 +133,5 @@ set_property LOC BITSLICE_RX_TX_X0Y55  [get_cells -hier -filter {name =~ U_Base/
 
 
 
+
+
