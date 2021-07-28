@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2021-05-21
+-- Last update: 2021-07-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -539,8 +539,7 @@ begin
    TimingGtCoreWrapper_1 : entity lcls_timing_core.TimingGtCoreWrapper
       generic map (ADDR_BITS_G      => 14,
                    AXIL_BASE_ADDR_G => DDR_ADDR_C,
-                   GTH_DRP_OFFSET_G => x"00004000",
-                   DEBUG_G          => true)
+                   GTH_DRP_OFFSET_G => x"00004000")
       port map (
          axilClk         => axilClk,
          axilRst         => axilRst,
