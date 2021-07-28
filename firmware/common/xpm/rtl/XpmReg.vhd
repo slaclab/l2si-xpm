@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-05-23
+-- Last update: 2021-07-26
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -426,7 +426,6 @@ begin
    begin
       v                             := r;
       -- reset strobing signals
-      v.axilReadSlave.rdata         := (others => '0');
       v.tagSlave.tReady             := '1';
       v.partitionCfg.message.insert := '0';
 
@@ -478,7 +477,6 @@ begin
 
       -- Determine the transaction type
       axiSlaveWaitTxn(axilEp, axilWriteMaster, axilReadMaster, v.axilWriteSlave, v.axilReadSlave);
-      v.axilReadSlave.rdata := (others => '0');
 
       -- Read/write to the configuration registers
       -- Read only from status registers

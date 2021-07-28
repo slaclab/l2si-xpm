@@ -2,9 +2,10 @@ export OVERRIDE_SUBMODULE_LOCKS = 1
 export GIT_BYPASS = 1
 ##########################################################################################
 # Applications must define the 32-bitFirmware Version Number
+# PRJ_VERSION = 0x00000002 - Fix intermittent clearReadout
 # PRJ_VERSION = 0x00000001 - Initial version
 ##########################################################################################
-export PRJ_VERSION = 0x00000001
+export PRJ_VERSION = 0x00000002
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build

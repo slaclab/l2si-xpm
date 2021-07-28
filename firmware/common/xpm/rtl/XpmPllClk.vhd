@@ -24,7 +24,8 @@ library l2si;
 entity XpmPllClk is
    generic (
       TPD_G   : time    := 1 ns;
-      ASYNC_G : boolean := false );
+      ASYNC_G : boolean := false;
+      MODE_G  : string  := "186M" );    -- "119M" for LCLS1
    port (
       clkIn           : in  sl;
       rstIn           : in  sl;
@@ -112,12 +113,9 @@ begin
    U_MMCM : entity l2si.MmcmPhaseLock
       generic map (
          TPD_G             => TPD_G,
-         CLKIN_PERIOD_G    => 5.4,
-         CLKOUT_DIVIDE_F_G => 6.0,
-         CLKFBOUT_MULT_F_G => 6.0,
---         CLKOUT_DIVIDE_F_G => 3.0,
---         CLKFBOUT_MULT_F_G => 3.0,
---         CLKSYNC_DIV_G     => 2,
+         CLKIN_PERIOD_G    => ite(MODE_G="186M",5.4,8.4),
+         CLKOUT_DIVIDE_F_G => ite(MODE_G="186M",6.0,10.0),
+         CLKFBOUT_MULT_F_G => ite(MODE_G="186M",6.0,10.0),
          NUM_LOCKS_G       => locked'length,
          ASYNC_G           => ASYNC_G,
          SIMULATION_G      => false)
