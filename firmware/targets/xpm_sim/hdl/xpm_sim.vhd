@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2021-06-28
+-- Last update: 2021-07-30
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -64,6 +64,7 @@ architecture top_level_app of xpm_sim is
    
    signal regClk         : sl;
    signal regRst         : sl;
+   signal axiRst         : sl;
 
    signal dsClk, dsRst : slv(NDsLinks-1 downto 0);
    signal dsRx       : TimingRxArray (NDsLinks-1 downto 0) := (others=>TIMING_RX_INIT_C);
@@ -124,6 +125,12 @@ architecture top_level_app of xpm_sim is
 
    signal temWriteMaster : AxiLiteWriteMasterType;
    signal temWriteSlave  : AxiLiteWriteSlaveType;
+
+   signal seqReadMaster  : AxiLiteReadMasterType;
+   signal seqReadSlave   : AxiLiteReadSlaveType;
+   signal seqWriteMaster : AxiLiteWriteMasterType;
+   signal seqWriteSlave  : AxiLiteWriteSlaveType;
+   signal seqWriteDone, seqWriteNotDone : sl;
    
 begin
 
@@ -136,9 +143,12 @@ begin
    process is
    begin
      regRst <= '1';
+     axiRst <= '1';
      xpmConfig.partition.l0Select.reset <= '1';
      wait for 100 ns;
      regRst <= '0';
+     wait for 100 ns;
+     axiRst <= '0';
      xpmConfig.partition.l0Select.reset <= '0';
      tpgConfig.pulseIdWrEn <= '0';
      wait for 180 us;
@@ -402,5 +412,43 @@ begin
          mAxisRst        => regRst,
          mAxisMaster     => detMaster,
          mAxisSlave      => detSlave);
+
+   U_SeqConfig : entity l2si.AxiLiteWriteMasterSim
+     generic map ( CMDS => (( addr  => x"00008000",
+                              value => x"00000001"),
+                            ( addr  => x"00008004",
+                              value => x"00000002")) )
+     port map ( clk    => regClk,
+                rst    => axiRst,
+                master => seqWriteMaster,
+                slave  => seqWriteSlave,
+                done   => seqWriteDone );
+
+   seqWriteNotDone <= not seqWriteDone;
      
+   U_SeqStatus : entity l2si.AxiLiteReadMasterSim
+     generic map ( CMDS => (x"00008000",
+                            x"00008004") )
+     port map ( clk    => regClk,
+                rst    => seqWriteNotDone,
+                master => seqReadMaster,
+                slave  => seqReadSlave,
+                done   => open );
+   
+   U_Seq : entity l2si_core.XpmSequence
+     port map (
+       axilClk          => regClk,
+       axilRst          => regRst,
+       axilReadMaster   => seqReadMaster,
+       axilReadSlave    => seqReadSlave,
+       axilWriteMaster  => seqWriteMaster,
+       axilWriteSlave   => seqWriteSlave,
+       obAppMaster      => open,
+       obAppSlave       => AXI_STREAM_SLAVE_INIT_C,
+       timingClk        => scClk,
+       timingRst        => scRst,
+       timingAdvance    => '0',
+       timingDataIn     => (others=>'0'),
+       timingDataOut    => open );
+
 end top_level_app;

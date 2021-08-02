@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2021-05-21
+-- Last update: 2021-07-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -192,7 +192,7 @@ architecture mapping of Xpm2Timing is
    signal c   : CuRegType := CUREG_INIT_C;
    signal cin : CuRegType;
 
-   constant DEBUG_C : boolean := true;
+   constant DEBUG_C : boolean := false;
 
    component ila_0
       port (

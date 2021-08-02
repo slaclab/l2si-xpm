@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-07-26
+-- Last update: 2021-07-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -185,7 +185,7 @@ architecture rtl of XpmReg is
    signal pllStat  : slv(2*XPM_NUM_AMCS_C-1 downto 0);
    signal pllCount : SlVectorArray(2*XPM_NUM_AMCS_C-1 downto 0, 2 downto 0);
 
-   signal s        : XpmStatusType;
+   signal s        : XpmStatusType := XPM_STATUS_INIT_C;
    signal linkStat : XpmLinkStatusType;
    signal staRst   : sl;
    
