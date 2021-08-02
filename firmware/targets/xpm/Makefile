@@ -1,5 +1,5 @@
-export OVERRIDE_SUBMODULE_LOCKS = 1
-export GIT_BYPASS = 1
+#export OVERRIDE_SUBMODULE_LOCKS = 1
+#export GIT_BYPASS = 1
 ##########################################################################################
 # Applications must define the 32-bitFirmware Version Number
 # PRJ_VERSION = 0x00000013 - Adopt TimingExtnPkg and factorization
@@ -18,8 +18,9 @@ export GIT_BYPASS = 1
 # PRJ_VERSION = 0x0000001F - Fix transition alignment across readout groups bug
 # PRJ_VERSION = 0x00000020 - Add transitions which can be inhibited by deadtime and group step limits
 # PRJ_VERSION = 0x00000021 - Add XpmMonitorStream
+# PRJ_VERSION = 0x00000022 - Fix XpmSequence register access
 ##########################################################################################
-export PRJ_VERSION = 0x00000021
+export PRJ_VERSION = 0x00000022
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
