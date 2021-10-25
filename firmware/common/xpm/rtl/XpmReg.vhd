@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-07-28
+-- Last update: 2021-10-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -32,8 +32,8 @@ use surf.AxiStreamPkg.all;
 use surf.SsiPkg.all;
 use surf.EthMacPkg.all;
 
-library amc_carrier_core;
-use amc_carrier_core.AmcCarrierPkg.all;  -- ETH_AXIS_CONFIG_C
+--library amc_carrier_core;
+--use amc_carrier_core.AmcCarrierPkg.all;  -- ETH_AXIS_CONFIG_C
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
@@ -48,7 +48,9 @@ entity XpmReg is
       US_RX_ENABLE_INIT_G : boolean := true;
       CU_RX_ENABLE_INIT_G : boolean := false;
       STA_INTERVAL_C      : integer := 910000;
-      DSCLK_119MHZ_G      : boolean := false );
+      DSCLK_119MHZ_G      : boolean := false;
+      REMOVE_MONREG_G     : boolean := true;
+      AXILCLK_FREQ_G      : integer := 125000000);
    port (
       axilClk         : in  sl;
       axilRst         : in  sl;
@@ -106,7 +108,6 @@ architecture rtl of XpmReg is
    
    type RegType is record
       state          : StateType;
-      tagSlave       : AxiStreamSlaveType;
       load           : sl;
       config         : XpmConfigType;
       partition      : slv(3 downto 0);
@@ -135,7 +136,6 @@ architecture rtl of XpmReg is
 
    constant REG_INIT_C : RegType := (
       state          => IDLE_S,
-      tagSlave       => AXI_STREAM_SLAVE_INIT_C,
       load           => '1',
       config         => XPM_CONFIG_INIT_C,
       partition      => (others => '0'),
@@ -158,7 +158,7 @@ architecture rtl of XpmReg is
       step           => (others=>STEP_INIT_C),
       stepMaster     => AxiStreamMasterInit(EMAC_AXIS_CONFIG_C),
       monStreamEnable=> '0',
-      monStreamPeriod=> toSlv(125000000,27),
+      monStreamPeriod=> toSlv(AXILCLK_FREQ_G,27),
       l0Select_reset => '0' );
 
    signal r    : RegType := REG_INIT_C;
@@ -177,9 +177,6 @@ architecture rtl of XpmReg is
    
    signal q    : QRegType := QREG_INIT_C;
    signal q_in : QRegType;
-
-   constant TAG_AXIS_CONFIG_C : AxiStreamConfigType := ssiAxiStreamConfig(8);
-   signal tagMaster           : AxiStreamMasterType;
 
    signal pll_stat : slv(2*XPM_NUM_AMCS_C-1 downto 0);
    signal pllStat  : slv(2*XPM_NUM_AMCS_C-1 downto 0);
@@ -214,8 +211,6 @@ architecture rtl of XpmReg is
          probe0 : in slv(255 downto 0));
    end component;
 
-   constant REMOVE_MONREG_C : boolean := true;
-   
 begin
 
    GEN_DBUG : if DEBUG_C generate
@@ -258,12 +253,13 @@ begin
    usRxEnable     <= r.usRxEnable;
    cuRxEnable     <= r.cuRxEnable;
    obDebugMaster  <= r.stepMaster;
-   
+   ibDebugSlave   <= AXI_STREAM_SLAVE_FORCE_C;
+     
    GEN_MONCLK : for i in 0 to 3 generate
       U_SYNC : entity surf.SyncClockFreq
          generic map (
             TPD_G             => TPD_G,
-            REF_CLK_FREQ_G    => 125.00E+6,
+            REF_CLK_FREQ_G    => real(AXILCLK_FREQ_G),
             CLK_LOWER_LIMIT_G => 95.0E+6,
             CLK_UPPER_LIMIT_G => 186.0E+6)
          port map (
@@ -394,22 +390,7 @@ begin
          wrClk        => axilClk,
          rdClk        => axilClk);
 
-   U_AnalysisFifo : entity surf.AxiStreamFifo
-      generic map (
-         TPD_G               => TPD_G,
-         SLAVE_AXI_CONFIG_G  => AXIS_8BYTE_CONFIG_C,
-         MASTER_AXI_CONFIG_G => TAG_AXIS_CONFIG_C)
-      port map (
-         sAxisClk    => axilClk,
-         sAxisRst    => axilRst,
-         sAxisMaster => ibDebugMaster,
-         sAxisSlave  => ibDebugSlave,
-         mAxisClk    => axilClk,
-         mAxisRst    => axilRst,
-         mAxisMaster => tagMaster,
-         mAxisSlave  => r_in.tagSlave);
-
-   comb : process (r, axilReadMaster, axilWriteMaster, tagMaster, status, s, axilRst,
+   comb : process (r, axilReadMaster, axilWriteMaster, status, s, axilRst,
                    pllCount, pllStat, groupLinkClear, stepDone, obDebugSlave,
                    monClkRate, monClkLock, monClkFast, monClkSlow,
                    monCount, monIndex, monBusy, monId) is
@@ -426,7 +407,6 @@ begin
    begin
       v                             := r;
       -- reset strobing signals
-      v.tagSlave.tReady             := '1';
       v.partitionCfg.message.insert := '0';
 
       ip := conv_integer(r.partition);
@@ -516,7 +496,7 @@ begin
       axiSlaveRegister(axilEp, X"008", 30, v.linkCfg.rxReset);
       axiSlaveRegister(axilEp, X"008", 31, v.linkCfg.enable);
 
-      if not REMOVE_MONREG_C then
+      if not REMOVE_MONREG_G then
         axiSlaveRegisterR(axilEp, X"00C", 0, r.linkStat.rxErrCnts);
         axiSlaveRegisterR(axilEp, X"00C", 16, r.linkStat.txResetDone);
         axiSlaveRegisterR(axilEp, X"00C", 17, r.linkStat.txReady);
@@ -535,7 +515,7 @@ begin
       axiSlaveRegister(axilEp, X"014", 21, v.pllCfg.dec);
       axiSlaveRegister(axilEp, X"014", 22, v.pllCfg.bypass);
       axiSlaveRegister(axilEp, X"014", 23, v.pllCfg.rstn);
-      if not REMOVE_MONREG_C then
+      if not REMOVE_MONREG_G then
         axiSlaveRegisterR(axilEp, X"014", 24, muxSlVectorArray(pllCount, 2*ia+0));
         axiSlaveRegisterR(axilEp, X"014", 27, pllStat(2*ia+0));
         axiSlaveRegisterR(axilEp, X"014", 28, muxSlVectorArray(pllCount, 2*ia+1));
@@ -550,7 +530,7 @@ begin
       axiSlaveRegister (axilEp, X"01C", 0, v.partitionCfg.l0Select.rateSel);
       axiSlaveRegister (axilEp, X"01C", 16, v.partitionCfg.l0Select.destSel);
 
-      if not REMOVE_MONREG_C then
+      if not REMOVE_MONREG_G then
         axiSlaveRegisterR(axilEp, X"020", 0, s.partition(ip).l0Select.enabled);
         axiSlaveRegisterR(axilEp, X"028", 0, s.partition(ip).l0Select.inhibited);
         axiSlaveRegisterR(axilEp, X"030", 0, s.partition(ip).l0Select.num);
@@ -574,7 +554,7 @@ begin
       --axiSlaveRegister (axilEp, X"070", 15, v.partitionCfg.message.insert);
       axiSlaveRegister (axilEp, X"070",  0, v.partitionCfg.message.header);
 
-      if not REMOVE_MONREG_C then
+      if not REMOVE_MONREG_G then
         axiSlaveRegisterR (axilEp, X"078", 0, r.linkStat.rxId);
       end if;
 
@@ -584,13 +564,13 @@ begin
          axiSlaveRegister (axilEp, X"080" + toSlv(j*4, 12), 31, v.partitionCfg.inhibit.setup(j).enable);
       end loop;
 
-      if not REMOVE_MONREG_C then
+      if not REMOVE_MONREG_G then
         for j in 0 to 31 loop
           axiSlaveRegisterR (axilEp, X"090" + toSlv(j*4, 12), 0, r.partitionStat.inhibit.evcounts(j));
         end loop;
       end if;
 
-      if not REMOVE_MONREG_C then
+      if not REMOVE_MONREG_G then
         for j in 0 to 3 loop
           axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 0, monClkRate(j)(28 downto 0));
           axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 29, monClkSlow(j));
@@ -681,15 +661,6 @@ begin
 --elsif r.partitionCfg.analysis.push(1)='1' then
 --  v.anaWrCount(ip) := r.anaWrCount(ip)+1;
 --end if;
-
---if r.config.tagstream='0' then
---  v.tagSlave.tReady := '0';
---elsif tagMaster.tValid='1' then
---  ip := conv_integer(tagMaster.tDest(3 downto 0));
---  v.config.partition(ip).analysis.tag  := tagMaster.tData(31 downto  0);
---  v.config.partition(ip).analysis.push := tagMaster.tData(35 downto 34);
---end if;
-      v.tagSlave.tReady := '0';
 
 -- Set the status
       axiSlaveDefault(axilEp, v.axilWriteSlave, v.axilReadSlave);

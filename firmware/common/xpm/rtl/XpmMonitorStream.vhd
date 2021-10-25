@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2020-11-03
+-- Last update: 2021-10-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -32,8 +32,8 @@ use surf.AxiStreamPkg.all;
 use surf.SsiPkg.all;
 use surf.EthMacPkg.all;
 
-library amc_carrier_core;
-use amc_carrier_core.AmcCarrierPkg.all;  -- ETH_AXIS_CONFIG_C
+--library amc_carrier_core;
+--use amc_carrier_core.AmcCarrierPkg.all;  -- ETH_AXIS_CONFIG_C
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
@@ -106,6 +106,7 @@ architecture rtl of XpmMonitorStream is
       count          : slv(period'range);
       id             : slv(15 downto 0);
       index          : integer range 0 to LAST_WORD_C;
+      dataL          : sl;
       data           : slv(XPM_STATUS_BITS_C-1 downto 0);
       master         : AxiStreamMasterType;
    end record RegType;
@@ -115,12 +116,15 @@ architecture rtl of XpmMonitorStream is
       count          => (others => '0'),
       id             => (others => '0'),
       index          => 0,
+      dataL          => '0',
       data           => (others => '0'),
       master         => AxiStreamMasterInit(EMAC_AXIS_CONFIG_C) );
 
    signal r    : RegType := REG_INIT_C;
    signal r_in : RegType;
 
+   signal dataL : sl;
+   
 begin
 
   busy  <= r.busy;
@@ -128,6 +132,11 @@ begin
   id    <= x"0000" & r.id;
   index <= toSlv(r.index,10);
   obMonitorMaster <= r.master;
+
+  U_DATAL : BUFG
+    port map (
+      I => r.dataL,
+      O => dataL );
   
   GEN_L0 : for i in 0 to XPM_PARTITIONS_C-1 generate
     SYNC_L0 : entity surf.SynchronizerFifo
@@ -144,12 +153,14 @@ begin
   end generate GEN_L0;
   
   comb : process ( axilRst, r, enable, period, status, sL0Stats,
-                   pllCount, pllStat, monClkRate,
+                   pllCount, pllStat, monClkRate, dataL,
                    obMonitorSlave ) is
     variable v  : RegType;
   begin
     v := r;
 
+    v.dataL := '0';
+    
     if obMonitorSlave.tReady = '1' then
       v.master.tValid := '0';
     end if;
@@ -184,13 +195,17 @@ begin
         v.id    := r.id + 1;
         -- latch the whole thing here
         if r.busy = '0' then
-          v.data := toSlv(r.id, status, sL0Stats, pllCount, pllStat, monClkRate);
-          v.index := 0;
-          v.busy  := '1';
+          v.dataL := '1';
         end if;
       end if;
     else
       v.count := (others=>'0');
+    end if;
+
+    if dataL = '1' then
+      v.data := toSlv(r.id, status, sL0Stats, pllCount, pllStat, monClkRate);
+      v.index := 0;
+      v.busy  := '1';
     end if;
     
     if axilRst = '1' then

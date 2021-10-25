@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2019-10-28
+-- Last update: 2021-10-14
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -31,8 +31,8 @@ use surf.AxiLitePkg.all;
 use surf.AxiStreamPkg.all;
 use surf.SsiPkg.all;
 
-library amc_carrier_core;
-use amc_carrier_core.AmcCarrierPkg.all;             -- ETH_AXIS_CONFIG_C
+--library amc_carrier_core;
+--use amc_carrier_core.AmcCarrierPkg.all;             -- ETH_AXIS_CONFIG_C
 
 library l2si_core;
 use l2si_core.XpmPkg.all;

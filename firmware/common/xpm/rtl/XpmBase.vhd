@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-08-02
+-- Last update: 2021-10-14
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -61,8 +61,8 @@ use lcls_timing_core.TimingPkg.all;
 library l2si_core;
 use l2si_core.XpmPkg.all;
 
-library amc_carrier_core;
-use amc_carrier_core.AmcCarrierPkg.all;
+--library amc_carrier_core;
+--use amc_carrier_core.AmcCarrierPkg.all;
 
 library l2si;
 
@@ -287,7 +287,7 @@ architecture top_level of XpmBase is
    constant AMC_DS_LINKS_C : IntegerArray(1 downto 0) :=
      ( 7, ite(USE_RTM_G,7,6) );
    constant AMC_DS_FIRST_C : IntegerArray(1 downto 0) :=
-     ( AMC_DS_LINKS_C(0), ite(USE_RTM_G,0,1) );
+     ( 7, ite(USE_RTM_G,0,1) );
    constant AMC_DS_LAST_C  : IntegerArray(1 downto 0) :=
      ( AMC_DS_LINKS_C(1)+AMC_DS_FIRST_C(1)-1,
        AMC_DS_LINKS_C(0)+AMC_DS_FIRST_C(0)-1 );
