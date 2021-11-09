@@ -11,22 +11,105 @@
 import pyrogue as pr
 import rogue
 import click
+import struct
+import time
 
-import axipcie                as pcie
+import axipcie                as axipcie
 import l2si_xpm               as xpm
 
 rogue.Version.minVersion('5.1.0')
 # rogue.Version.exactVersion('5.1.0')
 
+#############################################
+# Debug console printout
+#############################################
+class DataDebug(rogue.interfaces.stream.Slave):
+
+    def __init__(self, name):
+        super().__init__()
+
+        self.name = name
+        self._rxErr = [0 for i in range(14)]
+        self._rxRcv = [0 for i in range(14)]
+
+    def _acceptFrame(self, frame):
+        print(f'DataDebug._acceptFrame')
+
+        fidPeriod   = 1400e-6/1300.
+    
+        with frame.lock():
+            size = frame.getPayload()
+
+            print(f'=== {time.asctime()} ==')
+
+            msg = bytearray(size)
+            frame.read(msg,0)
+
+            offset = 4
+            # LinkStatus
+            linkS = []
+            for i in range(14):
+                if i<8:
+                    w = struct.unpack_from('<LLL',msg,offset)
+                    u = (w[2]<<64) + (w[1]<<32) + w[0]
+                    d = {'Lane':i,'txDone':((u>>0)&1),'txRdy ':((u>>1)&1),'rxDone':((u>>2)&1),'rxRdy ':((u>>3)&1)}
+
+                    v = (u>>5)&0xffff
+                    d['rxErr '] = v-self._rxErr[i]
+                    self._rxErr[i] = v
+                
+                    v = (u>>21)&0xffffffff
+                    d['rxRcv '] = v-self._rxRcv[i]
+                    self._rxRcv[i] = v
+
+                    d['remId '] = (u>>54)&0xffffffff
+                    print(d)
+                offset += 12
+
+            # GroupStatus
+
+            def bytes2Int(msg,offset):
+                b = struct.unpack_from('<BBBBB',msg,offset)
+                offset += 5
+                w = 0
+                for i,v in enumerate(b):
+                    w += v<<(8*i)
+                return (w,offset)
+
+            for i in range(8):
+                for k in range(32):
+                    offset += 8
+                (l0Ena   ,offset) = bytes2Int(msg,offset)
+                (l0Inh   ,offset) = bytes2Int(msg,offset)
+                (numL0   ,offset) = bytes2Int(msg,offset)
+                (numL0Inh,offset) = bytes2Int(msg,offset)
+                (numL0Acc,offset) = bytes2Int(msg,offset)
+                offset += 1
+                rT = l0Ena*fidPeriod
+                d = {'Group':i,'L0Ena':l0Ena,'L0Inh':l0Inh,'NumL0':numL0,'rTim':rT}
+                print(d)
+
+            for i in range(2):
+                offset += 1
+
+            w = struct.unpack_from('<LLLL',msg,offset)
+            offset += 16
+            d = {'bpClk ':w[0]&0xfffffff,'fbClk ':w[1]&0xfffffff,'recClk':w[2]&0xfffffff,'phyClk':w[3]&0xfffffff}
+            print(d)
+
+                
 class DevRoot(pr.Root):
 
     def __init__(self,
                  dev            = None,
                  pollEn         = True,  # Enable automatic polling registers
                  initRead       = True,  # Read all registers at start of the system
-                 enableConfig   = True,
+                 dataDebug      = False,
+                 enableConfig   = False,
                  enVcMask       = 0x3, # Enable lane mask
                  **kwargs):
+
+        print(f'DevRoot dataDebug {dataDebug}')
 
         # Set local variables
         self.dev            = dev
@@ -53,18 +136,9 @@ class DevRoot(pr.Root):
         self.memMap.setName('PCIe_Bar0')
 
         # Instantiate the top level Device and pass it the memory map
-        self.add(pcie.AxiPcieCore(
+        self.add(xpm.DevPcie(
+            name        = 'Top',
             memBase     = self.memMap,
-            boardType   = 'Kcu1500',
-            useSpi      = True,
-            numDmaLanes = 1,
-            offset      = 0x0000_0000,
-        ))
-
-        self.add(xpm.Top(
-            name       = 'XPM',
-            memBase    = self.memMap,
-            offset     = 0x0080_0000,
         ))
 
         # Create empty list
@@ -84,6 +158,13 @@ class DevRoot(pr.Root):
                     else:
                         self.dmaStreams[lane][vc] = rogue.interfaces.stream.TcpClient('localhost', (8000+2)+(512*lane)+2*vc)
 
+                    if dataDebug:
+                        self._dbg[vc] = DataDebug(name='DataDebug')
+                        # Connect the streams
+                        self.dmaStreams[lane][vc] >> self._dbg[vc]
+
+        print(f'enVcMask {enVcMask} {self.enVcMask}')
+
         # Check if not doing simulation
         if (dev is not 'sim'):
 
@@ -99,18 +180,6 @@ class DevRoot(pr.Root):
                     # Connect DMA to SRPv3
                     self.dmaStreams[lane][0] = self._srp[lane]
 
-        # Create the stream interface
-        lane = 0
-        if True:
-
-            # Check if PGP[lane].VC[1] = Camera Image (streaming data) is enabled
-            if self.enVcMask[1]:
-
-                # Debug slave
-                if dataDebug:
-                    # Connect the streams
-                    self.dmaStreams[lane][1] >> self._dbg[lane]
-
         # Check if PGP[lane].VC[0] = SRPv3 (register access) is enabled
         if self.enVcMask[0]:
             self.add(pr.LocalVariable(
@@ -122,6 +191,8 @@ class DevRoot(pr.Root):
 
     def start(self, **kwargs):
         super().start(**kwargs)
+
+        self.Top.start()
 
 #        # Hide all the "enable" variables
 #        for enableList in self.find(typ=pr.EnableVariable):

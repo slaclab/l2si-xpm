@@ -15,6 +15,7 @@ import time
 import argparse
 import importlib
 import rogue
+import pyrogue.gui
 
 if __name__ == "__main__":
 
@@ -51,6 +52,14 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--dataDebug",
+        type     = argBool,
+        required = False,
+        default  = True,
+        help     = "Debug DMA data",
+    )
+
+    parser.add_argument(
         "--serverPort",
         type     = int,
         required = False,
@@ -70,7 +79,7 @@ if __name__ == "__main__":
         "--enVcMask",
         type     = lambda x: int(x,0), # "auto_int" function for hex arguments
         required = False,
-        default  = 0xD,
+        default  = 0xF,
         help     = "4-bit bitmask for selecting which VC's will be used",
     )
 
@@ -78,7 +87,7 @@ if __name__ == "__main__":
         "--guiType",
         type     = str,
         required = False,
-        default  = 'PyDM',
+        default  = 'PyQt',
         help     = "Sets the GUI type (PyDM or None)",
     )
 
@@ -89,8 +98,8 @@ if __name__ == "__main__":
 
     # First see if submodule packages are already in the python path
     try:
-        import axi_pcie_core
-        import lcls_timing_core
+        import axipcie
+        import LclsTimingCore
         import l2si_core
         import surf
 
@@ -110,7 +119,8 @@ if __name__ == "__main__":
             dev            = args.dev,
             pollEn         = args.pollEn,
             initRead       = args.initRead,
-            enableConfig   = args.enableConfig,
+            dataDebug      = args.dataDebug,
+#            enableConfig   = args.enableConfig,
             enVcMask       = args.enVcMask,
         ) as root:
 
@@ -124,6 +134,21 @@ if __name__ == "__main__":
                 sizeX = 800,
                 sizeY = 1000,
             )
+
+        #################
+        # Legacy PyQT GUI
+        #################
+        elif (args.guiType == 'PyQt'):
+
+            # Create GUI
+            appTop = pyrogue.gui.application(sys.argv)
+            guiTop = pyrogue.gui.GuiTop()
+            guiTop.addTree(root)
+            guiTop.resize(800, 1000)
+
+            # Run gui
+            appTop.exec_()
+            root.stop()
 
         #################
         # No GUI

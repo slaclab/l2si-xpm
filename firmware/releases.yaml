@@ -1,0 +1,32 @@
+
+GitBase: ..
+
+TopRoguePackage: l2si_xpm
+
+RoguePackages:
+  - submodules/axi-pcie-core/python
+  - submodules/l2si-core/python
+  - submodules/lcls-timing-core/python
+  - submodules/surf/python
+  - python     
+
+#RogueConfig:
+#  - ../software/config
+
+RogueScripts:
+  - submodules/axi-pcie-core/scripts/updatePcieFpga
+  - ../software/scripts/xpmGui
+
+Targets:
+  xpmGenKcu1500:
+    ImageDir: targets/xpmGenKcu1500/images
+    Extensions:
+      - mcs      
+
+Releases:
+  l2si_xpm:
+    Primary: True
+    Targets:
+      - xpmGenKcu1500
+    Types:
+      - Rogue

@@ -18,8 +18,8 @@
 #-----------------------------------------------------------------------------
 
 import pyrogue                 as pr
-import psdaq.pyxpm.xpm         as xpm
-from surf.devices.transceivers import Sff8472
+import l2si_xpm                as xpm
+#from surf.devices.transceivers import Sff8472
 
 class MpsSfpAmc(pr.Device):
 

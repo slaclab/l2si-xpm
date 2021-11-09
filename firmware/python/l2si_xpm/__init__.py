@@ -12,3 +12,7 @@ from ._GthRxAlignCheck import *
 from ._XpmApp import *
 from ._XpmPhase import *
 from ._XpmSequenceEngine import *
+from ._Si570 import *
+from ._AxiPcieCore import *
+from ._DevPcie import *
+from ._DevRoot import *
