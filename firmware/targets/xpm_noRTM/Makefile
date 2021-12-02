@@ -19,8 +19,9 @@
 # PRJ_VERSION = 0x00000020 - Add transitions which can be inhibited by deadtime and group step limits
 # PRJ_VERSION = 0x00000021 - Add XpmMonitorStream
 # PRJ_VERSION = 0x00000022 - Fix intermittent clearReadout
+# PRJ_VERSION = 0x00000023 - Keep messages synchronous across groups
 ##########################################################################################
-export PRJ_VERSION = 0x00000022
+export PRJ_VERSION = 0x00000023
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
