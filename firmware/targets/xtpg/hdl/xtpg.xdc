@@ -208,6 +208,6 @@ create_generated_clock -name simClk70 [get_pins U_Base/U_Core/NO_GEN_L2_FROM_CU.
 create_generated_clock -name simClk130 [get_pins U_Base/U_Core/NO_GEN_L2_FROM_CU.U_Timing/U_InputSim/U_MMCM1/U_MMCM/CLKOUT0]
 create_generated_clock -name simClk186 [get_pins U_Base/U_Core/NO_GEN_L2_FROM_CU.U_Timing/U_InputSim/U_MMCM2/U_MMCM/CLKOUT0]
 
-set_clock_groups -asynchronous -group [get_clocks cuRecClk] -group [get_clocks simClk186]
+set_clock_groups -asynchronous -group [get_clocks cuRecClk] -group [get_clocks simClk186] -group [get_clocks simClk130] -group [get_clocks simClk70]
 
 set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets U_Base/U_Core/U_Timing/U_InputSim/U_MMCM2/clkOut]
