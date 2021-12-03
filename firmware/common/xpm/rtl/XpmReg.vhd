@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-10-18
+-- Last update: 2021-12-03
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -522,7 +522,8 @@ begin
         axiSlaveRegisterR(axilEp, X"014", 31, pllStat(2*ia+1));
       end if;
       
---      axiSlaveRegister (axilEp, X"018", 0, v.partitionCfg.l0Select.reset);
+      axiSlaveRegister (axilEp, X"018", 0, v.partitionCfg.l0Select.reset);
+      axiSlaveRegister (axilEp, X"018", 8, v.partitionCfg.l0Select.groups);
       axiSlaveRegister (axilEp, X"018", 16, v.partitionCfg.l0Select.enabled);
       axiSlaveRegister (axilEp, X"018", 30, v.partitionCfg.master);
       axiSlaveRegister (axilEp, X"018", 31, v.axilRdEn(ip));
