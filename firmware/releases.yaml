@@ -22,11 +22,26 @@ Targets:
     ImageDir: targets/xpmGenKcu1500/images
     Extensions:
       - mcs      
+  xtpg:
+    ImageDir: targets/xtpg/images
+    Extensions:
+      - mcs
+  xpm_noRTM:
+    ImageDir: targets/xpm_noRTM/images
+    Extensions:
+      - mcs
+  xpmUed:
+    ImageDir: targets/xpmUed/images
+    Extensions:
+      - mcs
 
 Releases:
   l2si_xpm:
     Primary: True
     Targets:
       - xpmGenKcu1500
+      - xtpg
+      - xpm_noRTM
+      - xpmUed
     Types:
       - Rogue
