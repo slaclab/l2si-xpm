@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-10-14
+-- Last update: 2021-12-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -197,7 +197,6 @@ architecture top_level of XpmBase is
    signal ref156MHzClk : sl;
    signal ref156MHzRst : sl;
 
-   constant NUM_DS_LINKS_C : integer := ite(USE_RTM_G,14,13);
    constant NUM_FP_LINKS_C : integer := 14;
    constant NUM_BP_LINKS_C : integer := 6;
 
@@ -214,14 +213,14 @@ architecture top_level of XpmBase is
    signal idsTxP   : Slv7Array(1 downto 0);
    signal idsTxN   : Slv7Array(1 downto 0);
 
-   signal dsLinkStatus : XpmLinkStatusArray(NUM_FP_LINKS_C-1 downto 0);
+   signal dsLinkStatus : XpmLinkStatusArray(NUM_FP_LINKS_C-1 downto 0) := (others=>XPM_LINK_STATUS_INIT_C);
    signal dsTxData     : Slv16Array(NUM_FP_LINKS_C-1 downto 0);
    signal dsTxDataK    : Slv2Array (NUM_FP_LINKS_C-1 downto 0);
    signal dsRxData     : Slv16Array(NUM_FP_LINKS_C-1 downto 0);
    signal dsRxDataK    : Slv2Array (NUM_FP_LINKS_C-1 downto 0);
    signal dsRxClk      : slv (NUM_FP_LINKS_C-1 downto 0);
    signal dsRxRst      : slv (NUM_FP_LINKS_C-1 downto 0);
-   signal dsRxErr      : slv (NUM_FP_LINKS_C-1 downto 0);
+   signal dsRxErr      : slv (NUM_FP_LINKS_C-1 downto 0) := (others=>'0');
    signal dsTxOutClk   : slv (NUM_FP_LINKS_C-1 downto 0);
 
    signal bpRxLinkUp   : slv (NUM_BP_LINKS_C-1 downto 0);
@@ -481,7 +480,7 @@ begin
          dataIn  => dbgChan,
          dataOut => dbgChanS);
 
-   GEN_RINGD : for i in 0 to NUM_DS_LINKS_C-1 generate
+   GEN_RINGD : for i in 0 to NUM_FP_LINKS_C-1 generate
       U_Sync : entity surf.SynchronizerFifo
          generic map (
             TPD_G        => TPD_G,
@@ -595,7 +594,7 @@ begin
    U_Application : entity l2si_core.XpmApp
       generic map (
          TPD_G           => TPD_G,
-         NUM_DS_LINKS_G  => NUM_DS_LINKS_C,
+         NUM_FP_LINKS_G  => NUM_FP_LINKS_C,
          NUM_BP_LINKS_G  => NUM_BP_LINKS_C,
          AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(2).baseAddr)
       port map (
@@ -603,14 +602,14 @@ begin
          -- Application Ports --
          -----------------------
          -- -- AMC's DS Ports
-         dsLinkStatus    => dsLinkStatus(NUM_DS_LINKS_C-1 downto 0),
-         dsRxData        => dsRxData    (NUM_DS_LINKS_C-1 downto 0),
-         dsRxDataK       => dsRxDataK   (NUM_DS_LINKS_C-1 downto 0),
-         dsTxData        => dsTxData    (NUM_DS_LINKS_C-1 downto 0),
-         dsTxDataK       => dsTxDataK   (NUM_DS_LINKS_C-1 downto 0),
-         dsRxClk         => dsRxClk     (NUM_DS_LINKS_C-1 downto 0),
-         dsRxRst         => dsRxRst     (NUM_DS_LINKS_C-1 downto 0),
-         dsRxErr         => dsRxErr     (NUM_DS_LINKS_C-1 downto 0),
+         dsLinkStatus    => dsLinkStatus(NUM_FP_LINKS_C-1 downto 0),
+         dsRxData        => dsRxData    (NUM_FP_LINKS_C-1 downto 0),
+         dsRxDataK       => dsRxDataK   (NUM_FP_LINKS_C-1 downto 0),
+         dsTxData        => dsTxData    (NUM_FP_LINKS_C-1 downto 0),
+         dsTxDataK       => dsTxDataK   (NUM_FP_LINKS_C-1 downto 0),
+         dsRxClk         => dsRxClk     (NUM_FP_LINKS_C-1 downto 0),
+         dsRxRst         => dsRxRst     (NUM_FP_LINKS_C-1 downto 0),
+         dsRxErr         => dsRxErr     (NUM_FP_LINKS_C-1 downto 0),
          --  BP DS Ports
          bpTxData        => bpTxData (0),
          bpTxDataK       => bpTxDataK(0),
@@ -821,7 +820,7 @@ begin
    U_Reg : entity l2si.XpmReg
       generic map(
          TPD_G               => TPD_G,
-         NUM_DS_LINKS_G      => NUM_FP_LINKS_C,
+         NUM_FP_LINKS_G      => NUM_FP_LINKS_C,
          NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
@@ -885,6 +884,14 @@ begin
             status    => dsLinkStatus    (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)));
    end generate;
 
+   --
+   --  Need to clock unconnected channels for deadtime mask to work properly
+   --
+   GEN_RX0: if not USE_RTM_G generate
+     dsRxClk(0)      <= timingClk;
+     dsRxRst(0)      <= timingRst;
+   end generate GEN_RX0;
+  
    U_SyncPaddrTx : entity surf.SynchronizerVector
       generic map (
          TPD_G   => TPD_G,
