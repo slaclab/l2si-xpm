@@ -594,7 +594,7 @@ begin
    U_Application : entity l2si_core.XpmApp
       generic map (
          TPD_G           => TPD_G,
-         NUM_FP_LINKS_G  => NUM_FP_LINKS_C,
+         NUM_DS_LINKS_G  => NUM_FP_LINKS_C,
          NUM_BP_LINKS_G  => NUM_BP_LINKS_C,
          AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(2).baseAddr)
       port map (
@@ -820,7 +820,7 @@ begin
    U_Reg : entity l2si.XpmReg
       generic map(
          TPD_G               => TPD_G,
-         NUM_FP_LINKS_G      => NUM_FP_LINKS_C,
+         NUM_DS_LINKS_G      => NUM_FP_LINKS_C,
          NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
@@ -888,8 +888,8 @@ begin
    --  Need to clock unconnected channels for deadtime mask to work properly
    --
    GEN_RX0: if not USE_RTM_G generate
-     dsRxClk(0)      <= timingClk;
-     dsRxRst(0)      <= timingRst;
+     dsRxClk(0)      <= recTimingClk;
+     dsRxRst(0)      <= recTimingRst;
    end generate GEN_RX0;
   
    U_SyncPaddrTx : entity surf.SynchronizerVector
