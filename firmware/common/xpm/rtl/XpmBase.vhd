@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-12-08
+-- Last update: 2021-12-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -880,6 +880,7 @@ begin
 --                 txOutClk        => dsTxOutClk(7*i+6 downto 7*i),
             txClk     => open,
             txClkIn   => recTimingClk,
+            txClkRst  => recTimingRst,
             config    => xpmConfig.dsLink(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
             status    => dsLinkStatus    (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)));
    end generate;

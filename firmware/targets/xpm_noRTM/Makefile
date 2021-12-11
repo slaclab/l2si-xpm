@@ -20,8 +20,9 @@
 # PRJ_VERSION = 0x00000021 - Add XpmMonitorStream
 # PRJ_VERSION = 0x00000022 - Fix intermittent clearReadout
 # PRJ_VERSION = 0x00000023 - Keep messages synchronous across groups
+# PRJ_VERSION = 0x00000024 - Connect recTimingRst to txLink txreset,txbypassrst
 ##########################################################################################
-export PRJ_VERSION = 0x00000023
+export PRJ_VERSION = 0x00000024
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build

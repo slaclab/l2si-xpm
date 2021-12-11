@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2019-10-28
+-- Last update: 2021-12-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -60,6 +60,7 @@ entity XpmGthUltrascaleWrapper is
       txOutClk         : out slv       (NLINKS_G-1 downto 0);
       txClk            : out sl;
       txClkIn          : in  sl;
+      txClkRst         : in  sl;
       config           : in  XpmLinkConfigArray(NLINKS_G-1 downto 0);
       status           : out XpmLinkStatusArray(NLINKS_G-1 downto 0) );
 end XpmGthUltrascaleWrapper;
@@ -146,6 +147,7 @@ END COMPONENT;
   signal rxCtrl3Out : Slv8Array (NLINKS_G-1 downto 0);
 
   signal txUsrClk   : slv(NLINKS_G-1 downto 0);
+  signal txUsrRst   : slv(NLINKS_G-1 downto 0);
   signal gtRefClk   : sl;
   signal gRefClk    : sl;
 
@@ -163,13 +165,10 @@ END COMPONENT;
  
   signal rxbypassrst  : slv(NLINKS_G-1 downto 0);
   signal txbypassrst  : slv(NLINKS_G-1 downto 0);
+  signal txbypassdone : slv(NLINKS_G-1 downto 0);
+  signal txbypasserr  : slv(NLINKS_G-1 downto 0);
 
   signal loopback  : Slv3Array(NLINKS_G-1 downto 0);
-
-  component ila_1x256x1024
-    port ( clk : in  sl;
-           probe0 : in slv(255 downto 0) );
-  end component;
 
 begin
 
@@ -208,6 +207,7 @@ begin
     status    (i).rxErrCnts   <= rxErrCnts(i);
     status    (i).rxReady     <= rxResetDone(i);
     rxReset   (i) <= config(i).rxReset or r(i).reset;
+    status    (i).txResetDone <= txbypassdone(i) and not txbypasserr(i);
     
     U_STATUS : entity surf.SynchronizerOneShotCnt
       generic map ( CNT_WIDTH_G => 16 )
@@ -228,6 +228,7 @@ begin
                   O       => rxUsrClk(i) );
 
     txUsrClk(i) <= txClkIn;
+    txUsrRst(i) <= txClkRst or config(i).txReset;
     
     rxErrL (i)  <= rxErrIn(i);
     rxClk  (i)  <= rxUsrClk(i);
@@ -236,7 +237,7 @@ begin
 
     U_RstSyncTx : entity surf.RstSync
       port map ( clk      => txUsrClk(i),
-                 asyncRst => config(i).txReset,
+                 asyncRst => txUsrRst(i),
                  syncRst  => txbypassrst(i) );
 
     U_RstSyncRx : entity surf.RstSync
@@ -250,8 +251,8 @@ begin
         gtwiz_userclk_rx_active_in           => "1",
         gtwiz_buffbypass_tx_reset_in     (0) => txbypassrst(i),
         gtwiz_buffbypass_tx_start_user_in    => "0",
-        gtwiz_buffbypass_tx_done_out     (0) => status(i).txResetDone,
-        gtwiz_buffbypass_tx_error_out        => open,
+        gtwiz_buffbypass_tx_done_out     (0) => txbypassdone(i),
+        gtwiz_buffbypass_tx_error_out    (0) => txbypasserr(i),
         gtwiz_buffbypass_rx_reset_in     (0) => rxbypassrst(i),
         gtwiz_buffbypass_rx_start_user_in    => "0",
         gtwiz_buffbypass_rx_done_out     (0) => status(i).rxResetDone,
@@ -259,7 +260,7 @@ begin
         gtwiz_reset_clk_freerun_in(0)        => stableClk,
         gtwiz_reset_all_in                   => "0",
         gtwiz_reset_tx_pll_and_datapath_in(0)=> config(i).txPllReset,
-        gtwiz_reset_tx_datapath_in        (0)=> config(i).txReset,
+        gtwiz_reset_tx_datapath_in        (0)=> txUsrRst(i),
         gtwiz_reset_rx_pll_and_datapath_in(0)=> config(i).rxPllReset,
         gtwiz_reset_rx_datapath_in        (0)=> rxReset(i),
         gtwiz_reset_rx_cdr_stable_out        => open,

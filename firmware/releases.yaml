@@ -26,6 +26,10 @@ Targets:
     ImageDir: targets/xtpg/images
     Extensions:
       - mcs
+  xpm:
+    ImageDir: targets/xpm/images
+    Extensions:
+      - mcs
   xpm_noRTM:
     ImageDir: targets/xpm_noRTM/images
     Extensions:

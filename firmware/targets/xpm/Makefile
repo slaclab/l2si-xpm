@@ -22,8 +22,9 @@
 # PRJ_VERSION = 0x00000023 - Fix multi-group transition timestamp.
 #                            Add coupled group deadtime.
 #                            Fix sequencer memory readback.
+# PRJ_VERSION = 0x00000024 - Connect recTimingRst to txLink txreset,txbypassrst
 ##########################################################################################
-export PRJ_VERSION = 0x00000023
+export PRJ_VERSION = 0x00000024
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build

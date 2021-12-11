@@ -8,8 +8,9 @@ export GIT_BYPASS = 1
 # PRJ_VERSION = 0x00000002 - Make usRxEnable programmable.  Fix last MMCM phase scan.
 # PRJ_VERSION = 0x00000003 - Push stats via UDP.
 # PRJ_VERSION = 0x00000004 - Keep messages synchronous across groups.
+# PRJ_VERSION = 0x00000005 - Connect recTimingRst to txLink txreset,txbypassrst
 ##########################################################################################
-export PRJ_VERSION = 0x00000004
+export PRJ_VERSION = 0x00000005
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
