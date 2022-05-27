@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2021-07-30
+-- Last update: 2022-05-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -70,6 +70,9 @@ architecture top_level_app of xpm_sim is
    signal dsRx       : TimingRxArray (NDsLinks-1 downto 0) := (others=>TIMING_RX_INIT_C);
    signal dsTx       : TimingPhyArray(NDsLinks-1 downto 0) := (others=>TIMING_PHY_INIT_C);
 
+   signal fbPhy      : TimingPhyType := TIMING_PHY_INIT_C;
+   signal fbPause    : slv(XPM_PARTITIONS_C-1 downto 0) := (others=>'0');
+   
    signal scClk, scRst : sl;
    signal usClk, usRst : sl;
    signal usRx  : TimingRxType := TIMING_RX_INIT_C;
@@ -101,6 +104,9 @@ architecture top_level_app of xpm_sim is
 
    signal eventTrigMsgMasters   : AxiStreamMasterArray(0 downto 0);
    signal eventTrigMsgSlaves    : AxiStreamSlaveArray(0 downto 0);
+
+   signal eventTrigMsgMastersG  : AxiStreamMasterArray(0 downto 0);
+   signal eventTrigMsgSlavesG   : AxiStreamSlaveArray(0 downto 0);
 
    signal eventTimingMessagesValid : slv(0 downto 0);
    signal eventTimingMessages      : TimingMessageArray(0 downto 0);
@@ -139,6 +145,8 @@ begin
    xpmConfig.partition.l0Select.destSel <= x"8000";
    xpmConfig.partition.pipeline.depth_fids <= toSlv(90,8);
    xpmConfig.partition.pipeline.depth_clks <= toSlv(90*200,16);
+
+   xpmConfig.dsLink(0).enable    <= '1';
      
    process is
    begin
@@ -151,15 +159,57 @@ begin
      axiRst <= '0';
      xpmConfig.partition.l0Select.reset <= '0';
      tpgConfig.pulseIdWrEn <= '0';
+     wait for 100 ns;
+
+     --  Clear Readout (and put the FIFOs into a known state)
+     xpmConfig.partition.message.header <= toSlv(0,9);
+     wait until regClk='0';
+     xpmConfig.partition.message.insert <= '1';
+     wait until regClk='1';
+     wait until regClk='0';
+     xpmConfig.partition.message.insert <= '0';
+
+     --  Send transitions (avoiding ClearReadout)
      wait for 180 us;
      for i in 0 to 100 loop
-       xpmConfig.partition.message.header <= x"0A";
+       --  Insert transition, even if inhibited
+       xpmConfig.partition.message.header <= "0001" & toSlv(i,5); 
        wait until regClk='0';
        xpmConfig.partition.message.insert <= '1';
        wait until regClk='1';
        wait until regClk='0';
        xpmConfig.partition.message.insert <= '0';
-       wait for 3 us;
+       wait for 5 us;
+
+       --  Insert transition, only if not inhibited (can be dropped)
+       xpmConfig.partition.message.header <= "0110" & toSlv(i,5);
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '1';
+       wait until regClk='1';
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '0';
+       wait for 5 us;
+
+       --  Insert transition, waiting for not inhibited
+       xpmConfig.partition.message.header <= "1111" & toSlv(i,5);
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '1';
+       wait until regClk='1';
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '0';
+       wait for 5 us;
+     end loop;
+     wait;
+   end process;
+
+   process is
+   begin
+     wait for 220 us;
+     for i in 0 to 100 loop
+       fbPause(0) <= '1';
+       wait for 5 us;
+       fbPause(0) <= '0';
+       wait for 7 us;
      end loop;
      wait;
    end process;
@@ -234,6 +284,16 @@ begin
        timingRst       => usRst,
        timingStream    => xpmStream );
 
+   U_TimingFb : entity l2si_core.XpmTimingFb
+     port map (
+       clk         => usClk,
+       rst         => usRst,
+       pause       => fbPause,
+       phy         => fbPhy );
+
+   dsRx(0).data  <= fbPhy.data;
+   dsRx(0).dataK <= fbPhy.dataK;
+   
 --   U_WriteX : entity work.XpmFile
 --     generic map ( filename => "xpmmini.dat" )
 --     port map ( clk  => dsClk(0),
@@ -335,6 +395,21 @@ begin
          axilWriteMaster          => temWriteMaster,
          axilWriteSlave           => temWriteSlave );
 
+   U_Resize : entity surf.AxiStreamGearbox
+     generic map (
+       -- AXI Stream Port Configurations
+       SLAVE_AXI_CONFIG_G  => EVENT_AXIS_CONFIG_C,
+       MASTER_AXI_CONFIG_G => DMA_AXIS_CONFIG_C)
+     port map (
+       axisClk     => regClk,
+       axisRst     => regRst,
+       -- Slave Port
+       sAxisMaster => eventTrigMsgMasters(0),
+       sAxisSlave  => eventTrigMsgSlaves (0),
+       -- Master Port
+       mAxisMaster => eventTrigMsgMastersG(0),
+       mAxisSlave  => eventTrigMsgSlavesG (0));
+
    U_EventTimingMessage : entity l2si_core.EventTimingMessage
      generic map (
        TPD_G               => 1 ns,
@@ -373,14 +448,20 @@ begin
          axilWriteMaster => AXI_LITE_WRITE_MASTER_INIT_C,
          axilWriteSlave  => open,
          -- AXIS Interfaces
-         sAxisMasters(0) => eventTrigMsgMasters(0),
+         sAxisMasters(0) => eventTrigMsgMastersG(0),
          sAxisMasters(1) => detMaster,
          sAxisMasters(2) => eventTimingMsgMasters(0),
-         sAxisSlaves(0)  => eventTrigMsgSlaves(0),
+         sAxisSlaves(0)  => eventTrigMsgSlavesG(0),
          sAxisSlaves(1)  => detSlave,
          sAxisSlaves(2)  => eventTimingMsgSlaves(0),
          mAxisMaster     => eventMaster,
          mAxisSlave      => eventSlave);
+
+   U_File : entity l2si.AxiStreamFile
+     generic map ( filename => "xpm_sim.xtc" )
+     port map ( axisClk     => regClk,
+                axisMaster  => eventMaster,
+                axisSlave   => eventSlave );
 
    eventSlave.tReady <= '1';
    
