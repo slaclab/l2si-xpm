@@ -9,8 +9,9 @@ export GIT_BYPASS = 1
 # PRJ_VERSION = 0x00000003 - Push stats via UDP.
 # PRJ_VERSION = 0x00000004 - Keep messages synchronous across groups.
 # PRJ_VERSION = 0x00000005 - Connect recTimingRst to txLink txreset,txbypassrst
+# PRJ_VERSION = 0x00000006 - Allow messages to respect inhibit and remain queued
 ##########################################################################################
-export PRJ_VERSION = 0x00000005
+export PRJ_VERSION = 0x00000006
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
