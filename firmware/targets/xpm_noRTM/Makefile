@@ -41,7 +41,7 @@ export PRJ_VERSION = 0x00000025
 # AMC_ADV_BUILD is defined by application
 export AMC_ADV_BUILD = 1
 export TIMING_EXT_PKG = 1
-export USE_XVC_DEBUG = 1
+export USE_XVC_DEBUG = 0
 
 ##########################################################################################
 # Applications must define if using zone3 (RTM) ETH (instead of zone2 ETH)
