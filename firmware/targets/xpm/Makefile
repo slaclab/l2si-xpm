@@ -23,8 +23,9 @@
 #                            Add coupled group deadtime.
 #                            Fix sequencer memory readback.
 # PRJ_VERSION = 0x00000024 - Connect recTimingRst to txLink txreset,txbypassrst
+# PRJ_VERSION = 0x00000025 - Allow messages to respect inhibit and remain queued
 ##########################################################################################
-export PRJ_VERSION = 0x00000024
+export PRJ_VERSION = 0x00000025
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
