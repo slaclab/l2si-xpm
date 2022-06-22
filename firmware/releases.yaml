@@ -45,6 +45,7 @@ Releases:
     Targets:
       - xpmGenKcu1500
       - xtpg
+      - xpm
       - xpm_noRTM
       - xpmUed
     Types:
