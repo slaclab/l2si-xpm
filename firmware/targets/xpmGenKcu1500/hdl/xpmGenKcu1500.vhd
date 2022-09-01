@@ -115,7 +115,7 @@ begin
    -----------------------
    -- AXI-PCIE-CORE Module
    -----------------------
-   U_Core : entity axi_pcie_core.XilinxKcu1500Core
+   U_Core : entity work.XilinxKcu1500Core
       generic map (
          TPD_G                => TPD_G,
          ROGUE_SIM_EN_G       => ROGUE_SIM_EN_G,

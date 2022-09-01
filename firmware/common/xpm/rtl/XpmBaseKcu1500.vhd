@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-10-25
+-- Last update: 2022-09-01
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -166,8 +166,8 @@ architecture top_level of XpmBaseKcu1500 is
    signal dsTxOutClk   : slv (NUM_FP_LINKS_C-1 downto 0);
 
    signal bpRxLinkUp   : slv        (NUM_BP_LINKS_C-1 downto 0) := (others=>'0');
-   signal bpRxLinkFull : Slv16Array (NUM_BP_LINKS_C-1 downto 0) := (others=>x"00");
-   signal bpTxData     : Slv16Array(0 downto 0) := (others=>X"00");
+   signal bpRxLinkFull : Slv16Array (NUM_BP_LINKS_C-1 downto 0) := (others=>x"0000");
+   signal bpTxData     : Slv16Array(0 downto 0) := (others=>X"0000");
    signal bpTxDataK    : Slv2Array (0 downto 0) := (others=> "00");
 
    signal dbgChan   : slv(4 downto 0);
@@ -327,11 +327,11 @@ begin
         ODIV2 => gphyClk11,
         O     => open);
 
-   U_TimingPhyRst : entity surf.RstSync
-     port map (
-       clk      => timingPhyClk,
-       asyncRst => regRst,
-       syncRst  => timingPhyRst );
+   -- U_TimingPhyRst : entity surf.RstSync
+   --   port map (
+   --     clk      => timingPhyClk,
+   --     asyncRst => regRst,
+   --     syncRst  => timingPhyRst );
      
    U_XBAR : entity surf.AxiLiteCrossbar
       generic map (
@@ -618,6 +618,7 @@ begin
 --                 txOutClk        => dsTxOutClk(7*i+6 downto 7*i),
             txClk     => open,
             txClkIn   => timingPhyClk,
+            txClkRst  => timingPhyRst,
             config    => xpmConfig.dsLink(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
             status    => dsLinkStatus    (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)));
    end generate;
@@ -642,6 +643,8 @@ begin
        axiWriteSlave  => axilWriteSlaves (TEST_INDEX_C),
        writeRegister(0) => tmpReg,
        readRegister (0) => tmpReg );
-       
+
+   timingPhyRst <= not tmpReg(0);
+   
 end top_level;
 
