@@ -11,7 +11,7 @@ export GIT_BYPASS = 1
 # PRJ_VERSION = 0x00000005 - Connect recTimingRst to txLink txreset,txbypassrst
 # PRJ_VERSION = 0x00000006 - Allow messages to respect inhibit and remain queued
 ##########################################################################################
-export PRJ_VERSION = 0x00000006
+#export PRJ_VERSION = 0x00000006
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
@@ -89,4 +89,5 @@ export BOARD_PART =
 export PRJ_FMC =
 
 # Use top level makefile
+include ../shared_config.mk
 include ../../submodules/ruckus/system_vivado.mk
