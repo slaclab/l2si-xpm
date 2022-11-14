@@ -1,11 +1,11 @@
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- Title      : 
 -------------------------------------------------------------------------------
 -- File       : XpmBase.vhd
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-12-09
+-- Last update: 2022-11-14
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -205,7 +205,8 @@ architecture top_level of XpmBase is
    signal bpStatus  : XpmBpLinkStatusArray(NUM_BP_LINKS_C downto 0);
    signal pllStatus : XpmPllStatusArray (1 downto 0);
    signal pllLocked : slv(1 downto 0);
-
+   signal txClkRst  : slv(1 downto 0);
+   
    signal dsClockP : slv(1 downto 0);
    signal dsClockN : slv(1 downto 0);
    signal idsRxP   : Slv7Array(1 downto 0);
@@ -855,6 +856,9 @@ begin
          dbgChan         => dbgChan);
 
    GEN_AMC_MGT : for i in 0 to 1 generate
+    
+      txClkRst(i) <= not pllLocked(i) or recTimingRst;
+
       U_Rcvr : entity l2si.XpmGthUltrascaleWrapper
          generic map (
             GTGCLKRX   => false,
@@ -880,7 +884,7 @@ begin
 --                 txOutClk        => dsTxOutClk(7*i+6 downto 7*i),
             txClk     => open,
             txClkIn   => recTimingClk,
-            txClkRst  => recTimingRst,
+            txClkRst  => txClkRst(i),
             config    => xpmConfig.dsLink(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
             status    => dsLinkStatus    (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)));
    end generate;

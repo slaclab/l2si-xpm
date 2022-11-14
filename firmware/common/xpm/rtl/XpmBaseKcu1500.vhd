@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2022-09-01
+-- Last update: 2022-09-02
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -327,12 +327,14 @@ begin
         ODIV2 => gphyClk11,
         O     => open);
 
-   -- U_TimingPhyRst : entity surf.RstSync
-   --   port map (
-   --     clk      => timingPhyClk,
-   --     asyncRst => regRst,
-   --     syncRst  => timingPhyRst );
-     
+   U_TimingPhyRst : entity surf.RstSync
+     generic map (
+       IN_POLARITY_G => '0' )
+     port map (
+       clk      => timingPhyClk,
+       asyncRst => tmpReg(0),
+       syncRst  => timingPhyRst );
+      
    U_XBAR : entity surf.AxiLiteCrossbar
       generic map (
          TPD_G              => TPD_G,
@@ -644,7 +646,5 @@ begin
        writeRegister(0) => tmpReg,
        readRegister (0) => tmpReg );
 
-   timingPhyRst <= not tmpReg(0);
-   
 end top_level;
 
