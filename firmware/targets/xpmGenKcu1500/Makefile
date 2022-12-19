@@ -5,7 +5,7 @@ export GIT_BYPASS = 1
 #  PRJ_VERSION = 0x00000000 - original with XVC
 
 #export PRJ_VERSION = 0x00000000
-export PRJ_VERSION = 0x00000001
+#export PRJ_VERSION = 0x00000001
 
 # Define the Hardware Type in the axi-pcie-core
 export PCIE_HW_TYPE = XilinxKcu1500
@@ -33,4 +33,5 @@ export TIMING_EXT_PKG = 1
 target: prom
 
 # Use top level makefile
+include ../shared_config.mk
 include ../../submodules/ruckus/system_vivado.mk

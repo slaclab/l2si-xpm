@@ -24,6 +24,7 @@
 #                            Fix sequencer memory readback.
 # PRJ_VERSION = 0x00000024 - Connect recTimingRst to txLink txreset,txbypassrst
 # PRJ_VERSION = 0x00000025 - Allow messages to respect inhibit and remain queued
+# PRJ_VERSION = 0x00000027 - Count assertions of every sequence bit / event code
 ##########################################################################################
 #export PRJ_VERSION = 0x00000025
 

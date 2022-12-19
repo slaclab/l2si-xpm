@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2022-05-27
+-- Last update: 2022-12-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -498,7 +498,9 @@ begin
      generic map ( CMDS => (( addr  => x"00008000",
                               value => x"00000001"),
                             ( addr  => x"00008004",
-                              value => x"00000002")) )
+                              value => x"00000002"),
+                            ( addr  => x"0000403c",
+                              value => x"abadcafe")) )
      port map ( clk    => regClk,
                 rst    => axiRst,
                 master => seqWriteMaster,
@@ -509,7 +511,8 @@ begin
      
    U_SeqStatus : entity l2si.AxiLiteReadMasterSim
      generic map ( CMDS => (x"00008000",
-                            x"00008004") )
+                            x"00008004",
+                            x"0000403c") )
      port map ( clk    => regClk,
                 rst    => seqWriteNotDone,
                 master => seqReadMaster,

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-12-03
+-- Last update: 2022-12-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -37,6 +37,7 @@ use surf.EthMacPkg.all;
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
+use l2si_core.XpmSeqPkg.all;
 
 library l2si;
 
@@ -72,6 +73,7 @@ entity XpmReg is
       pllStatus       : in  XpmPllStatusArray(XPM_NUM_AMCS_C-1 downto 0);
       status          : in  XpmStatusType;
       monClk          : in  slv(3 downto 0) := (others => '0');
+      seqCount        : in  Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
       config          : out XpmConfigType;
       usRxEnable      : out sl;
       cuRxEnable      : out sl;
@@ -700,6 +702,7 @@ begin
       count           => monCount,
       id              => monId,
       index           => monIndex,
+      seqCount        => seqCount,
       -- Application Debug Interface (sysclk domain)
       obMonitorMaster => obMonitorMaster,
       obMonitorSlave  => obMonitorSlave );

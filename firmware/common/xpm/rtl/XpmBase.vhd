@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2022-11-14
+-- Last update: 2022-12-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -60,6 +60,7 @@ use lcls_timing_core.TimingPkg.all;
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
+use l2si_core.XpmSeqPkg.all;
 
 --library amc_carrier_core;
 --use amc_carrier_core.AmcCarrierPkg.all;
@@ -292,6 +293,8 @@ architecture top_level of XpmBase is
      ( AMC_DS_LINKS_C(1)+AMC_DS_FIRST_C(1)-1,
        AMC_DS_LINKS_C(0)+AMC_DS_FIRST_C(0)-1 );
 
+   signal seqCount : Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
+   
    signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
 
    component ila_0
@@ -640,7 +643,8 @@ begin
          timingFbClk     => timingPhyClk,
          timingFbRst     => '0',
          timingFbId      => timingPhyId,
-         timingFb        => timingPhy);
+         timingFb        => timingPhy,
+         seqCount        => seqCount );
 
    GEN_BP : if GEN_BP_G generate
       U_Backplane : entity l2si.XpmBp
@@ -850,10 +854,11 @@ begin
          monClk(1)       => timingPhyClk,
          monClk(2)       => recTimingClk,
          monClk(3)       => iusRefClk,
+         seqCount        => seqCount,
          config          => xpmConfig,
          usRxEnable      => usRxEnable,
          cuRxEnable      => cuRxEnable,
-         dbgChan         => dbgChan);
+         dbgChan         => dbgChan );
 
    GEN_AMC_MGT : for i in 0 to 1 generate
     
