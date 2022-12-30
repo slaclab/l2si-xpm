@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2022-12-16
+-- Last update: 2022-12-29
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -61,6 +61,7 @@ architecture top_level_app of xpm_sim is
   
    signal tpgConfig : TPGConfigType := TPG_CONFIG_INIT_C;
    signal xpmConfig : XpmMiniConfigType := XPM_MINI_CONFIG_INIT_C;
+   signal appConfig : XpmConfigType := XPM_CONFIG_INIT_C;
    
    signal regClk         : sl;
    signal regRst         : sl;
@@ -79,6 +80,7 @@ architecture top_level_app of xpm_sim is
    signal usRxStatus : TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
 
    signal xpmStream  : XpmStreamType := XPM_STREAM_INIT_C;
+   signal timingStream  : XpmStreamType := XPM_STREAM_INIT_C;
    signal xData      : TimingRxType := TIMING_RX_INIT_C;
    signal xDataStatus: TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
 
@@ -137,7 +139,13 @@ architecture top_level_app of xpm_sim is
    signal seqWriteMaster : AxiLiteWriteMasterType;
    signal seqWriteSlave  : AxiLiteWriteSlaveType;
    signal seqWriteDone, seqWriteNotDone : sl;
-   
+   signal seqCountRst    : sl;
+
+   signal paddr : slv(31 downto 0) := x"DEADBEEF";
+   signal expWord : Slv32Array(XPM_PARTITIONS_C-1 downto 0);
+   signal scClkA  : slv(6 downto 0);
+   signal scRstA  : slv(6 downto 0);
+
 begin
 
    xpmConfig.partition.l0Select.enabled <= '1';
@@ -147,7 +155,14 @@ begin
    xpmConfig.partition.pipeline.depth_clks <= toSlv(90*200,16);
 
    xpmConfig.dsLink(0).enable    <= '1';
-     
+
+   appConfig.partition(0).master           <= '1';
+   appConfig.partition(0).l0Select.enabled <= '1';
+   appConfig.partition(0).l0Select.rateSel <= x"0001";
+   appConfig.partition(0).l0Select.destSel <= x"8000";
+   appConfig.partition(0).pipeline.depth_fids <= toSlv(90,8);
+   appConfig.partition(0).pipeline.depth_clks <= toSlv(90*200,16);
+   
    process is
    begin
      regRst <= '1';
@@ -204,6 +219,14 @@ begin
 
    process is
    begin
+     seqCountRst <= '0';
+     wait for 10 us;
+     seqCountRst <= '1';
+     wait for 10 ns;
+   end process;
+   
+   process is
+   begin
      wait for 220 us;
      for i in 0 to 100 loop
        fbPause(0) <= '1';
@@ -231,6 +254,9 @@ begin
    end process;
    scRst <= regRst;
 
+   scClkA <= (others=>scClk);
+   scRstA <= (others=>scRst);
+   
    U_TemConfig : entity l2si.AxiLiteWriteMasterSim
      generic map ( CMDS => (( addr  => x"0000900C",
                               value => toSlv(250*14,32)),
@@ -494,13 +520,16 @@ begin
          mAxisMaster     => detMaster,
          mAxisSlave      => detSlave);
 
+   --  0x0000 SeqState
+   --  0x4000 SeqJump
+   --  0x8000 SeqMem
    U_SeqConfig : entity l2si.AxiLiteWriteMasterSim
-     generic map ( CMDS => (( addr  => x"00008000",
-                              value => x"00000001"),
-                            ( addr  => x"00008004",
-                              value => x"00000002"),
-                            ( addr  => x"0000403c",
-                              value => x"abadcafe")) )
+     generic map ( CMDS => (( addr  => x"00008000", value => x"80000abc"),
+                            ( addr  => x"00008004", value => x"40000002"),
+                            ( addr  => x"00008008", value => x"00000000"),
+                            ( addr  => x"0000403c", value => x"00000000"),
+                            ( addr  => x"00000004", value => x"00000001"),
+                            ( addr  => x"00000008", value => x"00000001")) )
      port map ( clk    => regClk,
                 rst    => axiRst,
                 master => seqWriteMaster,
@@ -519,20 +548,41 @@ begin
                 slave  => seqReadSlave,
                 done   => open );
    
-   U_Seq : entity l2si_core.XpmSequence
+   U_App : entity l2si_core.XpmApp
+     generic map (
+       NUM_BP_LINKS_G  => 1,
+       AXIL_BASEADDR_G => (others => '0'))
      port map (
-       axilClk          => regClk,
-       axilRst          => regRst,
-       axilReadMaster   => seqReadMaster,
-       axilReadSlave    => seqReadSlave,
-       axilWriteMaster  => seqWriteMaster,
-       axilWriteSlave   => seqWriteSlave,
-       obAppMaster      => open,
-       obAppSlave       => AXI_STREAM_SLAVE_INIT_C,
-       timingClk        => scClk,
-       timingRst        => scRst,
-       timingAdvance    => '0',
-       timingDataIn     => (others=>'0'),
-       timingDataOut    => open );
+       -----------------------
+       -- XpmApp Ports --
+       -----------------------
+       regclk          => regClk,
+       regrst          => regRst,
+       update          => (others=>'0'),
+       config          => appConfig,
+       axilReadMaster  => seqReadMaster,
+       axilReadSlave   => seqReadSlave,
+       axilWriteMaster => seqWriteMaster,
+       axilWriteSlave  => seqWriteSlave,
+       obAppSlave      => AXI_STREAM_SLAVE_INIT_C,
+       -- AMC's DS Ports
+       dsLinkStatus    => (others=>XPM_LINK_STATUS_INIT_C),
+       dsRxData        => (others=>x"0000"),
+       dsRxDataK       => (others=>"00"),
+       dsRxErr         => (others=>'0'),
+       dsRxClk         => scClkA,
+       dsRxRst         => scRstA,
+       --  BP DS Ports
+       bpStatus        => (others=>XPM_BP_LINK_STATUS_INIT_C),
+       bpRxLinkPause   => (others=>x"0000"),
+       -- Timing Interface (timingClk domain)
+       timingClk       => scClk,
+       timingRst       => scRst,
+--      timingIn          : in  TimingRxType;
+       timingStream    => xpmStream,
+       timingFbClk     => scClk,
+       timingFbRst     => scRst,
+       timingFbId      => x"DEADBEEF",
+       seqCountRst     => seqCountRst );
 
 end top_level_app;

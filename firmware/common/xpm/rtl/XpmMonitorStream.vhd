@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2022-12-15
+-- Last update: 2022-12-30
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -56,6 +56,7 @@ entity XpmMonitorStream is
       count           : out slv(26 downto 0);
       id              : out slv(31 downto 0);
       index           : out slv( 9 downto 0);
+      monLatch        : out sl;
       -- Application Debug Interface (sysclk domain)
       obMonitorMaster : out AxiStreamMasterType;
       obMonitorSlave  : in  AxiStreamSlaveType );
@@ -66,7 +67,7 @@ architecture rtl of XpmMonitorStream is
    signal sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);
 
    constant TDATA_SIZE_C      : integer := EMAC_AXIS_CONFIG_C.TDATA_BYTES_C*8;
-   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + 8*382 + 16) + 4*32;
+   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*282 + 18 + XPM_SEQ_DEPTH_C*16);
    constant LAST_WORD_C       : integer := (XPM_STATUS_BITS_C-1) / TDATA_SIZE_C;
    
    function toSlv(packetId : slv(15 downto 0);
@@ -93,7 +94,7 @@ architecture rtl of XpmMonitorStream is
        end loop;
        assignSlv(i, v, sL0Stats(j) ); -- 200b
        assignSlv(i, v, x"ee"); -- 1B
-     end loop; -- 8*382B
+     end loop; -- 8*282B
      for j in 0 to 3 loop
        assignSlv(i, v, pllStat(j));
        assignSlv(i, v, muxSlVectorArray(pllCount,j));
@@ -101,9 +102,9 @@ architecture rtl of XpmMonitorStream is
      for j in 0 to 3 loop
        assignSlv(i, v, monClkR(j));
      end loop; --16B
-     for j in 0 to 3 loop
+     for j in 0 to XPM_SEQ_DEPTH_C-1 loop
        assignSlv(i, v, seqCount(j));
-     end loop; -- 16B
+     end loop; -- 4*16B
      return v; --
    end function toSlv;
    
@@ -112,7 +113,7 @@ architecture rtl of XpmMonitorStream is
       count          : slv(period'range);
       id             : slv(15 downto 0);
       index          : integer range 0 to LAST_WORD_C;
-      dataL          : slv(3 downto 0);
+      dataL          : slv(4 downto 0);
       data           : slv(XPM_STATUS_BITS_C-1 downto 0);
       master         : AxiStreamMasterType;
    end record RegType;
@@ -137,6 +138,7 @@ begin
   count <= r.count;
   id    <= x"0000" & r.id;
   index <= toSlv(r.index,10);
+  monLatch <= r.dataL(4);
   obMonitorMaster <= r.master;
 
   process (axilClk)
@@ -169,7 +171,7 @@ begin
   begin
     v := r;
 
-    v.dataL := r.dataL(2 downto 0) & '0';
+    v.dataL := r.dataL(r.dataL'left-1 downto 0) & '0';
     
     if obMonitorSlave.tReady = '1' then
       v.master.tValid := '0';

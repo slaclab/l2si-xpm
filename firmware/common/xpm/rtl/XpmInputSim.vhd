@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2021-03-07
+-- Last update: 2022-12-30
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -164,6 +164,18 @@ architecture mapping of XpmInputSim is
    signal phaseReset      : sl;
 
 begin
+
+  tpgConfig.FixedRateDivisors <= (x"00000",
+                                  x"00000",
+                                  x"00000",
+                                  x"00001",                                    -- 929 kHz
+                                  x"0000D",                                    -- 71.4kHz
+                                  x"0005B",                                    -- 10.2kHz
+                                  x"0038E",                                    -- 1.02kHz
+                                  x"0238C",                                    -- 102 Hz
+                                  x"16378",                                    -- 10.2Hz
+                                  x"DE2B0");                                   -- 1.02Hz
+
 
    isimClk  <= timingClk;
    isimRst  <= timingClkRst;

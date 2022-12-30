@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2022-12-15
+-- Last update: 2022-12-19
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -293,7 +293,8 @@ architecture top_level of XpmBase is
      ( AMC_DS_LINKS_C(1)+AMC_DS_FIRST_C(1)-1,
        AMC_DS_LINKS_C(0)+AMC_DS_FIRST_C(0)-1 );
 
-   signal seqCount : Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
+   signal seqCountRst : sl;
+   signal seqCount    : Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
    
    signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
 
@@ -644,6 +645,7 @@ begin
          timingFbRst     => '0',
          timingFbId      => timingPhyId,
          timingFb        => timingPhy,
+         seqCountRst     => seqCountRst,
          seqCount        => seqCount );
 
    GEN_BP : if GEN_BP_G generate
@@ -854,6 +856,7 @@ begin
          monClk(1)       => timingPhyClk,
          monClk(2)       => recTimingClk,
          monClk(3)       => iusRefClk,
+         monLatch        => seqCountRst,
          seqCount        => seqCount,
          config          => xpmConfig,
          usRxEnable      => usRxEnable,
