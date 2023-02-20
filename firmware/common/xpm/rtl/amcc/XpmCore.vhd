@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2021-07-28
+-- Last update: 2023-01-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -635,25 +635,25 @@ begin
          mAxiReadSlaves      => amcReadSlaves);
 
    GEN_AMC : for i in 0 to 1 generate
-      U_I2C : entity surf.AxiI2cRegMaster
-         generic map (
-            DEVICE_MAP_G   => SFP_DEVICE_MAP_C,
-            AXI_CLK_FREQ_G => 125.0E+6)
-         port map (
-            scl            => amcScl(i),
-            sda            => amcSda(i),
-            axiReadMaster  => amcReadMasters (i+1),
-            axiReadSlave   => amcReadSlaves (i+1),
-            axiWriteMaster => amcWriteMasters(i+1),
-            axiWriteSlave  => amcWriteSlaves (i+1),
-            axiClk         => axilClk,
-            axiRst         => axilRst);
+     U_I2C : entity surf.AxiI2cRegMaster
+       generic map (
+         DEVICE_MAP_G   => SFP_DEVICE_MAP_C,
+         AXI_CLK_FREQ_G => 125.0E+6)
+       port map (
+         scl            => amcScl(i),
+         sda            => amcSda(i),
+         axiReadMaster  => amcReadMasters (i+1),
+         axiReadSlave   => amcReadSlaves (i+1),
+         axiWriteMaster => amcWriteMasters(i+1),
+         axiWriteSlave  => amcWriteSlaves (i+1),
+         axiClk         => axilClk,
+         axiRst         => axilRst);
    end generate;
 
    U_HSRepeater : entity l2si_core.HSRepeater
       generic map (
          AXI_ERROR_RESP_G => AXI_ERROR_RESP_C,
-         AXI_BASEADDR_G   => BSA_ADDR_C)
+         AXI_BASEADDR_G   => AMC_XBAR_CONFIG_C(0).baseAddr )
       port map (
          axilClk         => axilClk,
          axilRst         => axilRst,

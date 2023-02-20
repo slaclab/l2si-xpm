@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2022-09-02
+-- Last update: 2023-02-20
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -63,6 +63,7 @@ use lcls_timing_core.TPGMiniEdefPkg.all;
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
+use l2si_core.XpmSeqPkg.all;
 
 --library amc_carrier_core;
 --use amc_carrier_core.AmcCarrierPkg.all;
@@ -73,7 +74,10 @@ entity XpmBaseKcu1500 is
    generic (
       TPD_G               : time    := 1 ns;
       AXIL_BASE_G         : slv(31 downto 0) := (others=>'0');
-      DMA_AXIS_CONFIG_G   : AxiStreamConfigType );
+      DMA_AXIS_CONFIG_G   : AxiStreamConfigType;
+      XPM_MODE_G          : string := "XpmGen" );
+   -- "XpmGen"   : generate timing locally
+   -- "XpmAsync" : receive upstream timing and retransmit asynchronously
    port (
      -- AXI-Lite Interface (axilClk domain)
      signal axilClk               : out sl;
@@ -120,13 +124,6 @@ architecture top_level of XpmBaseKcu1500 is
    signal uregRst        : sl;
    signal regUpdate      : slv(XPM_PARTITIONS_C-1 downto 0);
 
-   signal tpgConfig : TPGConfigType;
-   signal tpgStatus : TPGStatusType;
-   signal tpgReadMaster  : AxiLiteReadMasterType;
-   signal tpgReadSlave   : AxiLiteReadSlaveType;
-   signal tpgWriteMaster : AxiLiteWriteMasterType;
-   signal tpgWriteSlave  : AxiLiteWriteSlaveType;
-   
    -- Reference Clocks and Resets
    signal timingPhyClk : sl;
    signal timingPhyRst : sl := '0';
@@ -136,7 +133,9 @@ architecture top_level of XpmBaseKcu1500 is
    signal gphyClk01 : sl;
    signal gphyClk11 : sl;
    signal phyRst01  : sl;
-
+   signal usRecClk  : sl;
+   signal usRefClk  : sl;
+   
    constant NUM_DS_LINKS_C : integer := 8;
    constant NUM_FP_LINKS_C : integer := 8;
    constant NUM_BP_LINKS_C : integer := 1;
@@ -156,6 +155,7 @@ architecture top_level of XpmBaseKcu1500 is
    signal idsTxN   : Slv7Array(1 downto 0);
 
    signal dsLinkStatus : XpmLinkStatusArray(NUM_FP_LINKS_C-1 downto 0);
+   signal dsLinkConfig : XpmLinkConfigArray(NUM_FP_LINKS_C-1 downto 0);
    signal dsTxData     : Slv16Array(NUM_FP_LINKS_C-1 downto 0);
    signal dsTxDataK    : Slv2Array (NUM_FP_LINKS_C-1 downto 0);
    signal dsRxData     : Slv16Array(NUM_FP_LINKS_C-1 downto 0);
@@ -181,10 +181,29 @@ architecture top_level of XpmBaseKcu1500 is
    constant APP_INDEX_C  : integer := 2;
    constant TIM_INDEX_C  : integer := 3;
    constant TEST_INDEX_C : integer := 4;
-   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(4 downto 0) := genAxiLiteConfig(5, AXIL_BASE_G, 23, 16);
+   constant ASYN_INDEX_C : integer := 5;
+   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(5 downto 0) := (
+     REG_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00000000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     RING_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"00010000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     APP_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00020000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     TIM_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00030000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     TEST_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"00040000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     ASYN_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"00080000",
+                       addrBits     => 19,
+                       connectivity => X"FFFF") );
 
    signal axilReadMasters  : AxiLiteReadMasterArray (AXI_XBAR_CONFIG_C'range);
-   signal axilReadSlaves   : AxiLiteReadSlaveArray (AXI_XBAR_CONFIG_C'range) := (others=>AXI_LITE_READ_SLAVE_EMPTY_OK_C);
+   signal axilReadSlaves   : AxiLiteReadSlaveArray  (AXI_XBAR_CONFIG_C'range) := (others=>AXI_LITE_READ_SLAVE_EMPTY_OK_C);
    signal axilWriteMasters : AxiLiteWriteMasterArray(AXI_XBAR_CONFIG_C'range);
    signal axilWriteSlaves  : AxiLiteWriteSlaveArray (AXI_XBAR_CONFIG_C'range) := (others=>AXI_LITE_WRITE_SLAVE_EMPTY_OK_C);
 
@@ -203,8 +222,8 @@ architecture top_level of XpmBaseKcu1500 is
    signal groupLinkClear         : slv(XPM_PARTITIONS_C-1 downto 0);
 
    -- Timing Interface (timingClk domain)
-   signal recStream : XpmStreamType;
-   signal timingPhy : TimingPhyType;
+   signal recStream   : XpmStreamType;
+   signal timingPhy   : TimingPhyType := TIMING_PHY_INIT_C;
    signal timingPhyId : slv(xpmConfig.paddr'range);
    signal txStreams   : TimingSerialArray(2 downto 0);
    signal txStreamIds : Slv4Array        (2 downto 0);
@@ -220,8 +239,12 @@ architecture top_level of XpmBaseKcu1500 is
      ( AMC_DS_LINKS_C(1)+AMC_DS_FIRST_C(1)-1,
        AMC_DS_LINKS_C(0)+AMC_DS_FIRST_C(0)-1 );
 
+   signal seqCountRst : sl;
+   signal seqCount    : Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
+   
    signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
-
+   signal usRx   : TimingRxType;
+   
 begin
 
    axilClk <= regClk;
@@ -241,7 +264,7 @@ begin
    idsRxN(1)(3 downto 0) <= qsfp1RxN;
 
    U_BUFG  : BUFG_GT
-     port map (  I       => dsTxOutClk(0),
+     port map (  I       => dsTxOutClk(AMC_DS_FIRST_C(0)),
                  CE      => '1',
                  CEMASK  => '1',
                  CLR     => '0',
@@ -250,7 +273,7 @@ begin
                  O       => timingPhyClk );
    
    U_BUFG2  : BUFG_GT
-     port map (  I       => dsTxOutClk(4),
+     port map (  I       => dsTxOutClk(AMC_DS_FIRST_C(1)),
                  CE      => '1',
                  CEMASK  => '1',
                  CLR     => '0',
@@ -411,7 +434,7 @@ begin
    U_Application : entity l2si_core.XpmApp
       generic map (
          TPD_G           => TPD_G,
-         NUM_DS_LINKS_G  => NUM_DS_LINKS_C,
+         NUM_DS_LINKS_G  => NUM_DS_LINKS_C-1,
          NUM_BP_LINKS_G  => NUM_BP_LINKS_C,
          AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(APP_INDEX_C).baseAddr)
       port map (
@@ -419,14 +442,14 @@ begin
          -- Application Ports --
          -----------------------
          -- -- AMC's DS Ports
-         dsLinkStatus    => dsLinkStatus(NUM_DS_LINKS_C-1 downto 0),
-         dsRxData        => dsRxData    (NUM_DS_LINKS_C-1 downto 0),
-         dsRxDataK       => dsRxDataK   (NUM_DS_LINKS_C-1 downto 0),
-         dsTxData        => dsTxData    (NUM_DS_LINKS_C-1 downto 0),
-         dsTxDataK       => dsTxDataK   (NUM_DS_LINKS_C-1 downto 0),
-         dsRxClk         => dsRxClk     (NUM_DS_LINKS_C-1 downto 0),
-         dsRxRst         => dsRxRst     (NUM_DS_LINKS_C-1 downto 0),
-         dsRxErr         => dsRxErr     (NUM_DS_LINKS_C-1 downto 0),
+         dsLinkStatus    => dsLinkStatus(NUM_DS_LINKS_C-1 downto 1),
+         dsRxData        => dsRxData    (NUM_DS_LINKS_C-1 downto 1),
+         dsRxDataK       => dsRxDataK   (NUM_DS_LINKS_C-1 downto 1),
+         dsTxData        => dsTxData    (NUM_DS_LINKS_C-1 downto 1),
+         dsTxDataK       => dsTxDataK   (NUM_DS_LINKS_C-1 downto 1),
+         dsRxClk         => dsRxClk     (NUM_DS_LINKS_C-1 downto 1),
+         dsRxRst         => dsRxRst     (NUM_DS_LINKS_C-1 downto 1),
+         dsRxErr         => dsRxErr     (NUM_DS_LINKS_C-1 downto 1),
          --  BP DS Ports
          bpTxData        => bpTxData (0),
          bpTxDataK       => bpTxDataK(0),
@@ -456,7 +479,9 @@ begin
          timingFbClk     => timingPhyClk,
          timingFbRst     => '0',
          timingFbId      => timingPhyId,
-         timingFb        => timingPhy);
+         timingFb        => timingPhy,
+         seqCountRst     => seqCountRst,
+         seqCount        => seqCount );
 
    U_MasterMux : entity surf.AxiStreamMux
      generic map ( NUM_SLAVES_G => 3 )
@@ -470,77 +495,6 @@ begin
                 sAxisSlaves (2) => monSlave,
                 mAxisMaster     => obDebugMaster,
                 mAxisSlave      => obDebugSlave );
-
-   --
-   --  Replace XpmCore with TimingCore (TPGMini) 
-   --
-   U_AxiLiteAsync : entity surf.AxiLiteAsync
-      generic map (
-         TPD_G => TPD_G)
-      port map (
-         -- Slave Port
-         sAxiClk         => regClk,
-         sAxiClkRst      => regRst,
-         sAxiReadMaster  => axilReadMasters (TIM_INDEX_C),
-         sAxiReadSlave   => axilReadSlaves  (TIM_INDEX_C),
-         sAxiWriteMaster => axilWriteMasters(TIM_INDEX_C),
-         sAxiWriteSlave  => axilWriteSlaves (TIM_INDEX_C),
-         -- Master Port
-         mAxiClk         => timingPhyClk,
-         mAxiClkRst      => timingPhyRst,
-         mAxiReadMaster  => tpgReadMaster,
-         mAxiReadSlave   => tpgReadSlave,
-         mAxiWriteMaster => tpgWriteMaster,
-         mAxiWriteSlave  => tpgWriteSlave);
-
-   TPGMiniReg_Inst : entity lcls_timing_core.TPGMiniReg
-      generic map (
-         TPD_G       => TPD_G )
-      port map (
-         axiClk         => timingPhyClk,
-         axiRst         => timingPhyRst,
-         axiReadMaster  => tpgReadMaster,
-         axiReadSlave   => tpgReadSlave,
-         axiWriteMaster => tpgWriteMaster,
-         axiWriteSlave  => tpgWriteSlave,
-         status         => tpgStatus,
-         config         => tpgConfig,
-         edefConfig     => open,
-         irqActive      => '0' );
-
-   U_TPGMiniCore : entity lcls_timing_core.TPGMini
-     generic map (
-       TPD_G        => TPD_G,
-       STREAM_INTF  => true )
-     port map (
-       statusO         => tpgStatus,
-       configI         => tpgConfig,
-
-       txClk           => timingPhyClk,
-       txRst           => timingPhyRst,
-       txRdy           => '1',
-       -- alternate output (STREAM_INTF=true)
-       streams         => txStreams  (0 downto 0),
-       streamIds       => txStreamIds(0 downto 0),
-       advance         => txAdvance  (0 downto 0),
-       fiducial        => txFiducial );
-
-   U_SimSerializer : entity lcls_timing_core.TimingSerializer
-      generic map (
-         STREAMS_C => 3)
-      port map (
-         clk       => timingPhyClk,
-         rst       => timingPhyRst,
-         fiducial  => txFiducial,
-         streams   => txStreams,
-         streamIds => txStreamIds,
-         advance   => txAdvance,
-         data      => open,
-         dataK     => open);
-
-   recStream.fiducial <= txFiducial;
-   recStream.streams  <= txStreams;
-   recStream.advance  <= txAdvance;
 
    U_AXIS_FIFO : entity surf.AxiStreamFifoV2
      generic map (
@@ -557,14 +511,15 @@ begin
        mAxisRst    => dmaRst,
        mAxisMaster => ibDmaMaster,
        mAxisSlave  => ibDmaSlave );
-     
+
    U_Reg : entity l2si.XpmReg
       generic map(
          TPD_G               => TPD_G,
          NUM_DS_LINKS_G      => NUM_FP_LINKS_C,
          NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
-         US_RX_ENABLE_INIT_G => False,
-         CU_RX_ENABLE_INIT_G => False,
+         US_RX_ENABLE_INIT_G => (XPM_MODE_G="XpmAsync"),
+         CU_RX_ENABLE_INIT_G => false,
+         REMOVE_MONREG_G     => true,
          AXILCLK_FREQ_G      => 125000000 )
       port map (
          axilClk         => regClk,
@@ -587,13 +542,72 @@ begin
          status          => xpmStatus,
          monClk(0)       => timingPhyClk2,
          monClk(1)       => timingPhyClk,
-         monClk(2)       => dsRxClk(0),
-         monClk(3)       => phyClk01,
+         monClk(2)       => usRecClk,
+         monClk(3)       => usRefClk,
+         monLatch        => seqCountRst,
+         seqCount        => seqCount,
          config          => xpmConfig,
          usRxEnable      => open,
          cuRxEnable      => open,
          dbgChan         => dbgChan);
 
+   GEN_XPMGEN : if XPM_MODE_G = "XpmGen" generate
+     U_XpmGen : entity l2si.XpmGenKcu1500
+       port map (
+         axilClk               => regClk,
+         axilRst               => regRst,
+         axilReadMaster        => axilReadMasters (TIM_INDEX_C),
+         axilReadSlave         => axilReadSlaves  (TIM_INDEX_C),
+         axilWriteMaster       => axilWriteMasters(TIM_INDEX_C),
+         axilWriteSlave        => axilWriteSlaves (TIM_INDEX_C),
+
+         timingPhyClk          => timingPhyClk,
+         timingPhyRst          => timingPhyRst,
+         recStream             => recStream );
+     usRecClk     <= timingPhyClk;
+     usRefClk     <= timingPhyClk;
+     dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 0);
+   end generate;
+   
+
+   GEN_XPMASYNC : if XPM_MODE_G = "XpmAsync" generate
+     U_XpmAsync : entity l2si.XpmAsyncKcu1500
+       generic map (
+         TPD_G   => TPD_G,
+         AXIL_BASE_G => AXI_XBAR_CONFIG_C(ASYN_INDEX_C).baseAddr )
+       port map (
+         axilClk               => regClk,
+         axilRst               => regRst,
+         axilReadMaster        => axilReadMasters (ASYN_INDEX_C),
+         axilReadSlave         => axilReadSlaves  (ASYN_INDEX_C),
+         axilWriteMaster       => axilWriteMasters(ASYN_INDEX_C),
+         axilWriteSlave        => axilWriteSlaves (ASYN_INDEX_C),
+
+         -- usRefClkGt            => dsClkBuf(0),
+         -- usRxP                 => idsRxP(0)(0),
+         -- usRxN                 => idsRxN(0)(0),
+         -- usTxP                 => idsTxP(0)(0),
+         -- usTxN                 => idsTxN(0)(0),
+         usRecClk              => dsRxClk(0),
+         -- usRefClk              => usRefClk,
+         usRx                  => usRx,
+         usRxStatus            => TIMING_PHY_STATUS_FORCE_C,
+         
+         timingPhyClk          => timingPhyClk,
+         timingPhyRst          => timingPhyRst,
+         -- timingPhy             => timingPhy,
+         recStream             => recStream );
+     usRecClk    <= dsRxClk  (0);
+     usRx.data   <= dsRxData (0);
+     usRx.dataK  <= dsRxDataK(0);
+     usRx.dspErr <= dsRxErr(0) & dsRxErr(0);
+     usRx.decErr <= "00";
+     usRefClk    <= timingPhyClk;
+     dsTxData (0) <= timingPhy.data;
+     dsTxDataK(0) <= timingPhy.dataK;
+     dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-2 downto 0) & XPM_LINK_CONFIG_INIT_C;
+   end generate GEN_XPMASYNC;
+   
    GEN_AMC_MGT : for i in 0 to 1 generate
       U_Rcvr : entity l2si.XpmGthUltrascaleWrapper
          generic map (
@@ -621,8 +635,8 @@ begin
             txClk     => open,
             txClkIn   => timingPhyClk,
             txClkRst  => timingPhyRst,
-            config    => xpmConfig.dsLink(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            status    => dsLinkStatus    (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)));
+            config    => dsLinkConfig(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+            status    => dsLinkStatus(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)) );
    end generate;
 
    U_SyncPaddrTx : entity surf.SynchronizerVector
