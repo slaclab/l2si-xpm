@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-02-17
+-- Last update: 2023-03-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -52,27 +52,21 @@ entity XpmAsyncKcu1500 is
      TPD_G               : time    := 1 ns;
      AXIL_BASE_G         : slv(31 downto 0) );
    port (
-     signal axilClk               : in  sl;
-     signal axilRst               : in  sl;
-     signal axilReadMaster        : in  AxiLiteReadMasterType;
-     signal axilReadSlave         : out AxiLiteReadSlaveType;
-     signal axilWriteMaster       : in  AxiLiteWriteMasterType;
-     signal axilWriteSlave        : out AxiLiteWriteSlaveType;
+     axilClk               : in  sl;
+     axilRst               : in  sl;
+     axilReadMaster        : in  AxiLiteReadMasterType;
+     axilReadSlave         : out AxiLiteReadSlaveType;
+     axilWriteMaster       : in  AxiLiteWriteMasterType;
+     axilWriteSlave        : out AxiLiteWriteSlaveType;
 
-     -- signal usRefClkGt            : in  sl;
-     -- signal usRxP                 : in  sl;
-     -- signal usRxN                 : in  sl;
-     -- signal usTxP                 : out sl;
-     -- signal usTxN                 : out sl;
-     signal usRecClk              : in  sl;
-     -- signal usRefClk              : out sl;
-     signal usRx                  : in  TimingRxType;
-     signal usRxStatus            : in  TimingPhyStatusType;
+     usRecClk              : in  sl;
+     usRx                  : in  TimingRxType;
+     usRxStatus            : in  TimingPhyStatusType;
+     usRxControl           : out TimingPhyControlType;
      
-     signal timingPhyClk          : in  sl;
-     signal timingPhyRst          : in  sl;
-     -- signal timingPhy             : in  TimingPhyType;
-     signal recStream             : out XpmStreamType );
+     timingPhyClk          : in  sl;
+     timingPhyRst          : in  sl;
+     recStream             : out XpmStreamType );
 end XpmAsyncKcu1500;
 
 architecture rtl of XpmAsyncKcu1500 is
@@ -90,9 +84,6 @@ architecture rtl of XpmAsyncKcu1500 is
    signal txStreams   : TimingSerialArray(2 downto 0);
    signal txStreamIds : Slv4Array        (2 downto 0);
    signal txAdvance   : slv              (2 downto 0) := (others=>'0');
---   signal usRx        : TimingRxType;
-   signal usRxControl : TimingPhyControlType := TIMING_PHY_CONTROL_INIT_C;
---   signal usRxStatus  : TimingPhyStatusType;
    signal usRxClk     : sl;
    signal usTxOutClk  : sl;
    signal usRxTimingBus : TimingBusType;
@@ -109,9 +100,6 @@ architecture rtl of XpmAsyncKcu1500 is
    
 begin
 
---  usRecClk <= usRxClk;
---  usRefClk <= usTxOutClk;
-  
   U_XBAR : entity surf.AxiLiteCrossbar
     generic map (
       TPD_G              => TPD_G,
@@ -131,45 +119,6 @@ begin
       mAxiReadMasters     => axilReadMasters,
       mAxiReadSlaves      => axilReadSlaves);
 
-  -- TimingGtCoreWrapper_1 : entity lcls_timing_core.TimingGtCoreWrapper
-  --   generic map (EXTREF_G         => true,
-  --                ADDR_BITS_G      => 14,
-  --                AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(GTH_INDEX_C).baseAddr,
-  --                GTH_DRP_OFFSET_G => x"00004000")
-  --   port map (
-  --     axilClk         => axilClk,
-  --     axilRst         => axilRst,
-  --     axilReadMaster  => axilReadMasters (GTH_INDEX_C),
-  --     axilReadSlave   => axilReadSlaves  (GTH_INDEX_C),
-  --     axilWriteMaster => axilWriteMasters(GTH_INDEX_C),
-  --     axilWriteSlave  => axilWriteSlaves (GTH_INDEX_C),
-  --     stableClk       => axilClk,
-  --     stableRst       => axilRst,
-  --     gtRefClk        => usRefClkGt,
-  --     gtRefClkDiv2    => '0',
-  --     gtRxP           => usRxP,
-  --     gtRxN           => usRxN,
-  --     gtTxP           => usTxP,
-  --     gtTxN           => usTxN,
-  --     rxControl       => usRxControl,
-  --     rxStatus        => usRxStatus,
-  --     rxUsrClkActive  => '1',
-  --     rxCdrStable     => open,
-  --     rxUsrClk        => usRxClk,
-  --     rxData          => usRx.data,
-  --     rxDataK         => usRx.dataK,
-  --     rxDispErr       => usRx.dspErr,
-  --     rxDecErr        => usRx.decErr,
-  --     rxOutClk        => usRxClk,
-  --     txControl       => usRxControl,
-  --     txStatus        => open,
-  --     txUsrClk        => timingPhyClk,
-  --     txUsrClkActive  => '1',
-  --     txData          => timingPhy.data,
-  --     txDataK         => timingPhy.dataK,
-  --     txOutClk        => usTxOutClk,
-  --     loopback        => "000");
-
   U_UsRx : entity lcls_timing_core.TimingCore
     generic map (
       AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(TIM_INDEX_C).baseAddr,
@@ -180,7 +129,6 @@ begin
       gtTxUsrClk          => timingPhyClk,
       gtTxUsrRst          => timingPhyRst,
       
---      gtRxRecClk          => usRxClk,
       gtRxRecClk          => usRecClk,
       gtRxData            => usRx.data,
       gtRxDataK           => usRx.dataK,

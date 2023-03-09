@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-02-20
+-- Last update: 2023-03-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -80,36 +80,36 @@ entity XpmBaseKcu1500 is
    -- "XpmAsync" : receive upstream timing and retransmit asynchronously
    port (
      -- AXI-Lite Interface (axilClk domain)
-     signal axilClk               : out sl;
-     signal axilRst               : out sl;
-     signal axilReadMaster        : in  AxiLiteReadMasterType;
-     signal axilReadSlave         : out AxiLiteReadSlaveType;
-     signal axilWriteMaster       : in  AxiLiteWriteMasterType;
-     signal axilWriteSlave        : out AxiLiteWriteSlaveType;
+     axilClk               : out sl;
+     axilRst               : out sl;
+     axilReadMaster        : in  AxiLiteReadMasterType;
+     axilReadSlave         : out AxiLiteReadSlaveType;
+     axilWriteMaster       : in  AxiLiteWriteMasterType;
+     axilWriteSlave        : out AxiLiteWriteSlaveType;
      -- AXI-Stream Interface
-     signal dmaClk                : in  sl;
-     signal dmaRst                : in  sl;
-     signal obDmaMaster           : in  AxiStreamMasterType;
-     signal obDmaSlave            : out AxiStreamSlaveType;
-     signal ibDmaMaster           : out AxiStreamMasterType;
-     signal ibDmaSlave            : in  AxiStreamSlaveType;
+     dmaClk                : in  sl;
+     dmaRst                : in  sl;
+     obDmaMaster           : in  AxiStreamMasterType;
+     obDmaSlave            : out AxiStreamSlaveType;
+     ibDmaMaster           : out AxiStreamMasterType;
+     ibDmaSlave            : in  AxiStreamSlaveType;
      ------------------
      --  Hardware Ports
      ------------------
      -- QSFP[0] Ports,
-     signal qsfp0RefClkP          : in  slv(1 downto 0);
-     signal qsfp0RefClkN          : in  slv(1 downto 0);
-     signal qsfp0RxP              : in  slv(3 downto 0);
-     signal qsfp0RxN              : in  slv(3 downto 0);
-     signal qsfp0TxP              : out slv(3 downto 0);
-     signal qsfp0TxN              : out slv(3 downto 0);
+     qsfp0RefClkP          : in  slv(1 downto 0);
+     qsfp0RefClkN          : in  slv(1 downto 0);
+     qsfp0RxP              : in  slv(3 downto 0);
+     qsfp0RxN              : in  slv(3 downto 0);
+     qsfp0TxP              : out slv(3 downto 0);
+     qsfp0TxN              : out slv(3 downto 0);
      -- QSFP[1] Ports
-     signal qsfp1RefClkP          : in  slv(1 downto 0);
-     signal qsfp1RefClkN          : in  slv(1 downto 0);
-     signal qsfp1RxP              : in  slv(3 downto 0);
-     signal qsfp1RxN              : in  slv(3 downto 0);
-     signal qsfp1TxP              : out slv(3 downto 0);
-     signal qsfp1TxN              : out slv(3 downto 0) );
+     qsfp1RefClkP          : in  slv(1 downto 0);
+     qsfp1RefClkN          : in  slv(1 downto 0);
+     qsfp1RxP              : in  slv(3 downto 0);
+     qsfp1RxN              : in  slv(3 downto 0);
+     qsfp1TxP              : out slv(3 downto 0);
+     qsfp1TxN              : out slv(3 downto 0) );
 end XpmBaseKcu1500;
 
 architecture top_level of XpmBaseKcu1500 is
@@ -244,6 +244,7 @@ architecture top_level of XpmBaseKcu1500 is
    
    signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
    signal usRx   : TimingRxType;
+   signal usRxControl : TimingPhyControlType;
    
 begin
 
@@ -606,6 +607,8 @@ begin
      dsTxData (0) <= timingPhy.data;
      dsTxDataK(0) <= timingPhy.dataK;
      dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-2 downto 0) & XPM_LINK_CONFIG_INIT_C;
+     dsLinkConfig(0).rxReset    <= usRxControl.reset;
+     dsLinkConfig(0).rxPllReset <= usRxControl.pllReset;
    end generate GEN_XPMASYNC;
    
    GEN_AMC_MGT : for i in 0 to 1 generate
