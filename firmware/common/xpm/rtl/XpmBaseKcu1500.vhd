@@ -583,20 +583,12 @@ begin
          axilReadSlave         => axilReadSlaves  (ASYN_INDEX_C),
          axilWriteMaster       => axilWriteMasters(ASYN_INDEX_C),
          axilWriteSlave        => axilWriteSlaves (ASYN_INDEX_C),
-
-         -- usRefClkGt            => dsClkBuf(0),
-         -- usRxP                 => idsRxP(0)(0),
-         -- usRxN                 => idsRxN(0)(0),
-         -- usTxP                 => idsTxP(0)(0),
-         -- usTxN                 => idsTxN(0)(0),
          usRecClk              => dsRxClk(0),
-         -- usRefClk              => usRefClk,
          usRx                  => usRx,
          usRxStatus            => TIMING_PHY_STATUS_FORCE_C,
-         
+         usRxControl           => usRxControl,
          timingPhyClk          => timingPhyClk,
          timingPhyRst          => timingPhyRst,
-         -- timingPhy             => timingPhy,
          recStream             => recStream );
      usRecClk    <= dsRxClk  (0);
      usRx.data   <= dsRxData (0);
