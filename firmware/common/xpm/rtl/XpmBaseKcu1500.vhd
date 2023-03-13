@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-03-09
+-- Last update: 2023-03-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -156,6 +156,7 @@ architecture top_level of XpmBaseKcu1500 is
 
    signal dsLinkStatus : XpmLinkStatusArray(NUM_FP_LINKS_C-1 downto 0);
    signal dsLinkConfig : XpmLinkConfigArray(NUM_FP_LINKS_C-1 downto 0);
+   signal dsLinkConfig0: XpmLinkConfigType := XPM_LINK_CONFIG_INIT_C;
    signal dsTxData     : Slv16Array(NUM_FP_LINKS_C-1 downto 0);
    signal dsTxDataK    : Slv2Array (NUM_FP_LINKS_C-1 downto 0);
    signal dsRxData     : Slv16Array(NUM_FP_LINKS_C-1 downto 0);
@@ -598,9 +599,9 @@ begin
      usRefClk    <= timingPhyClk;
      dsTxData (0) <= timingPhy.data;
      dsTxDataK(0) <= timingPhy.dataK;
-     dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-2 downto 0) & XPM_LINK_CONFIG_INIT_C;
-     dsLinkConfig(0).rxReset    <= usRxControl.reset;
-     dsLinkConfig(0).rxPllReset <= usRxControl.pllReset;
+     dsLinkConfig0.rxReset    <= usRxControl.reset;
+     dsLinkConfig0.rxPllReset <= usRxControl.pllReset;
+     dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-2 downto 0) & dsLinkConfig0;
    end generate GEN_XPMASYNC;
    
    GEN_AMC_MGT : for i in 0 to 1 generate
