@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2022-12-30
+-- Last update: 2023-03-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -67,7 +67,7 @@ architecture rtl of XpmMonitorStream is
    signal sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);
 
    constant TDATA_SIZE_C      : integer := EMAC_AXIS_CONFIG_C.TDATA_BYTES_C*8;
-   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*282 + 18 + XPM_SEQ_DEPTH_C*16);
+   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*282 + 18 + XPM_SEQ_DEPTH_C*16+4);
    constant LAST_WORD_C       : integer := (XPM_STATUS_BITS_C-1) / TDATA_SIZE_C;
    
    function toSlv(packetId : slv(15 downto 0);
@@ -105,6 +105,7 @@ architecture rtl of XpmMonitorStream is
      for j in 0 to XPM_SEQ_DEPTH_C-1 loop
        assignSlv(i, v, seqCount(j));
      end loop; -- 4*16B
+     assignSlv(i, v, s.paddr); -- 4B
      return v; --
    end function toSlv;
    
