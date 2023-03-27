@@ -486,7 +486,7 @@ class GroupCtrls(object):
 
 class PVCtrls(object):
 
-    def __init__(self, p, m, name=None, ip=None, xpm=None, stats=None, handle=None, db=None, cuInit=False):
+    def __init__(self, p, m, name=None, ip=None, xpm=None, stats=None, handle=None, db=None, pwd=None, cuInit=False):
         global provider
         provider = p
         global lock
@@ -504,6 +504,7 @@ class PVCtrls(object):
         self._xpm   = xpm
         self._db    = db
         self._handle= handle
+        self._pwd   = pwd
 
         init = None
         try:
@@ -570,7 +571,7 @@ class PVCtrls(object):
                 # save config
                 print('Updating {}'.format(self._db))
                 db_url, db_name, db_instrument, db_alias = self._db.split(',',4)
-                mycdb = cdb.configdb(db_url, db_instrument, True, db_name, user=db_instrument+'opr', password='pcds')
+                mycdb = cdb.configdb(db_url, db_instrument, True, db_name, user=db_instrument+'opr', password=self._pwd)
                 mycdb.add_device_config('xpm')
 
                 top = cdict()
