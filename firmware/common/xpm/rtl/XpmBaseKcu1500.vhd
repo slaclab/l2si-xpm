@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-03-10
+-- Last update: 2023-04-04
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -436,7 +436,7 @@ begin
    U_Application : entity l2si_core.XpmApp
       generic map (
          TPD_G           => TPD_G,
-         NUM_DS_LINKS_G  => NUM_DS_LINKS_C-1,
+         NUM_DS_LINKS_G  => NUM_DS_LINKS_C,
          NUM_BP_LINKS_G  => NUM_BP_LINKS_C,
          AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(APP_INDEX_C).baseAddr)
       port map (
@@ -444,14 +444,14 @@ begin
          -- Application Ports --
          -----------------------
          -- -- AMC's DS Ports
-         dsLinkStatus    => dsLinkStatus(NUM_DS_LINKS_C-1 downto 1),
-         dsRxData        => dsRxData    (NUM_DS_LINKS_C-1 downto 1),
-         dsRxDataK       => dsRxDataK   (NUM_DS_LINKS_C-1 downto 1),
-         dsTxData        => dsTxData    (NUM_DS_LINKS_C-1 downto 1),
-         dsTxDataK       => dsTxDataK   (NUM_DS_LINKS_C-1 downto 1),
-         dsRxClk         => dsRxClk     (NUM_DS_LINKS_C-1 downto 1),
-         dsRxRst         => dsRxRst     (NUM_DS_LINKS_C-1 downto 1),
-         dsRxErr         => dsRxErr     (NUM_DS_LINKS_C-1 downto 1),
+         dsLinkStatus    => dsLinkStatus(NUM_DS_LINKS_C-1 downto 0),
+         dsRxData        => dsRxData    (NUM_DS_LINKS_C-1 downto 0),
+         dsRxDataK       => dsRxDataK   (NUM_DS_LINKS_C-1 downto 0),
+         dsTxData        => dsTxData    (NUM_DS_LINKS_C-1 downto 0),
+         dsTxDataK       => dsTxDataK   (NUM_DS_LINKS_C-1 downto 0),
+         dsRxClk         => dsRxClk     (NUM_DS_LINKS_C-1 downto 0),
+         dsRxRst         => dsRxRst     (NUM_DS_LINKS_C-1 downto 0),
+         dsRxErr         => dsRxErr     (NUM_DS_LINKS_C-1 downto 0),
          --  BP DS Ports
          bpTxData        => bpTxData (0),
          bpTxDataK       => bpTxDataK(0),
