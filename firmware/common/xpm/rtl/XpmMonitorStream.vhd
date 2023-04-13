@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-03-27
+-- Last update: 2023-04-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -132,6 +132,7 @@ architecture rtl of XpmMonitorStream is
    signal r_in : RegType;
 
    signal regRst : sl;
+   signal r_dataL_3 : sl;
    
 begin
 
@@ -164,10 +165,15 @@ begin
                  rd_clk              => axilClk,
                  dout                => sL0Stats(i) );
   end generate GEN_L0;
-  
+
+  U_DataL : BUFG
+    port map (
+      I => r.dataL(3),
+      O => r_dataL_3 );
+      
   comb : process ( regRst, r, enable, period, status, sL0Stats,
                    pllCount, pllStat, monClkRate, seqCount,
-                   obMonitorSlave ) is
+                   obMonitorSlave, r_dataL_3 ) is
     variable v  : RegType;
   begin
     v := r;
@@ -215,14 +221,19 @@ begin
       v.count := (others=>'0');
     end if;
 
-    if r.dataL(3) = '1' then
+    if r_dataL_3 = '1' then
       v.data := toSlv(r.id, status, sL0Stats, pllCount, pllStat, monClkRate, seqCount);
       v.index := 0;
       v.busy  := '1';
     end if;
     
     if regRst = '1' then
-      v := REG_INIT_C;
+      v.busy   := REG_INIT_C.busy;
+      v.count  := REG_INIT_C.count;
+      v.id     := REG_INIT_C.id;
+      v.index  := REG_INIT_C.index;
+      v.dataL  := REG_INIT_C.dataL;
+      v.master := REG_INIT_C.master;
     end if;
 
     r_in <= v;
