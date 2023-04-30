@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-04-04
+-- Last update: 2023-04-30
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -485,8 +485,13 @@ begin
          seqCountRst     => seqCountRst,
          seqCount        => seqCount );
 
+   --  Map all messages to VC=1
    U_MasterMux : entity surf.AxiStreamMux
-     generic map ( NUM_SLAVES_G => 3 )
+     generic map ( NUM_SLAVES_G   => 3,
+                   MODE_G         => "ROUTED",
+                   TDEST_ROUTES_G => (0=>"00000001",
+                                      1=>"00000001",
+                                      2=>"00000001") )
      port map ( axisClk         => regClk,
                 axisRst         => regRst,
                 sAxisMasters(0) => seqMaster,
