@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2022-12-19
+-- Last update: 2023-05-01
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -51,7 +51,8 @@ entity XpmReg is
       STA_INTERVAL_C      : integer := 910000;
       DSCLK_119MHZ_G      : boolean := false;
       REMOVE_MONREG_G     : boolean := true;
-      AXILCLK_FREQ_G      : integer := 125000000);
+--      AXILCLK_FREQ_G      : integer := 125000000);
+      AXILCLK_FREQ_G      : integer := 100000000);
    port (
       axilClk         : in  sl;
       axilRst         : in  sl;
