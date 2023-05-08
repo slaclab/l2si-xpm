@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-03-09
+-- Last update: 2023-05-07
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -153,6 +153,7 @@ begin
   usRxVector <= toSlv(usRxTimingBus.message);
   usRxValid  <= usRxTimingBus.valid;
   usRxStrobe <= usRxTimingBus.strobe;
+  usRxExtn   <= usRxTimingBus.extension;
   
   U_UsRecSerializer : entity lcls_timing_core.WordSerializer
     generic map (

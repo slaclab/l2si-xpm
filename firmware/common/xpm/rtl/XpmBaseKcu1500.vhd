@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-04-30
+-- Last update: 2023-05-07
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -246,9 +246,36 @@ architecture top_level of XpmBaseKcu1500 is
    signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
    signal usRx   : TimingRxType;
    signal usRxControl : TimingPhyControlType;
+   signal usRxStatus  : TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
+
+   component ila_0
+     port ( clk    : in sl;
+            probe0 : in slv(255 downto 0) );
+   end component;
    
 begin
 
+  U_ILA : ila_0
+    port map ( clk       => regClk,
+               probe0(0) => dsLinkStatus(0).rxResetDone,
+               probe0(1) => dsLinkStatus(0).rxReady,
+               probe0(2) => dsLinkStatus(0).txResetDone,
+               probe0(3) => dsLinkStatus(0).txReady,
+               probe0(4) => dsRxRst(0),
+               probe0(5) => dsLinkConfig(0).enable,
+               probe0(6) => dsLinkConfig(0).txReset,
+               probe0(7) => dsLinkConfig(0).txPllReset,
+               probe0(8) => dsLinkConfig(0).rxReset,
+               probe0(9) => dsLinkConfig(0).rxPllReset,
+               probe0(255 downto 10) => (others=>'0') );
+  
+  U_ILA_RX : ila_0
+    port map ( clk       => dsRxClk(0),
+               probe0(15 downto  0) => dsRxData (0),
+               probe0(17 downto 16) => dsRxDataK(0),
+               probe0(18) => dsRxErr(0),
+               probe0(255 downto 19) => (others=>'0') );
+               
    axilClk <= regClk;
    axilRst <= regRst;
    --
@@ -591,11 +618,15 @@ begin
          axilWriteSlave        => axilWriteSlaves (ASYN_INDEX_C),
          usRecClk              => dsRxClk(0),
          usRx                  => usRx,
-         usRxStatus            => TIMING_PHY_STATUS_FORCE_C,
+         usRxStatus            => usRxStatus,
          usRxControl           => usRxControl,
          timingPhyClk          => timingPhyClk,
          timingPhyRst          => timingPhyRst,
          recStream             => recStream );
+     usRxStatus.locked       <= dsLinkStatus(0).rxReady;
+     usRxStatus.resetDone    <= dsLinkStatus(0).rxReady;
+     usRxStatus.bufferByDone <= dsLinkStatus(0).rxResetDone;
+     usRxStatus.bufferByErr  <= '0';
      usRecClk    <= dsRxClk  (0);
      usRx.data   <= dsRxData (0);
      usRx.dataK  <= dsRxDataK(0);
@@ -606,7 +637,7 @@ begin
      dsTxDataK(0) <= timingPhy.dataK;
      dsLinkConfig0.rxReset    <= usRxControl.reset;
      dsLinkConfig0.rxPllReset <= usRxControl.pllReset;
-     dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-2 downto 0) & dsLinkConfig0;
+     dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 1) & dsLinkConfig0;
    end generate GEN_XPMASYNC;
    
    GEN_AMC_MGT : for i in 0 to 1 generate

@@ -52,7 +52,7 @@ entity XpmReg is
       DSCLK_119MHZ_G      : boolean := false;
       REMOVE_MONREG_G     : boolean := true;
 --      AXILCLK_FREQ_G      : integer := 125000000);
-      AXILCLK_FREQ_G      : integer := 100000000);
+      AXILCLK_FREQ_G      : integer := 104166666);
    port (
       axilClk         : in  sl;
       axilRst         : in  sl;

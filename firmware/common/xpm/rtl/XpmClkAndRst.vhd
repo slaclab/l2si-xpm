@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver  <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2023-05-01
+-- Last update: 2023-05-02
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -63,11 +63,9 @@ architecture mapping of XpmClkAndRst is
    signal fabRst    : sl;
    signal clk       : sl;
    signal rst       : sl;
-   signal clkOut    : slv(2 downto 0);
-   signal rstOut    : slv(2 downto 0);
+   signal clkOut    : slv(3 downto 0);
+   signal rstOut    : slv(3 downto 0);
    signal rstDly    : slv(2 downto 0);
-   signal clkAxil   : sl;
-   signal rstAxil   : sl;
    signal rstFO     : sl;
    
    --attribute dont_touch           : string;
@@ -85,7 +83,7 @@ begin
 --   axilRst      <= rstDly(2);
 --   ref156MHzRst <= rstDly(2);
    --  Put large fanout reset onto BUFG
-   axilClk      <= clkAxil;
+   axilClk      <= clkOut(3);
    axilRst      <= rstFO;
    U_AXILRST : BUFG
      port map ( O => rstFO,
@@ -94,8 +92,8 @@ begin
    -- Adding registers to help with timing
    process(clkOut)
    begin
-      if rising_edge(clkOut(2)) then
-         rstDly <= rstDly(1 downto 0) & rstAxil after TPD_G;
+      if rising_edge(clkOut(3)) then
+         rstDly <= rstDly(1 downto 0) & rstOut(3) after TPD_G;
       end if;
    end process;
 
@@ -154,7 +152,7 @@ begin
          INPUT_BUFG_G       => false,
          FB_BUFG_G          => true,
          RST_IN_POLARITY_G  => '1',
-         NUM_CLOCKS_G       => 3,
+         NUM_CLOCKS_G       => 4,
          -- MMCM attributes
          BANDWIDTH_G        => "OPTIMIZED",
          CLKIN_PERIOD_G     => 6.4,
@@ -162,7 +160,8 @@ begin
          CLKFBOUT_MULT_F_G  => 8.0,  -- 1.25 GHz
          CLKOUT0_DIVIDE_F_G => 2.0,                         -- 625 MHz = 1.25 GHz/2.0
          CLKOUT1_DIVIDE_G   => 4,                           -- 312.5 MHz = 1.25 GHz/4
-         CLKOUT2_DIVIDE_G   => 10)                          -- 125 MHz = 1.25 GHz/10
+         CLKOUT2_DIVIDE_G   => 10,                          -- 125 MHz = 1.25 GHz/10
+         CLKOUT3_DIVIDE_G   => 12)                          -- 104 MHz = 1.25 GHz/12
       port map(
          -- Clock Input
          clkIn  => clk,
@@ -171,28 +170,5 @@ begin
          clkOut => clkOut,
          -- Reset Outputs
          rstOut => rstOut);
-
-   U_ClkManagerAxil : entity surf.ClockManagerUltraScale
-      generic map(
-         TPD_G              => TPD_G,
-         TYPE_G             => "MMCM",
-         INPUT_BUFG_G       => false,
-         FB_BUFG_G          => true,
-         RST_IN_POLARITY_G  => '1',
-         NUM_CLOCKS_G       => 1,
-         -- MMCM attributes
-         BANDWIDTH_G        => "OPTIMIZED",
-         CLKIN_PERIOD_G     => 8.0,
-         DIVCLK_DIVIDE_G    => 1,
-         CLKFBOUT_MULT_F_G  => 8.0,  -- 1.00 GHz
-         CLKOUT0_DIVIDE_F_G => 10.0)                         -- 100 MHz = 1.00 GHz/10.0
-      port map(
-         -- Clock Input
-         clkIn  => clkOut(2),
-         rstIn  => rstOut(2),
-         -- Clock Outputs
-         clkOut(0) => clkAxil,
-         -- Reset Outputs
-         rstOut(0) => rstAxil);
 
 end mapping;
