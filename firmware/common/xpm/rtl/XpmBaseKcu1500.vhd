@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-05-07
+-- Last update: 2023-05-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -352,7 +352,7 @@ begin
          -- MMCM attributes
          CLKIN_PERIOD_G    => 6.4,      -- 156.25 MHz
          CLKFBOUT_MULT_G   => 8,        -- 1.25GHz = 8 x 156.25 MHz
-         CLKOUT0_DIVIDE_G  => 10)       -- 125MHz = 1.25GHz/10
+         CLKOUT0_DIVIDE_G  => 12)       -- 104MHz = 1.25GHz/12
       port map(
          -- Clock Input
          clkIn     => phyClk01,
@@ -553,8 +553,7 @@ begin
          NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          US_RX_ENABLE_INIT_G => (XPM_MODE_G="XpmAsync"),
          CU_RX_ENABLE_INIT_G => false,
-         REMOVE_MONREG_G     => true,
-         AXILCLK_FREQ_G      => 125000000 )
+         REMOVE_MONREG_G     => true )
       port map (
          axilClk         => regClk,
          axilRst         => regRst,
