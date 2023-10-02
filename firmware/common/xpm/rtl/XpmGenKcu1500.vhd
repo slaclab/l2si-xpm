@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-02-08
+-- Last update: 2023-10-02
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -115,7 +115,7 @@ begin
          edefConfig     => open,
          irqActive      => '0' );
 
-   U_TPGMiniCore : entity lcls_timing_core.TPGMini
+   U_TPGMiniCore : entity l2si.TPGMiniClock
      generic map (
        TPD_G        => TPD_G,
        STREAM_INTF  => true )
@@ -123,6 +123,10 @@ begin
        statusO         => tpgStatus,
        configI         => tpgConfig,
 
+       clock_step      => tpgConfig.interval(20 downto 16),
+       clock_remainder => tpgConfig.interval(12 downto  8),
+       clock_divisor   => tpgConfig.interval( 4 downto  0),
+       
        txClk           => timingPhyClk,
        txRst           => timingPhyRst,
        txRdy           => '1',
