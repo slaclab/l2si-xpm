@@ -22,6 +22,26 @@ import LclsTimingCore               as timing
 import l2si_xpm                     as xpm
 from l2si_xpm._AxiLiteRingBuffer import AxiLiteRingBuffer
 
+class DevReset(pr.Device):
+    def __init__(   self, 
+            name        = "DevReset", 
+            description = "Device Reset Control", 
+            **kwargs):
+        super().__init__(name=name, description=description, **kwargs)
+
+        self.add(pr.RemoteVariable(
+            name         = 'clearTimingPhyReset',
+            description  = "Clear timingPhyRst",
+            offset       = 0x0100,
+            bitSize      =  1,
+            bitOffset    =  0x00,
+            base         = pr.UInt,
+            mode         = "RW",
+        ))
+
+
+
+
 class DevPcie(pr.Device):
     mmcmParms = [ ['MmcmPL119', 0x08900000],
                   ['MmcmPL70' , 0x08a00000],
@@ -64,11 +84,23 @@ class DevPcie(pr.Device):
             offset = 0x00820000,
         ))
 
+        self.add(timing.TPGMiniCore(
+            memBase = memBase,
+            name   = 'TpgMini',
+            offset = 0x00830000,
+        ))
+
 #        self.add(xpm.CuPhase(
 #            memBase = memBase,
 #            name = 'CuPhase',
 #            offset = 0x00850000,
 #        ))
+
+        self.add(DevReset(
+            memBase      = memBase,
+            name         = 'DevReset',
+            offset       = 0x00840000,
+        ))
 
         self.add(xpm.XpmPhase(
             memBase = memBase,
@@ -78,13 +110,20 @@ class DevPcie(pr.Device):
 
     def start(self):
         #  Reprogram the reference clock
+        self.DevReset.clearTimingPhyReset.set(0)
+        time.sleep(0.01)
         self.AxiPcieCore.I2cMux.set(1<<2)
         self.AxiPcieCore.Si570._program()
-        return
         time.sleep(0.01)
         #  Reset the Tx and Rx PLLs
         for i in range(8):
             self.XpmApp.link.set(i)
+            #  Need to refresh these fields that share a 32-bit register :(
+            self.XpmApp.fullMask.get()
+            self.XpmApp.txReset .get()
+            self.XpmApp.rxReset .get()
+            self.XpmApp.fullEn  .get()
+            #  End refresh
             self.XpmApp.txPllReset.set(1)
             time.sleep(0.01)
             self.XpmApp.txPllReset.set(0)
@@ -93,3 +132,5 @@ class DevPcie(pr.Device):
             time.sleep(0.01)
             self.XpmApp.rxPllReset.set(0)
         self.XpmApp.link.set(0)
+        time.sleep(0.01)
+        self.DevReset.clearTimingPhyReset.set(1)
