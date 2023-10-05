@@ -273,8 +273,8 @@ class XpmApp(pr.Device):
             mode         = "RO",
         ))
 
-        def _rxErrCnt(var,read):
-            return var.dependencies[0].get(read)&0xffff
+        def _rxErrCnt(var):
+            return var.dependencies[0].get()&0xffff
 
         self.add(pr.LinkVariable(    
             name         = "rxErrCnt",
@@ -283,8 +283,8 @@ class XpmApp(pr.Device):
             dependencies = [self.dsLinkStatus]
         ))
 
-        def _txResetDone(var,read):
-            return (var.dependencies[0].get(read)>>16)&1
+        def _txResetDone(var):
+            return (var.dependencies[0].get()>>16)&1
 
         self.add(pr.LinkVariable(    
             name         = "txResetDone",
@@ -293,8 +293,8 @@ class XpmApp(pr.Device):
             dependencies = [self.dsLinkStatus]
         ))
 
-        def _txReady(var,read):
-            return (var.dependencies[0].get(read)>>17)&1
+        def _txReady(var):
+            return (var.dependencies[0].get()>>17)&1
 
         self.add(pr.LinkVariable(    
             name         = "txReady",
@@ -303,8 +303,8 @@ class XpmApp(pr.Device):
             dependencies = [self.dsLinkStatus]
         ))
 
-        def _rxResetDone(var,read):
-            return (var.dependencies[0].get(read)>>18)&1
+        def _rxResetDone(var):
+            return (var.dependencies[0].get()>>18)&1
 
         self.add(pr.LinkVariable(    
             name         = "rxResetDone",
@@ -313,8 +313,8 @@ class XpmApp(pr.Device):
             dependencies = [self.dsLinkStatus]
         ))
 
-        def _rxReady(var,read):
-            return (var.dependencies[0].get(read)>>19)&1
+        def _rxReady(var):
+            return (var.dependencies[0].get()>>19)&1
 
         self.add(pr.LinkVariable(    
             name         = "rxReady",
@@ -323,8 +323,8 @@ class XpmApp(pr.Device):
             dependencies = [self.dsLinkStatus]
         ))
 
-        def _rxIsXpm(var,read):
-            return (var.dependencies[0].get(read)>>20)&1
+        def _rxIsXpm(var):
+            return (var.dependencies[0].get()>>20)&1
 
         self.add(pr.LinkVariable(    
             name         = "rxIsXpm",
@@ -551,8 +551,8 @@ class XpmApp(pr.Device):
             mode         = "RW",
         ))
 
-        def pipelineGet(var,read):
-            value = var.dependencies[0].get(read)
+        def pipelineGet(var):
+            value = var.dependencies[0].get()
             return value>>16
 
         def pipelineSet(deps):
