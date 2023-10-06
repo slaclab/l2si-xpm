@@ -33,6 +33,10 @@ entity TPGMiniClock is
     statusO : out TPGStatusType;
     configI : in  TPGConfigType;
 
+    clock_step       : in  slv(4 downto 0);
+    clock_remainder  : in  slv(4 downto 0);
+    clock_divisor    : in  slv(4 downto 0);
+
     txClk      : in  sl;
     txRst      : in  sl;
     txRdy      : in  sl;
@@ -42,8 +46,7 @@ entity TPGMiniClock is
     streams    : out TimingSerialArray(0 downto 0);
     streamIds  : out Slv4Array        (0 downto 0);
     advance    : in  slv              (0 downto 0) := (others=>'0');
-    fiducial   : out sl
-    );
+    fiducial   : out sl );
 end TPGMiniClock;
 
 
@@ -331,6 +334,10 @@ begin
     generic map (
       TPD_G =>   TPD_G)
     port map (
+      step      => clock_step,
+      remainder => clock_remainder,
+      divisor   => clock_divisor,
+      
       rst    => txRst,
       clkA   => txClk,
       wrEnA  => config.timeStampWrEn,
