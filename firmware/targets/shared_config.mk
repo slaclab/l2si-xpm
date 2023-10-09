@@ -1,2 +1,2 @@
 # Define Firmware Version:
-export PRJ_VERSION = 0x03050500
+export PRJ_VERSION = 0x03060000

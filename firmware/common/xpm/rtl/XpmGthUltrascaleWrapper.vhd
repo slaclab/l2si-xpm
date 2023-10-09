@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-12-10
+-- Last update: 2023-10-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -162,7 +162,9 @@ END COMPONENT;
 
   signal rxReset      : slv(NLINKS_G-1 downto 0);
   signal rxResetDone  : slv(NLINKS_G-1 downto 0);
- 
+
+  signal txDataS      : Slv18Array(NLINKS_G-1 downto 0);
+  
   signal rxbypassrst  : slv(NLINKS_G-1 downto 0);
   signal txbypassrst  : slv(NLINKS_G-1 downto 0);
   signal txbypassdone : slv(NLINKS_G-1 downto 0);
@@ -172,11 +174,12 @@ END COMPONENT;
 
 begin
 
-  rxClk   <= rxUsrClk;
-  rxRst   <= rxFifoRst;
-  rxErr   <= rxErrL;
-  txClk   <= txUsrClk(0);
-
+  rxClk    <= rxUsrClk;
+  rxRst    <= rxFifoRst;
+  rxErr    <= rxErrL;
+  txClk    <= txUsrClk(0);
+  txOutClk <= txUsrClk;
+  
   GEN_IBUFDS : if USE_IBUFDS generate
     DEVCLK_IBUFDS_GTE3 : IBUFDS_GTE3
       generic map (
@@ -197,9 +200,9 @@ begin
 
   devClkOut  <= gtRefClk;
   devClkBuf  <= gRefClk;
-  
+
   GEN_CTRL : for i in 0 to NLINKS_G-1 generate
-    txCtrl2In (i) <= "000000" & txDataK(i);
+    txCtrl2In (i) <= "000000" & txDataS(i)(17 downto 16);
     rxErrIn   (i) <= '0' when (rxCtrl1Out(i)(1 downto 0)="00" and rxCtrl3Out(i)(1 downto 0)="00") else '1';
     rxFifoRst (i) <= not rxResetDone(i);
     loopback  (i) <= "0" & config(i).loopback & "0";
@@ -209,6 +212,16 @@ begin
     rxReset   (i) <= config(i).rxReset or r(i).reset;
     status    (i).txResetDone <= txbypassdone(i) and not txbypasserr(i);
     
+    U_TxSync : entity surf.SynchronizerFifo
+      generic map ( DATA_WIDTH_G => 18,
+                    ADDR_WIDTH_G => 2 )
+      port map ( rst     => fifoRst,
+                 wr_clk  => txClkIn,
+                 din(17 downto 16) => txDataK (i),
+                 din(15 downto  0) => txData  (i),
+                 rd_clk            => txUsrClk(i),
+                 dout              => txDataS (i) );
+                 
     U_STATUS : entity surf.SynchronizerOneShotCnt
       generic map ( CNT_WIDTH_G => 16 )
       port map ( dataIn       => rxErrL(i),
@@ -227,7 +240,8 @@ begin
                   DIV     => "000",
                   O       => rxUsrClk(i) );
 
-    txUsrClk(i) <= txClkIn;
+--    txUsrClk(i) <= txClkIn;
+--    txUsrRst(i) <= txClkRst or config(i).txReset;
     txUsrRst(i) <= txClkRst or config(i).txReset;
     
     rxErrL (i)  <= rxErrIn(i);
@@ -266,7 +280,7 @@ begin
         gtwiz_reset_rx_cdr_stable_out        => open,
         gtwiz_reset_tx_done_out           (0)=> status(i).txReady,
         gtwiz_reset_rx_done_out           (0)=> rxResetDone(i),
-        gtwiz_userdata_tx_in                 => txData(i),
+        gtwiz_userdata_tx_in                 => txDataS(i),
         gtwiz_userdata_rx_out                => rxData(i),
         -- CPLL
 --        cpllrefclksel_in                     => (others=>'1'),
@@ -299,7 +313,7 @@ begin
         rxctrl3_out                          => rxCtrl3Out(i),
         rxoutclk_out                      (0)=> rxOutClk(i),
         rxpmaresetdone_out                   => open,
-        txoutclk_out                      (0)=> txOutClk(i),
+        txoutclk_out                      (0)=> txUsrClk(i),
         txpmaresetdone_out                   => open
         );
 
