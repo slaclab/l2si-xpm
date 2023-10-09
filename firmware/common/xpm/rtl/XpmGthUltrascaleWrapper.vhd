@@ -215,7 +215,7 @@ begin
     U_TxSync : entity surf.SynchronizerFifo
       generic map ( DATA_WIDTH_G => 18,
                     ADDR_WIDTH_G => 2 )
-      port map ( rst     => fifoRst,
+      port map ( rst     => txUsrRst,
                  wr_clk  => txClkIn,
                  din(17 downto 16) => txDataK (i),
                  din(15 downto  0) => txData  (i),
