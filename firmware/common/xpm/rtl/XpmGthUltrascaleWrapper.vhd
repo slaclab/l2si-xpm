@@ -146,6 +146,7 @@ END COMPONENT;
   signal rxCtrl1Out : Slv16Array(NLINKS_G-1 downto 0);
   signal rxCtrl3Out : Slv8Array (NLINKS_G-1 downto 0);
 
+  signal txOutClkO  : slv(NLINKS_G-1 downto 0);
   signal txUsrClk   : slv(NLINKS_G-1 downto 0);
   signal txUsrRst   : slv(NLINKS_G-1 downto 0);
   signal gtRefClk   : sl;
@@ -215,8 +216,8 @@ begin
     U_TxSync : entity surf.SynchronizerFifo
       generic map ( DATA_WIDTH_G => 18,
                     ADDR_WIDTH_G => 2 )
-      port map ( rst     => txUsrRst,
-                 wr_clk  => txClkIn,
+      port map ( rst               => txUsrRst(i),
+                 wr_clk            => txClkIn,
                  din(17 downto 16) => txDataK (i),
                  din(15 downto  0) => txData  (i),
                  rd_clk            => txUsrClk(i),
@@ -280,7 +281,7 @@ begin
         gtwiz_reset_rx_cdr_stable_out        => open,
         gtwiz_reset_tx_done_out           (0)=> status(i).txReady,
         gtwiz_reset_rx_done_out           (0)=> rxResetDone(i),
-        gtwiz_userdata_tx_in                 => txDataS(i),
+        gtwiz_userdata_tx_in                 => txDataS(i)(15 downto 0),
         gtwiz_userdata_rx_out                => rxData(i),
         -- CPLL
 --        cpllrefclksel_in                     => (others=>'1'),
@@ -313,10 +314,19 @@ begin
         rxctrl3_out                          => rxCtrl3Out(i),
         rxoutclk_out                      (0)=> rxOutClk(i),
         rxpmaresetdone_out                   => open,
-        txoutclk_out                      (0)=> txUsrClk(i),
+        txoutclk_out                      (0)=> txOutClkO(i),
         txpmaresetdone_out                   => open
         );
 
+    U_TXBUFG  : BUFG_GT
+      port map (  I       => txOutClkO(i),
+                  CE      => '1',
+                  CEMASK  => '1',
+                  CLR     => '0',
+                  CLRMASK => '1',
+                  DIV     => "000",
+                  O       => txUsrClk(i) );
+    
     comb : process ( r, rxResetDone, rxErrIn ) is
       variable v : RegType;
     begin
