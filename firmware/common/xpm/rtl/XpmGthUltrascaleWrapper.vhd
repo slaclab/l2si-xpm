@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-10-09
+-- Last update: 2023-10-11
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -149,6 +149,7 @@ END COMPONENT;
   signal txOutClkO  : slv(NLINKS_G-1 downto 0);
   signal txUsrClk   : slv(NLINKS_G-1 downto 0);
   signal txUsrRst   : slv(NLINKS_G-1 downto 0);
+  signal txFifoRst  : slv(NLINKS_G-1 downto 0);
   signal gtRefClk   : sl;
   signal gRefClk    : sl;
 
@@ -173,6 +174,8 @@ END COMPONENT;
 
   signal loopback  : Slv3Array(NLINKS_G-1 downto 0);
 
+  constant TX_SYNC_C : boolean := true;
+  
 begin
 
   rxClk    <= rxUsrClk;
@@ -205,6 +208,7 @@ begin
   GEN_CTRL : for i in 0 to NLINKS_G-1 generate
     txCtrl2In (i) <= "000000" & txDataS(i)(17 downto 16);
     rxErrIn   (i) <= '0' when (rxCtrl1Out(i)(1 downto 0)="00" and rxCtrl3Out(i)(1 downto 0)="00") else '1';
+    txFifoRst (i) <= not txbypassdone(i);
     rxFifoRst (i) <= not rxResetDone(i);
     loopback  (i) <= "0" & config(i).loopback & "0";
     status    (i).rxErr       <= rxErrS(i);
@@ -213,16 +217,6 @@ begin
     rxReset   (i) <= config(i).rxReset or r(i).reset;
     status    (i).txResetDone <= txbypassdone(i) and not txbypasserr(i);
     
-    U_TxSync : entity surf.SynchronizerFifo
-      generic map ( DATA_WIDTH_G => 18,
-                    ADDR_WIDTH_G => 2 )
-      port map ( rst               => txUsrRst(i),
-                 wr_clk            => txClkIn,
-                 din(17 downto 16) => txDataK (i),
-                 din(15 downto  0) => txData  (i),
-                 rd_clk            => txUsrClk(i),
-                 dout              => txDataS (i) );
-                 
     U_STATUS : entity surf.SynchronizerOneShotCnt
       generic map ( CNT_WIDTH_G => 16 )
       port map ( dataIn       => rxErrL(i),
@@ -241,8 +235,31 @@ begin
                   DIV     => "000",
                   O       => rxUsrClk(i) );
 
---    txUsrClk(i) <= txClkIn;
---    txUsrRst(i) <= txClkRst or config(i).txReset;
+    GEN_TXSYNC : if TX_SYNC_C generate
+      U_TXBUFG  : BUFG_GT
+        port map (  I       => txOutClkO(i),
+                    CE      => '1',
+                    CEMASK  => '1',
+                    CLR     => '0',
+                    CLRMASK => '1',
+                    DIV     => "000",
+                    O       => txUsrClk(i) );
+      U_TxSync : entity surf.SynchronizerFifo
+        generic map ( DATA_WIDTH_G => 18,
+                      ADDR_WIDTH_G => 4 )  -- avoid full thresholds
+        port map ( rst               => txFifoRst(i),
+                   wr_clk            => txClkIn,
+                   din(17 downto 16) => txDataK (i),
+                   din(15 downto  0) => txData  (i),
+                   rd_clk            => txUsrClk(i),
+                   dout              => txDataS (i) );
+    end generate;
+
+    NO_GEN_TXSYNC : if not TX_SYNC_C generate
+      txUsrClk(i) <= txClkIn;
+      txDataS (i) <= txDataK(i) & txData(i);
+    end generate;
+    
     txUsrRst(i) <= txClkRst or config(i).txReset;
     
     rxErrL (i)  <= rxErrIn(i);
@@ -284,9 +301,7 @@ begin
         gtwiz_userdata_tx_in                 => txDataS(i)(15 downto 0),
         gtwiz_userdata_rx_out                => rxData(i),
         -- CPLL
---        cpllrefclksel_in                     => (others=>'1'),
         drpclk_in                         (0)=> stableClk,
---        gtgrefclk_in                      (0)=> txUsrClk(i),
         gthrxn_in                         (0)=> gtRxN(i),
         gthrxp_in                         (0)=> gtRxP(i),
         gtrefclk0_in                      (0)=> gtRefClk,
@@ -318,15 +333,6 @@ begin
         txpmaresetdone_out                   => open
         );
 
-    U_TXBUFG  : BUFG_GT
-      port map (  I       => txOutClkO(i),
-                  CE      => '1',
-                  CEMASK  => '1',
-                  CLR     => '0',
-                  CLRMASK => '1',
-                  DIV     => "000",
-                  O       => txUsrClk(i) );
-    
     comb : process ( r, rxResetDone, rxErrIn ) is
       variable v : RegType;
     begin

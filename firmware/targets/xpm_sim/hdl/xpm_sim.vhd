@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2022-12-29
+-- Last update: 2023-10-11
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ architecture top_level_app of xpm_sim is
    signal usClk, usRst : sl;
    signal usRx  : TimingRxType := TIMING_RX_INIT_C;
    signal usRxStatus : TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
-
+   
    signal xpmStream  : XpmStreamType := XPM_STREAM_INIT_C;
    signal timingStream  : XpmStreamType := XPM_STREAM_INIT_C;
    signal xData      : TimingRxType := TIMING_RX_INIT_C;
@@ -145,6 +145,12 @@ architecture top_level_app of xpm_sim is
    signal expWord : Slv32Array(XPM_PARTITIONS_C-1 downto 0);
    signal scClkA  : slv(6 downto 0);
    signal scRstA  : slv(6 downto 0);
+
+   signal nscClk     : sl;
+   signal nscRst     : sl;
+   signal dsTxDataS  : slv(17 downto 0);
+   signal dsTxData   : slv(15 downto 0);
+   signal dsTxDataK  : slv( 1 downto 0);
 
 begin
 
@@ -569,6 +575,8 @@ begin
        dsLinkStatus    => (others=>XPM_LINK_STATUS_INIT_C),
        dsRxData        => (others=>x"0000"),
        dsRxDataK       => (others=>"00"),
+       dsTxData    (0) => dsTxData,
+       dsTxDataK   (0) => dsTxDataK,
        dsRxErr         => (others=>'0'),
        dsRxClk         => scClkA,
        dsRxRst         => scRstA,
@@ -585,4 +593,24 @@ begin
        timingFbId      => x"DEADBEEF",
        seqCountRst     => seqCountRst );
 
+   process is
+   begin
+     nscRst <= '1';
+     wait for 100 ns;
+     nscRst <= '0';
+     wait for 5000 ns;
+   end process;
+     
+   nscClk <= not scClk;
+   
+   U_Fifo : entity surf.SynchronizerFifo
+     generic map ( DATA_WIDTH_G => 18,
+                   ADDR_WIDTH_G => 4 )
+     port map ( rst               => nscRst,
+                wr_clk            => scClk,
+                din(17 downto 16) => dsTxDataK,
+                din(15 downto  0) => dsTxData,
+                rd_clk            => nscClk,
+                dout              => dsTxDataS );
+   
 end top_level_app;

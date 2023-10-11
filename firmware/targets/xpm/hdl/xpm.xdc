@@ -173,9 +173,9 @@ create_clock -period 6.400 -name fabClk [get_ports fabClkP]
 create_clock -period 6.400 -name ethRef [get_ports ethClkP]
 create_clock -period 4.200 -name cuRef [get_ports timingRefClkInP]
 
-create_clock -period 2.691 -name timingRef [get_ports usClkP]
-create_clock -period 8.400 -name dsClk0 [get_ports {dsClkP[0]}]
-create_clock -period 8.400 -name dsClk1 [get_ports {dsClkP[1]}]
+create_clock -period 2.692 -name timingRef [get_ports usClkP]
+create_clock -period 5.384 -name dsClk0 [get_ports {dsClkP[0]}]
+create_clock -period 5.384 -name dsClk1 [get_ports {dsClkP[1]}]
 
 create_generated_clock -name bpClk625MHz [get_pins U_Base/U_Backplane/U_Clk/U_ClkManagerMps/MmcmGen.U_Mmcm/CLKOUT0]
 create_generated_clock -name bpClk312MHz [get_pins U_Base/U_Backplane/U_Clk/U_ClkManagerMps/MmcmGen.U_Mmcm/CLKOUT1]
