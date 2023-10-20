@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver  <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-11-09
--- Last update: 2021-03-31
+-- Last update: 2023-10-20
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -271,7 +271,7 @@ begin
       for i in 1 to 6 loop
         for j in 0 to 5 loop
           if cuTiming.eventCodes(10*i+1+j)='1' then
-            v.acRates(j) := '1';
+            v.acRates(5-j) := '1';
           end if;
         end loop;
         if cuTiming.eventCodes(10*i+1)='1' then
