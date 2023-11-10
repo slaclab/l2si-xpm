@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-10-11
+-- Last update: 2023-11-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -165,6 +165,9 @@ END COMPONENT;
   signal rxReset      : slv(NLINKS_G-1 downto 0);
   signal rxResetDone  : slv(NLINKS_G-1 downto 0);
 
+  signal txReady      : slv(NLINKS_G-1 downto 0);
+  signal txResetDone  : slv(NLINKS_G-1 downto 0);
+
   signal txDataS      : Slv18Array(NLINKS_G-1 downto 0);
   
   signal rxbypassrst  : slv(NLINKS_G-1 downto 0);
@@ -215,7 +218,7 @@ begin
     status    (i).rxErrCnts   <= rxErrCnts(i);
     status    (i).rxReady     <= rxResetDone(i);
     rxReset   (i) <= config(i).rxReset or r(i).reset;
-    status    (i).txResetDone <= txbypassdone(i) and not txbypasserr(i);
+    txResetDone(i) <= txbypassdone(i) and not txbypasserr(i);
     
     U_STATUS : entity surf.SynchronizerOneShotCnt
       generic map ( CNT_WIDTH_G => 16 )
@@ -226,6 +229,14 @@ begin
                  wrClk        => rxUsrClk (i),
                  rdClk        => stableClk );
 
+    U_TXSTATUS : entity surf.SynchronizerVector
+      generic map ( WIDTH_G => 2 )
+      port map ( clk         => stableClk,
+                 dataIn (0)  => txResetDone(i),
+                 dataIn (1)  => txReady    (i),
+                 dataOut(0)  => status(i).txResetDone,
+                 dataOut(1)  => status(i).txReady );
+                 
     U_BUFG  : BUFG_GT
       port map (  I       => rxOutClk(i),
                   CE      => '1',
@@ -296,7 +307,7 @@ begin
         gtwiz_reset_rx_pll_and_datapath_in(0)=> config(i).rxPllReset,
         gtwiz_reset_rx_datapath_in        (0)=> rxReset(i),
         gtwiz_reset_rx_cdr_stable_out        => open,
-        gtwiz_reset_tx_done_out           (0)=> status(i).txReady,
+        gtwiz_reset_tx_done_out           (0)=> txReady(i),
         gtwiz_reset_rx_done_out           (0)=> rxResetDone(i),
         gtwiz_userdata_tx_in                 => txDataS(i)(15 downto 0),
         gtwiz_userdata_rx_out                => rxData(i),
