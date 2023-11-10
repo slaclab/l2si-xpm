@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-05-08
+-- Last update: 2023-11-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -179,9 +179,9 @@ architecture top_level of XpmBaseKcu1500 is
 
    constant REG_INDEX_C  : integer := 0;
    constant RING_INDEX_C : integer := 1;
-   constant APP_INDEX_C  : integer := 2;
+   constant TEST_INDEX_C : integer := 2;
    constant TIM_INDEX_C  : integer := 3;
-   constant TEST_INDEX_C : integer := 4;
+   constant APP_INDEX_C  : integer := 4;
    constant ASYN_INDEX_C : integer := 5;
    constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(5 downto 0) := (
      REG_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00000000",
@@ -190,14 +190,14 @@ architecture top_level of XpmBaseKcu1500 is
      RING_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"00010000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
-     APP_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00020000",
+     TEST_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"00020000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
      TIM_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00030000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
-     TEST_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"00040000",
-                       addrBits     => 16,
+     APP_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00040000",
+                       addrBits     => 17,
                        connectivity => X"FFFF"),
      ASYN_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"00080000",
                        addrBits     => 19,

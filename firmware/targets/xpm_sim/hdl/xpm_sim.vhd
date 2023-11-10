@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2023-10-11
+-- Last update: 2023-11-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -155,7 +155,7 @@ architecture top_level_app of xpm_sim is
 begin
 
    xpmConfig.partition.l0Select.enabled <= '1';
-   xpmConfig.partition.l0Select.rateSel <= x"0001";
+   xpmConfig.partition.l0Select.rateSel <= x"0002";
    xpmConfig.partition.l0Select.destSel <= x"8000";
    xpmConfig.partition.pipeline.depth_fids <= toSlv(90,8);
    xpmConfig.partition.pipeline.depth_clks <= toSlv(90*200,16);
@@ -164,7 +164,7 @@ begin
 
    appConfig.partition(0).master           <= '1';
    appConfig.partition(0).l0Select.enabled <= '1';
-   appConfig.partition(0).l0Select.rateSel <= x"0001";
+   appConfig.partition(0).l0Select.rateSel <= x"0002";
    appConfig.partition(0).l0Select.destSel <= x"8000";
    appConfig.partition(0).pipeline.depth_fids <= toSlv(90,8);
    appConfig.partition(0).pipeline.depth_clks <= toSlv(90*200,16);
@@ -194,7 +194,8 @@ begin
      wait for 180 us;
      for i in 0 to 100 loop
        --  Insert transition, even if inhibited
-       xpmConfig.partition.message.header <= "0001" & toSlv(i,5); 
+       xpmConfig.partition.message.header <= XPM_PART_MSG_DEFAULT_C &
+                                             "00" & toSlv(i,5); 
        wait until regClk='0';
        xpmConfig.partition.message.insert <= '1';
        wait until regClk='1';
@@ -203,7 +204,8 @@ begin
        wait for 5 us;
 
        --  Insert transition, only if not inhibited (can be dropped)
-       xpmConfig.partition.message.header <= "0110" & toSlv(i,5);
+       xpmConfig.partition.message.header <= XPM_PART_MSG_DROP_FULL_C &
+                                             "10" & toSlv(i,5);
        wait until regClk='0';
        xpmConfig.partition.message.insert <= '1';
        wait until regClk='1';
@@ -212,7 +214,18 @@ begin
        wait for 5 us;
 
        --  Insert transition, waiting for not inhibited
-       xpmConfig.partition.message.header <= "1111" & toSlv(i,5);
+       xpmConfig.partition.message.header <= XPM_PART_MSG_WAIT_FULL_C &
+                                             "11" & toSlv(i,5);
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '1';
+       wait until regClk='1';
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '0';
+       wait for 5 us;
+
+       --  Insert transition, waiting for not inhibited and no L0
+       xpmConfig.partition.message.header <= XPM_PART_MSG_LOW_PRIO_C &
+                                             "01" & toSlv(i,5);
        wait until regClk='0';
        xpmConfig.partition.message.insert <= '1';
        wait until regClk='1';
@@ -530,12 +543,24 @@ begin
    --  0x4000 SeqJump
    --  0x8000 SeqMem
    U_SeqConfig : entity l2si.AxiLiteWriteMasterSim
-     generic map ( CMDS => (( addr  => x"00008000", value => x"80000abc"),
-                            ( addr  => x"00008004", value => x"40000002"),
-                            ( addr  => x"00008008", value => x"00000000"),
+     generic map ( CMDS => (( addr  => x"00010000", value => x"00000004"),-- branch to line 4
+                            ( addr  => x"00010004", value => x"80000abc"),-- request
+                            ( addr  => x"00010008", value => x"40000002"),-- sync
+                            ( addr  => x"0001000c", value => x"A0001000"),-- return
+                            ( addr  => x"00010010", value => x"40000009"),-- sync
+                            ( addr  => x"00010014", value => x"A0000001"),-- call
+                            ( addr  => x"00010018", value => x"00000005"),-- branch
+                            ( addr  => x"00018000", value => x"00000004"),-- branch to line 4
+                            ( addr  => x"00018004", value => x"80000def"),-- request
+                            ( addr  => x"00018008", value => x"40000002"),-- sync
+                            ( addr  => x"0001800c", value => x"A0001000"),-- return
+                            ( addr  => x"00018010", value => x"40000009"),-- sync
+                            ( addr  => x"00018014", value => x"A0000001"),-- call
+                            ( addr  => x"00018018", value => x"00000005"),-- branch
                             ( addr  => x"0000403c", value => x"00000000"),
-                            ( addr  => x"00000004", value => x"00000001"),
-                            ( addr  => x"00000008", value => x"00000001")) )
+                            ( addr  => x"0000413c", value => x"00000000"),
+                            ( addr  => x"00000004", value => x"00000011"),
+                            ( addr  => x"00000008", value => x"00000011")) )
      port map ( clk    => regClk,
                 rst    => axiRst,
                 master => seqWriteMaster,

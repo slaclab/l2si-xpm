@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-05-01
+-- Last update: 2023-11-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -76,7 +76,7 @@ architecture rtl of XpmMonitorStream is
                   pllCount : SlVectorArray(3 downto 0, 2 downto 0);
                   pllStat  : slv(3 downto 0);
                   monClkR  : Slv32Array(3 downto 0);
-                  seqCount : Slv128Array(3 downto 0)) return slv is
+                  seqCount : Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0)) return slv is
      variable v : slv(XPM_STATUS_BITS_C-1 downto 0) := (others=>'0');
      variable i : integer := 0;
    begin
@@ -104,7 +104,7 @@ architecture rtl of XpmMonitorStream is
      end loop; --16B
      for j in 0 to XPM_SEQ_DEPTH_C-1 loop
        assignSlv(i, v, seqCount(j));
-     end loop; -- 4*16B
+     end loop; -- 8*16B
      assignSlv(i, v, s.paddr); -- 4B
      return v; --
    end function toSlv;

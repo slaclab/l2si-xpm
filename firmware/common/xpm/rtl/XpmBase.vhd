@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2022-12-19
+-- Last update: 2023-11-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -236,7 +236,31 @@ architecture top_level of XpmBase is
    signal ringDataI : Slv19Array(NUM_FP_LINKS_C-1 downto 0);
    signal ringDataV : slv (NUM_FP_LINKS_C-1 downto 0);
 
-   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(5 downto 0) := genAxiLiteConfig(6, x"80000000", 23, 16);
+   constant REG_INDEX_C  : integer := 0;
+   constant RING_INDEX_C : integer := 1;
+   constant TEST_INDEX_C : integer := 2;
+   constant TIM_INDEX_C  : integer := 3;
+   constant APP_INDEX_C  : integer := 4;
+   constant PHAS_INDEX_C : integer := 5;
+   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(5 downto 0) := (
+     REG_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"80000000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     RING_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"80010000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     TEST_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"80020000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     TIM_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"80030000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     APP_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"80040000",
+                       addrBits     => 17,
+                       connectivity => X"FFFF"),
+     PHAS_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"80080000",
+                       addrBits     => 19,
+                       connectivity => X"FFFF") );
 
    signal axilReadMasters  : AxiLiteReadMasterArray (AXI_XBAR_CONFIG_C'range);
    signal axilReadSlaves   : AxiLiteReadSlaveArray (AXI_XBAR_CONFIG_C'range) := (others=>AXI_LITE_READ_SLAVE_EMPTY_OK_C);
@@ -523,10 +547,10 @@ begin
          dataValue       => ringData,
          axilClk         => regClk,
          axilRst         => regRst,
-         axilReadMaster  => axilReadMasters (1),
-         axilReadSlave   => axilReadSlaves (1),
-         axilWriteMaster => axilWriteMasters(1),
-         axilWriteSlave  => axilWriteSlaves (1));
+         axilReadMaster  => axilReadMasters (RING_INDEX_C),
+         axilReadSlave   => axilReadSlaves  (RING_INDEX_C),
+         axilWriteMaster => axilWriteMasters(RING_INDEX_C),
+         axilWriteSlave  => axilWriteSlaves (RING_INDEX_C));
 
    U_FpgaClkRet : BUFG_GT
       port map (
@@ -551,10 +575,10 @@ begin
          syncIn          => cuSync,
          axilClk         => regClk,
          axilRst         => regRst,
-         axilReadMaster  => axilReadMasters(5),
-         axilReadSlave   => axilReadSlaves(5),
-         axilWriteMaster => axilWriteMasters(5),
-         axilWriteSlave  => axilWriteSlaves(5));
+         axilReadMaster  => axilReadMasters (PHAS_INDEX_C),
+         axilReadSlave   => axilReadSlaves  (PHAS_INDEX_C),
+         axilWriteMaster => axilWriteMasters(PHAS_INDEX_C),
+         axilWriteSlave  => axilWriteSlaves (PHAS_INDEX_C));
 
    U_PLLCLK : entity l2si.XpmPllClk
       generic map (
@@ -628,10 +652,10 @@ begin
          update          => regUpdate,
          status          => xpmStatus,
          config          => xpmConfig,
-         axilReadMaster  => axilReadMasters(2),
-         axilReadSlave   => axilReadSlaves(2),
-         axilWriteMaster => axilWriteMasters(2),
-         axilWriteSlave  => axilWriteSlaves(2),
+         axilReadMaster  => axilReadMasters (APP_INDEX_C),
+         axilReadSlave   => axilReadSlaves  (APP_INDEX_C),
+         axilWriteMaster => axilWriteMasters(APP_INDEX_C),
+         axilWriteSlave  => axilWriteSlaves (APP_INDEX_C),
          groupLinkClear  => groupLinkClear,
          -- Async Notification
          obAppMaster     => seqMaster,
@@ -837,10 +861,10 @@ begin
          axilClk         => regClk,
          axilRst         => regRst,
          axilUpdate      => regUpdate,
-         axilReadMaster  => axilReadMasters(0),
-         axilReadSlave   => axilReadSlaves(0),
-         axilWriteMaster => axilWriteMasters(0),
-         axilWriteSlave  => axilWriteSlaves(0),
+         axilReadMaster  => axilReadMasters (REG_INDEX_C),
+         axilReadSlave   => axilReadSlaves  (REG_INDEX_C),
+         axilWriteMaster => axilWriteMasters(REG_INDEX_C),
+         axilWriteSlave  => axilWriteSlaves (REG_INDEX_C),
          groupLinkClear  => groupLinkClear,
          -- Streaming input (regClk domain)
          ibDebugMaster   => ibDebugMaster,
@@ -941,10 +965,10 @@ begin
      port map (
        axiClk         => regClk,
        axiClkRst      => regRst,
-       axiReadMaster  => axilReadMasters(3),
-       axiReadSlave   => axilReadSlaves (3),
-       axiWriteMaster => axilWriteMasters(3),
-       axiWriteSlave  => axilWriteSlaves (3),
+       axiReadMaster  => axilReadMasters (TEST_INDEX_C)
+       axiReadSlave   => axilReadSlaves  (TEST_INDEX_C)
+       axiWriteMaster => axilWriteMasters(TEST_INDEX_C)
+       axiWriteSlave  => axilWriteSlaves (TEST_INDEX_C)
        writeRegister(0) => tmpReg,
        readRegister (0) => tmpReg );
        
