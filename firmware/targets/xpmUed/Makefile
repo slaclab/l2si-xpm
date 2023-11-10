@@ -1,5 +1,5 @@
-export OVERRIDE_SUBMODULE_LOCKS = 1
-export GIT_BYPASS = 1
+#export OVERRIDE_SUBMODULE_LOCKS = 1
+#export GIT_BYPASS = 1
 ##########################################################################################
 # Applications must define the 32-bitFirmware Version Number
 # PRJ_VERSION = 0x00000001 - Initial version
@@ -7,7 +7,7 @@ export GIT_BYPASS = 1
 # PRJ_VERSION = 0x00000003 - Fix multi-group transitions.  Add common group deadtime.
 # PRJ_VERSION = 0x00000004 - Allow messages to respect inhibit and remain queued
 ##########################################################################################
-export PRJ_VERSION = 0x00000004
+#export PRJ_VERSION = 0x00000004
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
@@ -84,4 +84,5 @@ export BOARD_PART =
 export PRJ_FMC =
 
 # Use top level makefile
+include ../shared_config.mk
 include ../../submodules/ruckus/system_vivado.mk
