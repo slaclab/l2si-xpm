@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-11-09
+-- Last update: 2023-11-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -239,7 +239,7 @@ architecture top_level of XpmBase is
    constant REG_INDEX_C  : integer := 0;
    constant RING_INDEX_C : integer := 1;
    constant TEST_INDEX_C : integer := 2;
-   constant TIM_INDEX_C  : integer := 3;
+   constant MMCM_INDEX_C : integer := 3;
    constant APP_INDEX_C  : integer := 4;
    constant PHAS_INDEX_C : integer := 5;
    constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(5 downto 0) := (
@@ -252,7 +252,7 @@ architecture top_level of XpmBase is
      TEST_INDEX_C  => (baseAddr     => X"80020000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
-     TIM_INDEX_C   => (baseAddr     => X"80030000",
+     MMCM_INDEX_C  => (baseAddr     => X"80030000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
      APP_INDEX_C   => (baseAddr     => X"80040000",
@@ -595,10 +595,10 @@ begin
          syncIn          => cuSync,
          axilClk         => regClk,
          axilRst         => regRst,
-         axilReadMaster  => axilReadMasters (4),
-         axilReadSlave   => axilReadSlaves (4),
-         axilWriteMaster => axilWriteMasters(4),
-         axilWriteSlave  => axilWriteSlaves (4));
+         axilReadMaster  => axilReadMasters (MMCM_INDEX_C),
+         axilReadSlave   => axilReadSlaves  (MMCM_INDEX_C),
+         axilWriteMaster => axilWriteMasters(MMCM_INDEX_C),
+         axilWriteSlave  => axilWriteSlaves (MMCM_INDEX_C) );
 
    GEN_PLL : for i in 0 to 1 generate
       U_Pll : entity l2si.XpmPll
