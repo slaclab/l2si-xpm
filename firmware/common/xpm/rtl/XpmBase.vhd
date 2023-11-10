@@ -965,10 +965,10 @@ begin
      port map (
        axiClk         => regClk,
        axiClkRst      => regRst,
-       axiReadMaster  => axilReadMasters (TEST_INDEX_C)
-       axiReadSlave   => axilReadSlaves  (TEST_INDEX_C)
-       axiWriteMaster => axilWriteMasters(TEST_INDEX_C)
-       axiWriteSlave  => axilWriteSlaves (TEST_INDEX_C)
+       axiReadMaster  => axilReadMasters (TEST_INDEX_C),
+       axiReadSlave   => axilReadSlaves  (TEST_INDEX_C),
+       axiWriteMaster => axilWriteMasters(TEST_INDEX_C),
+       axiWriteSlave  => axilWriteSlaves (TEST_INDEX_C),
        writeRegister(0) => tmpReg,
        readRegister (0) => tmpReg );
        
