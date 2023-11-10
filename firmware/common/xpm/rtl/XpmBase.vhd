@@ -243,22 +243,22 @@ architecture top_level of XpmBase is
    constant APP_INDEX_C  : integer := 4;
    constant PHAS_INDEX_C : integer := 5;
    constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(5 downto 0) := (
-     REG_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"80000000",
+     REG_INDEX_C   => (baseAddr     => X"80000000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
-     RING_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"80010000",
+     RING_INDEX_C  => (baseAddr     => X"80010000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
-     TEST_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"80020000",
+     TEST_INDEX_C  => (baseAddr     => X"80020000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
-     TIM_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"80030000",
+     TIM_INDEX_C   => (baseAddr     => X"80030000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
-     APP_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"80040000",
+     APP_INDEX_C   => (baseAddr     => X"80040000",
                        addrBits     => 17,
                        connectivity => X"FFFF"),
-     PHAS_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"80080000",
+     PHAS_INDEX_C  => (baseAddr     => X"80080000",
                        addrBits     => 19,
                        connectivity => X"FFFF") );
 
