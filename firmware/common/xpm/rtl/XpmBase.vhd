@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-11-10
+-- Last update: 2023-11-13
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -625,7 +625,7 @@ begin
          TPD_G           => TPD_G,
          NUM_DS_LINKS_G  => NUM_FP_LINKS_C,
          NUM_BP_LINKS_G  => NUM_BP_LINKS_C,
-         AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(2).baseAddr)
+         AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(APP_INDEX_C).baseAddr)
       port map (
          -----------------------
          -- Application Ports --
