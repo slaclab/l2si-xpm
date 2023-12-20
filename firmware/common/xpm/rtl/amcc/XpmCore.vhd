@@ -348,8 +348,8 @@ begin
          obTimingEthMsgMasters(0) => obDebugMaster,
          obTimingEthMsgMasters(1) => AXI_STREAM_MASTER_INIT_C,
          obTimingEthMsgSlaves (0) => obDebugSlave,
-         ibTimingEthMsgSlaves (1) => AXI_STREAM_SLAVE_FORCE_C,
-         ibTimingEthMsgSlaves (0) => AXI_STREAM_SLAVE_FORCE_C,
+         obTimingEthMsgSlaves (1) => open,
+         ibTimingEthMsgSlaves     => (others=>AXI_STREAM_SLAVE_FORCE_C),
          -- BSA Ethernet Interface
          obBsaMasters         => (others => AXI_STREAM_MASTER_INIT_C),
          ibBsaSlaves          => (others => AXI_STREAM_SLAVE_FORCE_C),
