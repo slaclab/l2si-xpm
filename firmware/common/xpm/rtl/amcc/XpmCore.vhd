@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2023-01-09
+-- Last update: 2023-12-20
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -343,10 +343,13 @@ begin
          axilReadSlave        => ethReadSlave,
          axilWriteMaster      => ethWriteMaster,
          axilWriteSlave       => ethWriteSlave,
-         --
-         obTimingEthMsgMaster => obDebugMaster,
-         obTimingEthMsgSlave  => obDebugSlave,
-         ibTimingEthMsgSlave  => AXI_STREAM_SLAVE_FORCE_C,
+         -- Stat updates (port 8197)
+         obTimingEthMsgMasters(0) => obDebugMaster,
+         obTimingEthMsgSlaves (0) => obDebugSlave,
+         ibTimingEthMsgSlaves (0) => AXI_STREAM_SLAVE_FORCE_C,
+         -- BLD/BSSS
+         obTimingEthMsgMasters(1) => AXI_STREAM_MASTER_INIT_C,
+         ibTimingEthMsgSlaves (1) => AXI_STREAM_SLAVE_FORCE_C,
          -- BSA Ethernet Interface
          obBsaMasters         => (others => AXI_STREAM_MASTER_INIT_C),
          ibBsaSlaves          => (others => AXI_STREAM_SLAVE_FORCE_C),
