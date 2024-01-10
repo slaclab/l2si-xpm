@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-05-01
+-- Last update: 2024-01-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -500,17 +500,6 @@ begin
       axiSlaveRegister(axilEp, X"008", 30, v.linkCfg.rxReset);
       axiSlaveRegister(axilEp, X"008", 31, v.linkCfg.enable);
 
-      if not REMOVE_MONREG_G then
-        axiSlaveRegisterR(axilEp, X"00C", 0, r.linkStat.rxErrCnts);
-        axiSlaveRegisterR(axilEp, X"00C", 16, r.linkStat.txResetDone);
-        axiSlaveRegisterR(axilEp, X"00C", 17, r.linkStat.txReady);
-        axiSlaveRegisterR(axilEp, X"00C", 18, r.linkStat.rxResetDone);
-        axiSlaveRegisterR(axilEp, X"00C", 19, r.linkStat.rxReady);
-        axiSlaveRegisterR(axilEp, X"00C", 20, r.linkStat.rxIsXpm);
-
-        axiSlaveRegisterR(axilEp, X"010", 0, r.linkStat.rxRcvCnts);
-      end if;
-      
       axiSlaveRegister(axilEp, X"014", 0, v.pllCfg.bwSel);
       axiSlaveRegister(axilEp, X"014", 4, v.pllCfg.frqTbl);
       axiSlaveRegister(axilEp, X"014", 8, v.pllCfg.frqSel);
@@ -519,12 +508,6 @@ begin
       axiSlaveRegister(axilEp, X"014", 21, v.pllCfg.dec);
       axiSlaveRegister(axilEp, X"014", 22, v.pllCfg.bypass);
       axiSlaveRegister(axilEp, X"014", 23, v.pllCfg.rstn);
-      if not REMOVE_MONREG_G then
-        axiSlaveRegisterR(axilEp, X"014", 24, muxSlVectorArray(pllCount, 2*ia+0));
-        axiSlaveRegisterR(axilEp, X"014", 27, pllStat(2*ia+0));
-        axiSlaveRegisterR(axilEp, X"014", 28, muxSlVectorArray(pllCount, 2*ia+1));
-        axiSlaveRegisterR(axilEp, X"014", 31, pllStat(2*ia+1));
-      end if;
       
       axiSlaveRegister (axilEp, X"018", 0, v.partitionCfg.l0Select.reset);
       axiSlaveRegister (axilEp, X"018", 8, v.partitionCfg.l0Select.groups);
@@ -535,13 +518,8 @@ begin
       axiSlaveRegister (axilEp, X"01C", 0, v.partitionCfg.l0Select.rateSel);
       axiSlaveRegister (axilEp, X"01C", 16, v.partitionCfg.l0Select.destSel);
 
-      if not REMOVE_MONREG_G then
-        axiSlaveRegisterR(axilEp, X"020", 0, s.partition(ip).l0Select.enabled);
-        axiSlaveRegisterR(axilEp, X"028", 0, s.partition(ip).l0Select.inhibited);
-        axiSlaveRegisterR(axilEp, X"030", 0, s.partition(ip).l0Select.num);
-        axiSlaveRegisterR(axilEp, X"038", 0, s.partition(ip).l0Select.numInh);
-        axiSlaveRegisterR(axilEp, X"040", 0, s.partition(ip).l0Select.numAcc);
-      end if;
+      axiSlaveRegister (axilEp, X"020",  0, v.partitionCfg.l0Select.rawPeriod);
+
       axiSlaveRegisterR(axilEp, X"048", 0, s.partition(ip).l1Select.numAcc);
 
       --axiSlaveRegister (axilEp, X"050",  0, v.partitionCfg.l1Select.clear);
@@ -559,34 +537,11 @@ begin
       --axiSlaveRegister (axilEp, X"070", 15, v.partitionCfg.message.insert);
       axiSlaveRegister (axilEp, X"070",  0, v.partitionCfg.message.header);
 
-      if not REMOVE_MONREG_G then
-        axiSlaveRegisterR (axilEp, X"078", 0, r.linkStat.rxId);
-      end if;
-
       for j in r.partitionCfg.inhibit.setup'range loop
          axiSlaveRegister (axilEp, X"080" + toSlv(j*4, 12), 0, v.partitionCfg.inhibit.setup(j).interval);
          axiSlaveRegister (axilEp, X"080" + toSlv(j*4, 12), 12, v.partitionCfg.inhibit.setup(j).limit);
          axiSlaveRegister (axilEp, X"080" + toSlv(j*4, 12), 31, v.partitionCfg.inhibit.setup(j).enable);
       end loop;
-
-      if not REMOVE_MONREG_G then
-        for j in 0 to 31 loop
-          axiSlaveRegisterR (axilEp, X"090" + toSlv(j*4, 12), 0, r.partitionStat.inhibit.evcounts(j));
-        end loop;
-      end if;
-
-      if not REMOVE_MONREG_G then
-        for j in 0 to 3 loop
-          axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 0, monClkRate(j)(28 downto 0));
-          axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 29, monClkSlow(j));
-          axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 30, monClkFast(j));
-          axiSlaveRegisterR (axilEp, X"110" + toSlv(j*4, 12), 31, monClkLock(j));
-        end loop;
-
-        for j in 0 to 31 loop
-          axiSlaveRegisterR (axilEp, X"120" + toSlv(j*4, 12), 0, r.partitionStat.inhibit.tmcounts(j));
-        end loop;
-      end if;
 
       axiSlaveRegister (axilEp, X"1A0",  0, v.monStreamPeriod);
       axiSlaveRegister (axilEp, X"1A0", 31, v.monStreamEnable);

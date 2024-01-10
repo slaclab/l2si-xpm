@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2023-11-09
+-- Last update: 2024-01-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -154,6 +154,17 @@ architecture top_level_app of xpm_sim is
 
 begin
 
+  tpgConfig.FixedRateDivisors <= (toSlv(0,20),
+                                  toSlv(0,20),
+                                  toSlv(64,20),
+                                  toSlv(64,20),
+                                  toSlv(32,20),
+                                  toSlv(16,20),
+                                  toSlv(8,20),
+                                  toSlv(4,20),
+                                  toSlv(2,20),
+                                  toSlv(1,20));
+  
    xpmConfig.partition.l0Select.enabled <= '1';
    xpmConfig.partition.l0Select.rateSel <= x"0002";
    xpmConfig.partition.l0Select.destSel <= x"8000";
@@ -162,12 +173,39 @@ begin
 
    xpmConfig.dsLink(0).enable    <= '1';
 
-   appConfig.partition(0).master           <= '1';
-   appConfig.partition(0).l0Select.enabled <= '1';
-   appConfig.partition(0).l0Select.rateSel <= x"0002";
-   appConfig.partition(0).l0Select.destSel <= x"8000";
-   appConfig.partition(0).pipeline.depth_fids <= toSlv(90,8);
-   appConfig.partition(0).pipeline.depth_clks <= toSlv(90*200,16);
+   process is
+   begin
+     for i in 0 to 7 loop
+       appConfig.partition(i).master              <= '1';
+       appConfig.partition(i).l0Select.enabled    <= '0';
+       appConfig.partition(i).l0Select.rateSel    <= toSlv(i,16);
+       appConfig.partition(i).l0Select.destSel    <= x"8000";
+       appConfig.partition(i).pipeline.depth_fids <= toSlv(10-i,8);
+       appConfig.partition(i).pipeline.depth_clks <= toSlv((10-i)*200,16);
+--       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(720-i*100,20);
+       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(ite(i=7,20,10000),20);
+       appConfig.partition(i).l0Select.groups     <= x"FF";
+     end loop;
+   
+     wait for 25 us;
+     for i in 0 to 7 loop
+       appConfig.partition(i).message.header <= toSlv(2,9);
+     end loop;
+     wait until regClk='0';
+     for i in 0 to 7 loop
+       appConfig.partition(i).message.insert <= '1';
+     end loop;
+     wait until regClk='1';
+     wait until regClk='0';
+     for i in 0 to 7 loop
+       appConfig.partition(i).message.insert <= '0';
+     end loop;
+     wait for 20 us;
+     for i in 0 to 7 loop
+       appConfig.partition(i).l0Select.enabled <= '1';
+     end loop;
+     wait;
+   end process;
    
    process is
    begin
