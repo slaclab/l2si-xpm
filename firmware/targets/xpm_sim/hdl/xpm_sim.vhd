@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2024-01-09
+-- Last update: 2024-01-11
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -142,7 +142,6 @@ architecture top_level_app of xpm_sim is
    signal seqCountRst    : sl;
 
    signal paddr : slv(31 downto 0) := x"DEADBEEF";
-   signal expWord : Slv32Array(XPM_PARTITIONS_C-1 downto 0);
    signal scClkA  : slv(6 downto 0);
    signal scRstA  : slv(6 downto 0);
 
@@ -180,20 +179,24 @@ begin
        appConfig.partition(i).l0Select.enabled    <= '0';
        appConfig.partition(i).l0Select.rateSel    <= toSlv(i,16);
        appConfig.partition(i).l0Select.destSel    <= x"8000";
-       appConfig.partition(i).pipeline.depth_fids <= toSlv(10-i,8);
-       appConfig.partition(i).pipeline.depth_clks <= toSlv((10-i)*200,16);
---       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(720-i*100,20);
-       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(ite(i=7,20,10000),20);
+--       appConfig.partition(i).pipeline.depth_fids <= toSlv(10-i,8);
+--       appConfig.partition(i).pipeline.depth_clks <= toSlv((10-i)*200,16);
+       appConfig.partition(i).pipeline.depth_fids <= toSlv(10,8);
+       appConfig.partition(i).pipeline.depth_clks <= toSlv(10*200,16);
+       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(720-i*100,20);
+--       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(ite(i=7,20,10000),20);
        appConfig.partition(i).l0Select.groups     <= x"FF";
+--       appConfig.partition(i).l0Select.groups     <= x"00";
      end loop;
    
      wait for 25 us;
      for i in 0 to 7 loop
-       appConfig.partition(i).message.header <= toSlv(2,9);
+       appConfig.partition(i).message.header <= toSlv(0,9);
      end loop;
      wait until regClk='0';
      for i in 0 to 7 loop
        appConfig.partition(i).message.insert <= '1';
+--       appConfig.partition(i).message.insert <= '0';
      end loop;
      wait until regClk='1';
      wait until regClk='0';

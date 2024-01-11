@@ -92,8 +92,6 @@ architecture TPGMiniClock of TPGMiniClock is
   signal countRst              : sl;
   signal intervalCnt           : slv(31 downto 0);
   signal countBRT, countBRTn   : slv(31 downto 0);
---  signal countSeq              : Slv128Array(MAXSEQDEPTH-1 downto 0);
-  signal countSeq              : Slv32Array(MAXSEQDEPTH-1 downto 0);
 
   -- Delay registers (for closing timing)
   signal status : TPGStatusType := TPG_STATUS_INIT_C;
@@ -139,6 +137,8 @@ begin
   status.pllChanged <= pllChanged;
   status.count186M  <= count186M;
   status.countSyncE <= countSyncE;
+  status.countTrig  <= (others => (others => '0'));
+  status.countSeq   <= (others => (others => '0'));
 
   syncReset        <= '0';
   frame.resync     <= '0';
@@ -174,7 +174,6 @@ begin
 
   status.seqRdData <= (others=>(others=>'0'));
   status.seqState  <= (others=>SEQUENCER_STATE_INIT_C);
-  countSeq         <= (others=>(others=>'0'));
 
   frame.control     <= (others=>(others=>'0'));
   frame.beamRequest <= (others=>'0');
@@ -271,7 +270,6 @@ begin
                                          -- intervalReg is changed
         countRst         <= '1';
         status.countBRT  <= countBRT;
-        status.countSeq  <= countSeq;
         intervalCnt      <= config.interval;
       else
         countRst    <= '0';
@@ -286,9 +284,7 @@ begin
         countSyncE            <= (others => '0');
         outOfSyncd            := '1';
         countRst              <= '1';
-        status.countTrig      <= (others => (others => '0'));
         status.countBRT       <= (others => '0');
-        status.countSeq       <= (others => (others => '0'));
       end if;
       if config.intervalRst = '1' then
         intervalCnt <= (others => '0');
