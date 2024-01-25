@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-11-13
+-- Last update: 2024-01-25
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -417,7 +417,7 @@ begin
          ODIV2 => usRefClkO,
          O     => usRefClkGt);
 
-   GEN_USREFCLK : if US_RX_ENABLE_INIT_G generate
+   GEN_USREFCLK : if USE_RTM_G or not US_RX_ENABLE_INIT_G generate
      U_USREFCLK : BUFG_GT
        port map (I       => usRefClkO,
                  CE      => '1',
