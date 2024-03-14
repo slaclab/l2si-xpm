@@ -494,7 +494,11 @@ begin
 --    axiSlaveRegister(axilEp, X"008",  9, v.linkCfg.rxTimeOut);
       axiSlaveRegister(axilEp, X"008", 18, v.linkCfg.txPllReset);
       axiSlaveRegister(axilEp, X"008", 19, v.linkCfg.rxPllReset);
---    axiSlaveRegister(axilEp, X"008", 24, v.linkCfg.trigsrc);
+  
+      axiSlaveRegister(axilEp, X"008", 20, v.linkCfg.rxpmarst);
+      axiSlaveRegister(axilEp, X"008", 21, v.linkCfg.eyescanrst);
+      axiSlaveRegister(axilEp, X"008", 22, v.linkCfg.rstGthCnter);
+        
       axiSlaveRegister(axilEp, X"008", 28, v.linkCfg.loopback);
       axiSlaveRegister(axilEp, X"008", 29, v.linkCfg.txReset);
       axiSlaveRegister(axilEp, X"008", 30, v.linkCfg.rxReset);
@@ -521,7 +525,21 @@ begin
       axiSlaveRegister (axilEp, X"020",  0, v.partitionCfg.l0Select.rawPeriod);
 
       axiSlaveRegisterR(axilEp, X"048", 0, s.partition(ip).l1Select.numAcc);
-
+      
+      axiSlaveRegisterR(axilEp, X"050",  0, r.linkStat.txResetDone);
+      axiSlaveRegisterR(axilEp, X"050",  1, r.linkStat.txReady);
+      axiSlaveRegisterR(axilEp, X"050",  2, r.linkStat.rxResetDone);
+      axiSlaveRegisterR(axilEp, X"050",  3, r.linkStat.rxReady);
+      axiSlaveRegisterR(axilEp, X"050",  4, r.linkStat.rxErr);
+      axiSlaveRegisterR(axilEp, X"050",  5, r.linkStat.rxIsXpm);
+      axiSlaveRegisterR(axilEp, X"050",  6, r.linkStat.rxcdrlock);
+      axiSlaveRegisterR(axilEp, X"050",  7, r.linkStat.gtpowergood);
+      axiSlaveRegisterR(axilEp, X"050",  8, r.linkStat.rxpmarstdone);
+      axiSlaveRegisterR(axilEp, X"050",  9, r.linkStat.txpmarstdone);
+      axiSlaveRegisterR(axilEp, X"054",  0, r.linkStat.rxGTHErrCnts);
+      axiSlaveRegisterR(axilEp, X"058",  0, r.linkStat.rxGTHWordCnts);
+      axiSlaveRegisterR(axilEp, X"05c",  0, r.linkStat.rxId);
+      
       --axiSlaveRegister (axilEp, X"050",  0, v.partitionCfg.l1Select.clear);
       --axiSlaveRegister (axilEp, X"050", 16, v.partitionCfg.l1Select.enable);
 
