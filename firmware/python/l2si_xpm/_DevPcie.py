@@ -81,7 +81,7 @@ class DevPcie(pr.Device):
         self.add(xpm.XpmSequenceEngine(
             memBase = memBase,
             name   = 'SeqEng_0',
-            offset = 0x00820000,
+            offset = 0x00840000,
         ))
 
         self.add(timing.TPGMiniCore(
@@ -99,7 +99,7 @@ class DevPcie(pr.Device):
         self.add(DevReset(
             memBase      = memBase,
             name         = 'DevReset',
-            offset       = 0x00840000,
+            offset       = 0x00820000,
         ))
 
         self.add(xpm.XpmPhase(
