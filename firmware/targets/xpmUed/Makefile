@@ -6,7 +6,7 @@ export GIT_BYPASS = 1
 # PRJ_VERSION = 0x00000002 - Fix intermittent clearReadout
 # PRJ_VERSION = 0x00000001 - Initial version
 ##########################################################################################
-export PRJ_VERSION = 0x00000003
+export PRJ_VERSION = 0x01030201
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
