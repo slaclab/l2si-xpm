@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-12-10
+-- Last update: 2024-06-07
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -146,8 +146,10 @@ END COMPONENT;
   signal rxCtrl1Out : Slv16Array(NLINKS_G-1 downto 0);
   signal rxCtrl3Out : Slv8Array (NLINKS_G-1 downto 0);
 
+  signal txOutClkO  : slv(NLINKS_G-1 downto 0);
   signal txUsrClk   : slv(NLINKS_G-1 downto 0);
   signal txUsrRst   : slv(NLINKS_G-1 downto 0);
+  signal txFifoRst  : slv(NLINKS_G-1 downto 0);
   signal gtRefClk   : sl;
   signal gRefClk    : sl;
 
@@ -163,6 +165,11 @@ END COMPONENT;
   signal rxReset      : slv(NLINKS_G-1 downto 0);
   signal rxResetDone  : slv(NLINKS_G-1 downto 0);
  
+  signal txReady      : slv(NLINKS_G-1 downto 0);
+  signal txResetDone  : slv(NLINKS_G-1 downto 0);
+
+  signal txDataS      : Slv18Array(NLINKS_G-1 downto 0);
+  
   signal rxbypassrst  : slv(NLINKS_G-1 downto 0);
   signal txbypassrst  : slv(NLINKS_G-1 downto 0);
   signal txbypassdone : slv(NLINKS_G-1 downto 0);
@@ -170,12 +177,15 @@ END COMPONENT;
 
   signal loopback  : Slv3Array(NLINKS_G-1 downto 0);
 
+  constant TX_SYNC_C : boolean := true;
+
 begin
 
-  rxClk   <= rxUsrClk;
-  rxRst   <= rxFifoRst;
-  rxErr   <= rxErrL;
-  txClk   <= txUsrClk(0);
+  rxClk    <= rxUsrClk;
+  rxRst    <= rxFifoRst;
+  rxErr    <= rxErrL;
+  txClk    <= txUsrClk(0);
+  txOutClk <= txUsrClk;
 
   GEN_IBUFDS : if USE_IBUFDS generate
     DEVCLK_IBUFDS_GTE3 : IBUFDS_GTE3
@@ -199,15 +209,16 @@ begin
   devClkBuf  <= gRefClk;
   
   GEN_CTRL : for i in 0 to NLINKS_G-1 generate
-    txCtrl2In (i) <= "000000" & txDataK(i);
+    txCtrl2In (i) <= "000000" & txDataS(i)(17 downto 16);
     rxErrIn   (i) <= '0' when (rxCtrl1Out(i)(1 downto 0)="00" and rxCtrl3Out(i)(1 downto 0)="00") else '1';
+    txFifoRst (i) <= not txbypassdone(i);
     rxFifoRst (i) <= not rxResetDone(i);
     loopback  (i) <= "0" & config(i).loopback & "0";
     status    (i).rxErr       <= rxErrS(i);
     status    (i).rxErrCnts   <= rxErrCnts(i);
     status    (i).rxReady     <= rxResetDone(i);
     rxReset   (i) <= config(i).rxReset or r(i).reset;
-    status    (i).txResetDone <= txbypassdone(i) and not txbypasserr(i);
+    txResetDone(i) <= txbypassdone(i) and not txbypasserr(i);
     
     U_STATUS : entity surf.SynchronizerOneShotCnt
       generic map ( CNT_WIDTH_G => 16 )
@@ -218,6 +229,14 @@ begin
                  wrClk        => rxUsrClk (i),
                  rdClk        => stableClk );
 
+    U_TXSTATUS : entity surf.SynchronizerVector
+      generic map ( WIDTH_G => 2 )
+      port map ( clk         => stableClk,
+                 dataIn (0)  => txResetDone(i),
+                 dataIn (1)  => txReady    (i),
+                 dataOut(0)  => status(i).txResetDone,
+                 dataOut(1)  => status(i).txReady );
+
     U_BUFG  : BUFG_GT
       port map (  I       => rxOutClk(i),
                   CE      => '1',
@@ -227,7 +246,31 @@ begin
                   DIV     => "000",
                   O       => rxUsrClk(i) );
 
-    txUsrClk(i) <= txClkIn;
+    GEN_TXSYNC : if TX_SYNC_C generate
+      U_TXBUFG  : BUFG_GT
+        port map (  I       => txOutClkO(i),
+                    CE      => '1',
+                    CEMASK  => '1',
+                    CLR     => '0',
+                    CLRMASK => '1',
+                    DIV     => "000",
+                    O       => txUsrClk(i) );
+      U_TxSync : entity surf.SynchronizerFifo
+        generic map ( DATA_WIDTH_G => 18,
+                      ADDR_WIDTH_G => 4 )  -- avoid full thresholds
+        port map ( rst               => txFifoRst(i),
+                   wr_clk            => txClkIn,
+                   din(17 downto 16) => txDataK (i),
+                   din(15 downto  0) => txData  (i),
+                   rd_clk            => txUsrClk(i),
+                   dout              => txDataS (i) );
+    end generate;
+
+    NO_GEN_TXSYNC : if not TX_SYNC_C generate
+      txUsrClk(i) <= txClkIn;
+      txDataS (i) <= txDataK(i) & txData(i);
+    end generate;
+
     txUsrRst(i) <= txClkRst or config(i).txReset;
     
     rxErrL (i)  <= rxErrIn(i);
@@ -264,14 +307,12 @@ begin
         gtwiz_reset_rx_pll_and_datapath_in(0)=> config(i).rxPllReset,
         gtwiz_reset_rx_datapath_in        (0)=> rxReset(i),
         gtwiz_reset_rx_cdr_stable_out        => open,
-        gtwiz_reset_tx_done_out           (0)=> status(i).txReady,
+        gtwiz_reset_tx_done_out           (0)=> txReady(i),
         gtwiz_reset_rx_done_out           (0)=> rxResetDone(i),
-        gtwiz_userdata_tx_in                 => txData(i),
+        gtwiz_userdata_tx_in                 => txDataS(i)(15 downto 0),
         gtwiz_userdata_rx_out                => rxData(i),
         -- CPLL
---        cpllrefclksel_in                     => (others=>'1'),
         drpclk_in                         (0)=> stableClk,
---        gtgrefclk_in                      (0)=> txUsrClk(i),
         gthrxn_in                         (0)=> gtRxN(i),
         gthrxp_in                         (0)=> gtRxP(i),
         gtrefclk0_in                      (0)=> gtRefClk,
@@ -299,7 +340,7 @@ begin
         rxctrl3_out                          => rxCtrl3Out(i),
         rxoutclk_out                      (0)=> rxOutClk(i),
         rxpmaresetdone_out                   => open,
-        txoutclk_out                      (0)=> txOutClk(i),
+        txoutclk_out                      (0)=> txOutClkO(i),
         txpmaresetdone_out                   => open
         );
 
