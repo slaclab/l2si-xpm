@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2024-01-11
+-- Last update: 2024-04-17
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -165,7 +165,7 @@ begin
                                   toSlv(1,20));
   
    xpmConfig.partition.l0Select.enabled <= '1';
-   xpmConfig.partition.l0Select.rateSel <= x"0002";
+   xpmConfig.partition.l0Select.rateSel <= x"0000";
    xpmConfig.partition.l0Select.destSel <= x"8000";
    xpmConfig.partition.pipeline.depth_fids <= toSlv(90,8);
    xpmConfig.partition.pipeline.depth_clks <= toSlv(90*200,16);
@@ -175,20 +175,24 @@ begin
    process is
    begin
      for i in 0 to 7 loop
-       appConfig.partition(i).master              <= '1';
+--       appConfig.partition(i).master              <= '1';
+       appConfig.partition(i).master              <= '0';
        appConfig.partition(i).l0Select.enabled    <= '0';
        appConfig.partition(i).l0Select.rateSel    <= toSlv(i,16);
        appConfig.partition(i).l0Select.destSel    <= x"8000";
 --       appConfig.partition(i).pipeline.depth_fids <= toSlv(10-i,8);
 --       appConfig.partition(i).pipeline.depth_clks <= toSlv((10-i)*200,16);
-       appConfig.partition(i).pipeline.depth_fids <= toSlv(10,8);
-       appConfig.partition(i).pipeline.depth_clks <= toSlv(10*200,16);
+       appConfig.partition(i).pipeline.depth_fids <= toSlv(90,8);
+       appConfig.partition(i).pipeline.depth_clks <= toSlv(90*200,16);
        appConfig.partition(i).l0Select.rawPeriod  <= toSlv(720-i*100,20);
 --       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(ite(i=7,20,10000),20);
        appConfig.partition(i).l0Select.groups     <= x"FF";
 --       appConfig.partition(i).l0Select.groups     <= x"00";
      end loop;
-   
+
+     --  Simplify
+     wait for 10000 us;
+     
      wait for 25 us;
      for i in 0 to 7 loop
        appConfig.partition(i).message.header <= toSlv(0,9);
@@ -231,6 +235,9 @@ begin
      wait until regClk='0';
      xpmConfig.partition.message.insert <= '0';
 
+     --  Simplify
+     wait for 10000 us;
+     
      --  Send transitions (avoiding ClearReadout)
      wait for 180 us;
      for i in 0 to 100 loop
@@ -290,9 +297,9 @@ begin
      wait for 220 us;
      for i in 0 to 100 loop
        fbPause(0) <= '1';
-       wait for 5 us;
+       wait for 20 us;
        fbPause(0) <= '0';
-       wait for 7 us;
+       wait for 28 us;
      end loop;
      wait;
    end process;
@@ -319,7 +326,8 @@ begin
    
    U_TemConfig : entity l2si.AxiLiteWriteMasterSim
      generic map ( CMDS => (( addr  => x"0000900C",
-                              value => toSlv(250*14,32)),
+--                              value => toSlv(250*14,32)),
+                              value => toSlv(200*4,32)),
                             ( addr  => x"00009000",
                               value => x"00000001")) )
      port map ( clk    => regClk,

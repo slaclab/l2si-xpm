@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-01-08
+-- Last update: 2024-05-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -76,6 +76,7 @@ entity XpmReg is
       monClk          : in  slv(3 downto 0) := (others => '0');
       monLatch        : out sl;
       seqCount        : in  Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
+      seqInvalid      : in  slv(XPM_SEQ_DEPTH_C-1 downto 0) := (others=>'0');
       config          : out XpmConfigType;
       usRxEnable      : out sl;
       cuRxEnable      : out sl;
@@ -661,6 +662,7 @@ begin
       index           => monIndex,
       monLatch        => monLatch,
       seqCount        => seqCount,
+      seqInvalid      => seqInvalid,
       -- Application Debug Interface (sysclk domain)
       obMonitorMaster => obMonitorMaster,
       obMonitorSlave  => obMonitorSlave );

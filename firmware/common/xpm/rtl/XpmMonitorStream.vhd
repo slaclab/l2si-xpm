@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-11-08
+-- Last update: 2024-06-11
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -51,6 +51,7 @@ entity XpmMonitorStream is
       status          : in  XpmStatusType;
       staClk          : in  sl;
       seqCount        : in  Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
+      seqInvalid      : in  slv(XPM_SEQ_DEPTH_C-1 downto 0);
       -- Status
       busy            : out sl;
       count           : out slv(26 downto 0);
@@ -64,19 +65,20 @@ end XpmMonitorStream;
 
 architecture rtl of XpmMonitorStream is
 
-   signal sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);
+   signal sL0Stats : Slv280Array(XPM_PARTITIONS_C-1 downto 0);
 
    constant TDATA_SIZE_C      : integer := EMAC_AXIS_CONFIG_C.TDATA_BYTES_C*8;
-   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*282 + 18 + XPM_SEQ_DEPTH_C*16+4); -- 20112
+   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*282 + 18 + XPM_SEQ_DEPTH_C*16+4+1); -- 20120
    constant LAST_WORD_C       : integer := (XPM_STATUS_BITS_C-1) / TDATA_SIZE_C;
    
    function toSlv(packetId : slv(15 downto 0);
                   s        : XpmStatusType;
-                  sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);      
+                  sL0Stats : Slv280Array(XPM_PARTITIONS_C-1 downto 0);      
                   pllCount : SlVectorArray(3 downto 0, 2 downto 0);
                   pllStat  : slv(3 downto 0);
                   monClkR  : Slv32Array(3 downto 0);
-                  seqCount : Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0)) return slv is
+                  seqCount : Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
+                  seqInvalid : slv(XPM_SEQ_DEPTH_C-1 downto 0)) return slv is
      variable v : slv(XPM_STATUS_BITS_C-1 downto 0) := (others=>'0');
      variable i : integer := 0;
    begin
@@ -92,9 +94,9 @@ architecture rtl of XpmMonitorStream is
          assignSlv(i, v, s.partition(j).inhibit.evcounts(k)); -- 32*32b -- regclk
          assignSlv(i, v, s.partition(j).inhibit.tmcounts(k)); -- 32*32b -- regclk
        end loop;
-       assignSlv(i, v, sL0Stats(j) ); -- 200b
+       assignSlv(i, v, sL0Stats(j) ); -- 280b
        assignSlv(i, v, x"ee"); -- 1B
-     end loop; -- 8*282B
+     end loop; -- 8*292B
      for j in 0 to 3 loop
        assignSlv(i, v, pllStat(j));
        assignSlv(i, v, muxSlVectorArray(pllCount,j));
@@ -106,6 +108,7 @@ architecture rtl of XpmMonitorStream is
        assignSlv(i, v, seqCount(j));
      end loop; -- 8*16B
      assignSlv(i, v, s.paddr); -- 4B
+     assignSlv(i, v, seqInvalid); -- 1B
      return v; --
    end function toSlv;
    
@@ -154,7 +157,7 @@ begin
   
   GEN_L0 : for i in 0 to XPM_PARTITIONS_C-1 generate
     SYNC_L0 : entity surf.SynchronizerFifo
-      generic map ( DATA_WIDTH_G => 200 )
+      generic map ( DATA_WIDTH_G => 280 )
       port map ( rst                 => regRst,
                  wr_clk              => staClk,
                  din( 39 downto   0) => status.partition(i).l0Select.enabled,
@@ -162,6 +165,10 @@ begin
                  din(119 downto  80) => status.partition(i).l0Select.num,
                  din(159 downto 120) => status.partition(i).l0Select.numInh,
                  din(199 downto 160) => status.partition(i).l0Select.numAcc,
+                 din(219 downto 200) => status.partition(i).l0Stats.first,
+                 din(239 downto 220) => status.partition(i).l0Stats.last,
+                 din(259 downto 240) => status.partition(i).l0Stats.minIntv,
+                 din(279 downto 260) => status.partition(i).l0Stats.maxIntv,
                  rd_clk              => axilClk,
                  dout                => sL0Stats(i) );
   end generate GEN_L0;
@@ -172,7 +179,7 @@ begin
       O => r_dataL_3 );
       
   comb : process ( regRst, r, enable, period, status, sL0Stats,
-                   pllCount, pllStat, monClkRate, seqCount,
+                   pllCount, pllStat, monClkRate, seqCount, seqInvalid,
                    obMonitorSlave, r_dataL_3 ) is
     variable v  : RegType;
   begin
@@ -222,7 +229,7 @@ begin
     end if;
 
     if r_dataL_3 = '1' then
-      v.data := toSlv(r.id, status, sL0Stats, pllCount, pllStat, monClkRate, seqCount);
+      v.data := toSlv(r.id, status, sL0Stats, pllCount, pllStat, monClkRate, seqCount, seqInvalid);
       v.index := 0;
       v.busy  := '1';
     end if;
