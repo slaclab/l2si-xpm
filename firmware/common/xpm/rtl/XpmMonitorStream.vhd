@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-06-14
+-- Last update: 2024-06-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -179,7 +179,7 @@ begin
   
   SYNC_PATT : entity surf.SynchronizerFifo
     generic map ( DATA_WIDTH_G => pattSlv'length )
-    port map ( rst     => staRst,
+    port map ( rst     => regRst,
                wr_clk  => staClk,
                din     => pattSlv,
                rd_clk  => axilClk,
