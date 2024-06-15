@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2024-04-17
+-- Last update: 2024-06-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -155,14 +155,14 @@ begin
 
   tpgConfig.FixedRateDivisors <= (toSlv(0,20),
                                   toSlv(0,20),
-                                  toSlv(64,20),
-                                  toSlv(64,20),
-                                  toSlv(32,20),
-                                  toSlv(16,20),
-                                  toSlv(8,20),
-                                  toSlv(4,20),
+                                  toSlv(1,20),
+                                  toSlv(1,20),
                                   toSlv(2,20),
-                                  toSlv(1,20));
+                                  toSlv(4,20),
+                                  toSlv(8,20),
+                                  toSlv(16,20),
+                                  toSlv(32,20),
+                                  toSlv(64,20));
   
    xpmConfig.partition.l0Select.enabled <= '1';
    xpmConfig.partition.l0Select.rateSel <= x"0000";
