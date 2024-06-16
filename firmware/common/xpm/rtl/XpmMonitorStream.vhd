@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-06-15
+-- Last update: 2024-06-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -24,6 +24,9 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.std_logic_arith.all;
+
+library unisim;
+use unisim.vcomponents.all;
 
 library surf;
 use surf.StdRtlPkg.all;
@@ -69,7 +72,7 @@ architecture rtl of XpmMonitorStream is
    signal sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);
 
    constant TDATA_SIZE_C      : integer := EMAC_AXIS_CONFIG_C.TDATA_BYTES_C*8;
-   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*212 + 18 + XPM_SEQ_DEPTH_C*16+4+1) + XPM_PATTERN_STATS_BITS_C;
+   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*282 + 18 + XPM_SEQ_DEPTH_C*16+4+1) + XPM_PATTERN_STATS_BITS_C;
 
    constant LAST_WORD_C       : integer := (XPM_STATUS_BITS_C-1) / TDATA_SIZE_C;
    
@@ -100,7 +103,7 @@ architecture rtl of XpmMonitorStream is
        assignSlv(i, v, sL0Stats(j) ); -- 200b
        assignSlv(i, v, x"ee"); -- 1B
      end loop; -- 8*282B
-     assignSlv(i, v, sPatt); -- 
+     assignSlv(i, v, sPatt); -- 160B+140B
      for j in 0 to 3 loop
        assignSlv(i, v, pllStat(j));
        assignSlv(i, v, muxSlVectorArray(pllCount,j));
@@ -190,7 +193,7 @@ begin
       I => r.dataL(3),
       O => r_dataL_3 );
       
-  comb : process ( regRst, r, enable, period, status, sL0Stats,
+  comb : process ( regRst, r, enable, period, status, sL0Stats, pattSlvS,
                    pllCount, pllStat, monClkRate, seqCount, seqInvalid,
                    obMonitorSlave, r_dataL_3 ) is
     variable v  : RegType;

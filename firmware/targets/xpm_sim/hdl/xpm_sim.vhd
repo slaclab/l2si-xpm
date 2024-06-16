@@ -686,5 +686,20 @@ begin
                 din(15 downto  0) => dsTxData,
                 rd_clk            => nscClk,
                 dout              => dsTxDataS );
-   
+
+  U_Stream : entity work.XpmMonitorStream
+   port map (
+      axilClk         => regClk,
+      axilRst         => regRst,
+      enable          => '1',
+      period          => toSlv(32*140,27),
+      pllCount        => pllCount,
+      pllStat         => x"0",
+      monClkRate      => (others=>(others=>'0')),
+      status          => status,
+      staClk          => scClk,
+      seqCount        => (others=>(others=>'0')),
+      seqInvalid      => (others=>'0'),
+      obMonitorSlave  => AXI_STREAM_SLAVE_FORCE_C );
+    
 end top_level_app;
