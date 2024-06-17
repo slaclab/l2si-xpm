@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver  <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2023-05-02
+-- Last update: 2024-06-17
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -84,9 +84,8 @@ begin
 --   ref156MHzRst <= rstDly(2);
    --  Put large fanout reset onto BUFG
    axilClk      <= clkOut(3);
-   axilRst      <= rstFO;
    U_AXILRST : BUFG
-     port map ( O => rstFO,
+     port map ( O => axilRst,
                 I => rstDly(2) );
 
    -- Adding registers to help with timing
