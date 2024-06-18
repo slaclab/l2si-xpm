@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-06-16
+-- Last update: 2024-06-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -42,6 +42,9 @@ library l2si_core;
 use l2si_core.XpmPkg.all;
 use l2si_core.XpmSeqPkg.all;
 
+library l2si;
+use l2si.XpmAppPkg.all;
+
 entity XpmMonitorStream is
    port (
       axilClk         : in  sl;
@@ -52,6 +55,7 @@ entity XpmMonitorStream is
       pllStat         : in  slv          (3 downto 0);
       monClkRate      : in  Slv32Array   (3 downto 0);
       status          : in  XpmStatusType;
+      pattern         : in  XpmPatternStatisticsType;
       staClk          : in  sl;
       seqCount        : in  Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
       seqInvalid      : in  slv(XPM_SEQ_DEPTH_C-1 downto 0);
@@ -178,7 +182,7 @@ begin
                  dout                => sL0Stats(i) );
   end generate GEN_L0;
 
-  pattSlv <= toSlv(status.pattern);
+  pattSlv <= toSlv(pattern);
   
   SYNC_PATT : entity surf.SynchronizerFifo
     generic map ( DATA_WIDTH_G => pattSlv'length )

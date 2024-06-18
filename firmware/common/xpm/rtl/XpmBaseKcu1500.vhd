@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-11-09
+-- Last update: 2024-06-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -69,6 +69,7 @@ use l2si_core.XpmSeqPkg.all;
 --use amc_carrier_core.AmcCarrierPkg.all;
 
 library l2si;
+use l2si.XpmAppPkg.all;
 
 entity XpmBaseKcu1500 is
    generic (
@@ -142,6 +143,7 @@ architecture top_level of XpmBaseKcu1500 is
  
    signal xpmConfig : XpmConfigType;
    signal xpmStatus : XpmStatusType;
+   signal pattern   : XpmPatternStatisticsType;
    signal bpStatus  : XpmBpLinkStatusArray(NUM_BP_LINKS_C downto 0) := (others => XPM_BP_LINK_STATUS_INIT_C);
 
    signal pllStatus : XpmPllStatusArray (1 downto 0);
@@ -460,7 +462,7 @@ begin
 
    pllLocked <= "11";
 
-   U_Application : entity l2si_core.XpmApp
+   U_Application : entity l2si.XpmApp
       generic map (
          TPD_G           => TPD_G,
          NUM_DS_LINKS_G  => NUM_DS_LINKS_C,
@@ -491,6 +493,7 @@ begin
          regrst          => regRst,
          update          => regUpdate,
          status          => xpmStatus,
+         pattern         => pattern,
          config          => xpmConfig,
          axilReadMaster  => axilReadMasters (APP_INDEX_C),
          axilReadSlave   => axilReadSlaves  (APP_INDEX_C),
@@ -573,6 +576,7 @@ begin
          staClk          => timingPhyClk,
          pllStatus       => pllStatus,
          status          => xpmStatus,
+         pattern         => pattern,
          monClk(0)       => timingPhyClk2,
          monClk(1)       => timingPhyClk,
          monClk(2)       => usRecClk,

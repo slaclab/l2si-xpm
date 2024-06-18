@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-06-15
+-- Last update: 2024-06-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -40,6 +40,7 @@ use l2si_core.XpmPkg.all;
 use l2si_core.XpmSeqPkg.all;
 
 library l2si;
+use l2si.XpmAppPkg.all;
 
 entity XpmReg is
    generic(
@@ -73,6 +74,7 @@ entity XpmReg is
       staClk          : in  sl;
       pllStatus       : in  XpmPllStatusArray(XPM_NUM_AMCS_C-1 downto 0);
       status          : in  XpmStatusType;
+      pattern         : in  XpmPatternStatisticsType;
       monClk          : in  slv(3 downto 0) := (others => '0');
       monLatch        : out sl;
       seqCount        : in  Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
@@ -654,6 +656,7 @@ begin
       pllStat         => pllStat,
       monClkRate      => monClkRate,
       status          => status,
+      pattern         => pattern,
       staClk          => staClk,
       -- status
       busy            => monBusy,

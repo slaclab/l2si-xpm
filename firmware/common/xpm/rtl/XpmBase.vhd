@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-01-25
+-- Last update: 2024-06-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -66,6 +66,7 @@ use l2si_core.XpmSeqPkg.all;
 --use amc_carrier_core.AmcCarrierPkg.all;
 
 library l2si;
+use l2si.XpmAppPkg.all;
 
 entity XpmBase is
    generic (
@@ -203,6 +204,7 @@ architecture top_level of XpmBase is
 
    signal xpmConfig : XpmConfigType;
    signal xpmStatus : XpmStatusType;
+   signal pattern   : XpmPatternStatisticsType;
    signal bpStatus  : XpmBpLinkStatusArray(NUM_BP_LINKS_C downto 0);
    signal pllStatus : XpmPllStatusArray (1 downto 0);
    signal pllLocked : slv(1 downto 0);
@@ -620,7 +622,7 @@ begin
             los    => los (i));
    end generate;
 
-   U_Application : entity l2si_core.XpmApp
+   U_Application : entity l2si.XpmApp
       generic map (
          TPD_G           => TPD_G,
          NUM_DS_LINKS_G  => NUM_FP_LINKS_C,
@@ -651,6 +653,7 @@ begin
          regrst          => regRst,
          update          => regUpdate,
          status          => xpmStatus,
+         pattern         => pattern,
          config          => xpmConfig,
          axilReadMaster  => axilReadMasters (APP_INDEX_C),
          axilReadSlave   => axilReadSlaves  (APP_INDEX_C),
@@ -876,6 +879,7 @@ begin
          staClk          => recTimingClk,
          pllStatus       => pllStatus,
          status          => xpmStatus,
+         pattern         => pattern,
          monClk(0)       => bpMonClk,
          monClk(1)       => timingPhyClk,
          monClk(2)       => recTimingClk,
