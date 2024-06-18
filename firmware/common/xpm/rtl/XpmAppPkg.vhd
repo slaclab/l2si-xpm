@@ -45,17 +45,6 @@ package XpmAppPkg is
       maxIntv  => (others=>'0'));
    type XpmL0StatisticsArray is array(natural range<>) of XpmL0StatisticsType;
    
-   type XpmPartitionStatusType is record
-      inhibit  : XpmInhibitStatusType;
-      l0Select : XpmL0SelectStatusType;
-      l1Select : XpmL1SelectStatusType;
-   end record;
-   constant XPM_PARTITION_STATUS_INIT_C : XpmPartitionStatusType := (
-      inhibit  => XPM_INHIBIT_STATUS_INIT_C,
-      l0Select => XPM_L0_SELECT_STATUS_INIT_C,
-      l1Select => XPM_L1_SELECT_STATUS_INIT_C );
-   type XpmPartitionStatusArray is array(natural range<>) of XpmPartitionStatusType;
-
    type XpmPatternStatisticsType is record
       l0Stats  : XpmL0StatisticsArray(XPM_PARTITIONS_C-1 downto 0);
       l0Coinc  : Slv20Array(XPM_PARTITIONS_C*(XPM_PARTITIONS_C-1)/2-1 downto 0);
