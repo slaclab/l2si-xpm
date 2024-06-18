@@ -244,7 +244,10 @@ architecture top_level of XpmBase is
    constant MMCM_INDEX_C : integer := 3;
    constant APP_INDEX_C  : integer := 4;
    constant PHAS_INDEX_C : integer := 5;
-   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(5 downto 0) := (
+   constant AMC_GTH_INDEX_C: integer := 6; 
+   constant AMC_GTH1_INDEX_C: integer := 7; 
+   
+   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(7 downto 0) := (
      REG_INDEX_C   => (baseAddr     => X"80000000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
@@ -261,6 +264,12 @@ architecture top_level of XpmBase is
                        addrBits     => 17,
                        connectivity => X"FFFF"),
      PHAS_INDEX_C  => (baseAddr     => X"80080000",
+                       addrBits     => 19,
+                       connectivity => X"FFFF"),
+     AMC_GTH_INDEX_C  => (baseAddr     => X"80100000",
+                       addrBits     => 19,
+                       connectivity => X"FFFF"),
+     AMC_GTH1_INDEX_C  => (baseAddr     => X"80200000",
                        addrBits     => 19,
                        connectivity => X"FFFF") );
 
@@ -899,7 +908,9 @@ begin
          generic map (
             GTGCLKRX   => false,
             NLINKS_G   => AMC_DS_LINKS_C(i),
-            USE_IBUFDS => true)
+            USE_IBUFDS => true,
+            AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(AMC_GTH_INDEX_C+i).baseAddr
+            )
          port map (
             stableClk => regClk,
             gtTxP     => idsTxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
@@ -922,7 +933,14 @@ begin
             txClkIn   => recTimingClk,
             txClkRst  => txClkRst(i),
             config    => xpmConfig.dsLink(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            status    => dsLinkStatus    (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)));
+            status    => dsLinkStatus    (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+
+            axilRst          => regRst,
+            axilReadMaster   => axilReadMasters (AMC_GTH_INDEX_C+i),
+            axilReadSlave    => axilReadSlaves  (AMC_GTH_INDEX_C+i),
+            axilWriteMaster  => axilWriteMasters(AMC_GTH_INDEX_C+i),
+            axilWriteSlave   => axilWriteSlaves (AMC_GTH_INDEX_C+i)
+        );
    end generate;
 
    --

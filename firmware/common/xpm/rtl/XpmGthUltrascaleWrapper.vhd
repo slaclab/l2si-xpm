@@ -27,6 +27,7 @@ use ieee.std_logic_unsigned.all;
 
 library surf;
 use surf.StdRtlPkg.all;
+use surf.AxiLitePkg.all;
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
@@ -37,8 +38,10 @@ use unisim.vcomponents.all;
 
 entity XpmGthUltrascaleWrapper is
    generic ( GTGCLKRX   : boolean := true;
-             NLINKS_G   : integer := 7;
-             USE_IBUFDS : boolean := true );
+             NLINKS_G   : integer range 1 to 7:= 7;
+             USE_IBUFDS : boolean := true;
+             AXIL_BASE_ADDR_G            : slv(31 downto 0)      := (others => '0')
+       );
    port (
       gtTxP            : out slv(NLINKS_G-1 downto 0);
       gtTxN            : out slv(NLINKS_G-1 downto 0);
@@ -62,7 +65,15 @@ entity XpmGthUltrascaleWrapper is
       txClkIn          : in  sl;
       txClkRst         : in  sl;
       config           : in  XpmLinkConfigArray(NLINKS_G-1 downto 0);
-      status           : out XpmLinkStatusArray(NLINKS_G-1 downto 0) );
+      status           : out XpmLinkStatusArray(NLINKS_G-1 downto 0);
+            
+      axilRst          : in sl;
+      axilReadMaster   : in  AxiLiteReadMasterType;
+      axilReadSlave    : out AxiLiteReadSlaveType;
+      axilWriteMaster  : in  AxiLiteWriteMasterType;
+      axilWriteSlave   : out AxiLiteWriteSlaveType
+      
+      );
 end XpmGthUltrascaleWrapper;
 
 architecture rtl of XpmGthUltrascaleWrapper is
@@ -121,7 +132,18 @@ COMPONENT gt_dslink_ss_nophase_amc0
     rxoutclk_out : OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
     rxpmaresetdone_out : OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
     txoutclk_out : OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
-    txpmaresetdone_out : OUT STD_LOGIC_VECTOR(0 DOWNTO 0)
+    txpmaresetdone_out : OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
+    drpdo_out : OUT STD_LOGIC_VECTOR(15 DOWNTO 0);
+    drprdy_out : OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
+    drpaddr_in : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
+    drpdi_in : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
+    drpen_in : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+    drpwe_in : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+    
+    rxcdrlock_out : OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
+    gtpowergood_out : OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
+    eyescanreset_in : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+    rxpmareset_in : IN STD_LOGIC_VECTOR(0 DOWNTO 0)
   );
 END COMPONENT;
 
@@ -129,11 +151,16 @@ END COMPONENT;
     clkcnt  : slv(5 downto 0);
     errdet  : sl;
     reset   : sl;
+    gthWrdCnt : slv(31 downto 0);
+    gthErrCnt : slv(31 downto 0);
   end record;
   constant REG_INIT_C : RegType := (
     clkcnt  => (others=>'0'),
     errdet  => '0',
-    reset   => '0' );
+    reset   => '0',
+    gthWrdCnt => (others => '0'),
+    gthErrCnt => (others => '0')
+  );
   type RegTypeArray is array(natural range<>) of RegType;
 
   constant ERR_INTVL : slv(5 downto 0) := (others=>'1');
@@ -177,6 +204,57 @@ END COMPONENT;
 
   signal loopback  : Slv3Array(NLINKS_G-1 downto 0);
 
+  signal drpdo    : Slv16Array(NLINKS_G-1 downto 0);
+  signal drprdy   : slv(NLINKS_G-1 downto 0);
+  signal drpaddr  : Slv9Array(NLINKS_G-1 downto 0);
+  signal drpdi    : Slv16Array(NLINKS_G-1 downto 0);
+  signal drpen    : slv(NLINKS_G-1 downto 0);
+  signal drpwe    : slv(NLINKS_G-1 downto 0);
+  
+  constant LINK0_INDEX_C : integer := 0;
+  constant LINK1_INDEX_C : integer := 1;
+  constant LINK2_INDEX_C : integer := 2;
+  constant LINK3_INDEX_C : integer := 3;
+  constant LINK4_INDEX_C : integer := 4;
+  constant LINK5_INDEX_C : integer := 5;
+  constant LINK6_INDEX_C : integer := 6;
+  constant LINK7_INDEX_C : integer := 7;
+  constant LINK8_INDEX_C : integer := 8;
+  
+  constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(8 downto 0) := (
+     LINK0_INDEX_C   => (baseAddr     => AXIL_BASE_ADDR_G,
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     LINK1_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"10000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     LINK2_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"20000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     LINK3_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"30000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     LINK4_INDEX_C   => (baseAddr     => AXIL_BASE_ADDR_G + X"40000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     LINK5_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"50000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     LINK6_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"60000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     LINK7_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"70000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     LINK8_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"80000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF") );
+
+  signal axilReadMasters  : AxiLiteReadMasterArray (AXI_XBAR_CONFIG_C'range);
+  signal axilReadSlaves   : AxiLiteReadSlaveArray (AXI_XBAR_CONFIG_C'range) := (others=>AXI_LITE_READ_SLAVE_EMPTY_OK_C);
+  signal axilWriteMasters : AxiLiteWriteMasterArray(AXI_XBAR_CONFIG_C'range);
+  signal axilWriteSlaves  : AxiLiteWriteSlaveArray (AXI_XBAR_CONFIG_C'range) := (others=>AXI_LITE_WRITE_SLAVE_EMPTY_OK_C);
+   
   constant TX_SYNC_C : boolean := true;
   
 begin
@@ -187,6 +265,24 @@ begin
   txClk    <= txUsrClk(0);
   txOutClk <= txUsrClk;
   
+  U_XBAR : entity surf.AxiLiteCrossbar
+      generic map (
+         DEC_ERROR_RESP_G   => AXI_RESP_DECERR_C,
+         NUM_SLAVE_SLOTS_G  => 1,
+         NUM_MASTER_SLOTS_G => AXI_XBAR_CONFIG_C'length,
+         MASTERS_CONFIG_G   => AXI_XBAR_CONFIG_C)
+      port map (
+         axiClk              => stableClk,
+         axiClkRst           => axilRst,
+         sAxiWriteMasters(0) => axilWriteMaster,
+         sAxiWriteSlaves(0)  => axilWriteSlave,
+         sAxiReadMasters(0)  => axilReadMaster,
+         sAxiReadSlaves (0)  => axilReadSlave,
+         mAxiWriteMasters    => axilWriteMasters,
+         mAxiWriteSlaves     => axilWriteSlaves,
+         mAxiReadMasters     => axilReadMasters,
+         mAxiReadSlaves      => axilReadSlaves);
+         
   GEN_IBUFDS : if USE_IBUFDS generate
     DEVCLK_IBUFDS_GTE3 : IBUFDS_GTE3
       generic map (
@@ -287,7 +383,34 @@ begin
       port map ( clk      => rxUsrClk(i),
                  asyncRst => rxReset(i),
                  syncRst  => rxbypassrst(i) );
+                     
+   U_Axi2Drp: entity surf.AxiLiteToDrp 
+      generic map(
+          ADDR_WIDTH_G   => 9
+      )
+      port map(
+          -- AXI-Lite Port
+          axilClk         => stableClk,
+          axilRst         => axilRst,
+          axilReadMaster  => axilReadMasters(i),
+          axilReadSlave   => axilReadSlaves(i),
+          axilWriteMaster => axilWriteMasters(i),
+          axilWriteSlave  => axilWriteSlaves(i),
+          
+          -- DRP Interface
+          drpClk          => stableClk,
+          drpRst          => axilRst,
+          drpRdy          => drprdy(i),
+          drpEn           => drpen(i),
+          drpWe           => drpwe(i),
+          drpUsrRst       => open,
+          drpAddr         => drpaddr(i),
+          drpDi           => drpdi(i),
+          drpDo           => drpdo(i)
+      );
 
+  
+  
     U_GthCore : gt_dslink_ss_nophase_amc0 -- 1 RTM link
       PORT MAP (
         gtwiz_userclk_tx_active_in           => "1",
@@ -339,11 +462,24 @@ begin
         rxctrl2_out                          => open,
         rxctrl3_out                          => rxCtrl3Out(i),
         rxoutclk_out                      (0)=> rxOutClk(i),
-        rxpmaresetdone_out                   => open,
+        rxpmaresetdone_out                (0)=> status(i).rxpmarstdone,
         txoutclk_out                      (0)=> txOutClkO(i),
-        txpmaresetdone_out                   => open
+        txpmaresetdone_out                (0)=> status(i).txpmarstdone,
+        drpdo_out                            => drpdo(i),
+        drprdy_out                        (0)=> drprdy(i),
+        drpaddr_in                           => drpaddr(i),
+        drpdi_in                             => drpdi(i),
+        drpen_in                          (0)=> drpen(i),
+        drpwe_in                          (0)=> drpwe(i),
+        rxcdrlock_out                     (0)=> status(i).rxcdrlock,
+        gtpowergood_out                   (0)=> status(i).gtpowergood,
+        eyescanreset_in                   (0)=> config(i).eyescanrst,
+        rxpmareset_in                     (0)=> config(i).rxpmarst
         );
-
+ 
+    status(i).rxGTHWordCnts <= r(i).gthWrdCnt;
+    status(i).rxGTHErrCnts  <= r(i).gthErrCnt;
+    
     comb : process ( r, rxResetDone, rxErrIn ) is
       variable v : RegType;
     begin
@@ -363,6 +499,16 @@ begin
           v.errdet := '0';
           v.clkcnt := (others=>'0');
         end if;
+      end if;
+      
+      v.gthWrdCnt := r(i).gthWrdCnt + 1;
+      if rxErrIn(i) = '1' then
+          v.gthErrCnt := r(i).gthErrCnt + 1;
+      end if;
+      
+      if config(i).rstGthCnter = '1' then
+          v.gthWrdCnt := (others => '0');
+          v.gthErrCnt := (others => '0');
       end if;
 
       if rxResetDone(i)='0' then
