@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-11-09
+-- Last update: 2024-06-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -480,7 +480,7 @@ begin
     status(i).rxGTHWordCnts <= r(i).gthWrdCnt;
     status(i).rxGTHErrCnts  <= r(i).gthErrCnt;
     
-    comb : process ( r, rxResetDone, rxErrIn ) is
+    comb : process ( r, rxResetDone, rxErrIn, config ) is
       variable v : RegType;
     begin
       v := r(i);

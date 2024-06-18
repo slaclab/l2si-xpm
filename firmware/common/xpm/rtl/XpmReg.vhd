@@ -198,8 +198,6 @@ architecture rtl of XpmReg is
    signal monClkSlow : slv (3 downto 0);
    signal monClkFast : slv (3 downto 0);
 
-   constant DEBUG_C : boolean := false;
-
    signal p0InhCh  : sl;
    signal p0InhErr : sl;
    signal pInhV    : slv(XPM_PARTITIONS_C-1 downto 0);
@@ -212,46 +210,9 @@ architecture rtl of XpmReg is
    signal monId    : slv(31 downto 0) := (others=>'0');
    signal monIndex : slv( 9 downto 0) := (others=>'0');
    
-   component ila_0
-      port (
-         clk    : in sl;
-         probe0 : in slv(255 downto 0));
-   end component;
-
 begin
 
-   GEN_DBUG : if DEBUG_C generate
-      U_ILA : ila_0
-         port map (
-            clk                   => axilClk,
-            probe0(0)             => pInhV(0),
-            probe0(1)             => p0InhCh,
-            probe0(2)             => p0InhErr,
-            probe0(66 downto 3)   => resize(s.partition(0).l0Select.inhibited, 64),
-            probe0(70 downto 67)  => pll_stat,
-            probe0(74 downto 71)  => pllStat,
-            probe0(255 downto 75) => (others => '0'));
-
-      process (axilClk) is
-         variable p0Inh, p0Inhi : slv(15 downto 0);
-      begin
-         if rising_edge(axilClk) then
-            p0Inhi := s.partition(0).l0Select.inhibited(p0Inh'range);
-            if p0Inh /= p0Inhi then
-               p0InhCh <= '1' after TPD_G;
-            else
-               p0InhCh <= '0' after TPD_G;
-            end if;
-            if p0Inh > p0Inhi then
-               p0InhErr <= '1' after TPD_G;
-            else
-               p0InhErr <= '0' after TPD_G;
-            end if;
-            p0Inh := p0Inhi;
-         end if;
-      end process;
-   end generate;
-
+   staRst         <= axilRst;
    dbgChan        <= r.linkDebug(dbgChan'range);
    config         <= r.config;
    axilReadSlave  <= r.axilReadSlave;

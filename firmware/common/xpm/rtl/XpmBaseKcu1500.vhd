@@ -671,7 +671,10 @@ begin
             txClkIn   => timingPhyClk,
             txClkRst  => timingPhyRst,
             config    => dsLinkConfig(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            status    => dsLinkStatus(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)) );
+            status    => dsLinkStatus(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+            axilRst         => regRst,
+            axilReadMaster  => AXI_LITE_READ_MASTER_INIT_C,
+            axilWriteMaster => AXI_LITE_WRITE_MASTER_INIT_C );
    end generate;
 
    U_SyncPaddrTx : entity surf.SynchronizerVector
