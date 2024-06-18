@@ -31,6 +31,9 @@ use lcls_timing_core.TimingPkg.all;
 library l2si_core;
 use l2si_core.XpmPkg.all;
 
+library l2si;
+use l2si.XpmAppPkg.all;
+
 entity XpmPatternStats is
   generic (
     TPD_G   : time    := 1 ns );

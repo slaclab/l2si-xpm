@@ -372,7 +372,7 @@ begin
    --
    --  Let the local sequencer replace its part in the incoming stream
    --
-   U_Seq : entity l2si_core.XpmSequence
+   U_Seq : entity l2si.XpmSequence
       generic map (
          TPD_G           => TPD_G,
          AXIL_BASEADDR_G => AXIL_BASEADDR_G)
@@ -514,7 +514,7 @@ begin
        data_in   => expWord,
        data_out  => expWordQ);
 
-   U_PattStats : entity l2si_core.XpmPatternStats
+   U_PattStats : entity l2si.XpmPatternStats
      generic map (
        TPD_G => TPD_G )
      port map (

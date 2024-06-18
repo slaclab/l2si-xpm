@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2024-06-15
+-- Last update: 2024-06-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -46,6 +46,7 @@ use l2si_core.XpmMiniPkg.all;
 
 library l2si;
 use l2si.AxiLiteSimPkg.all;
+use l2si.XpmAppPkg.all;
 
 library unisim;
 use unisim.vcomponents.all;
@@ -151,6 +152,12 @@ architecture top_level_app of xpm_sim is
    signal dsTxData   : slv(15 downto 0);
    signal dsTxDataK  : slv( 1 downto 0);
 
+   signal pattern    : XpmPatternStatisticsType;
+   
+   constant EVENTCODES_C : Slv20Array(16 downto 0) := (0 => toSlv(2,20),
+                                                       16 => toSlv(3,20),
+                                                       others => toSlv(0,20));
+
 begin
 
   tpgConfig.FixedRateDivisors <= (toSlv(0,20),
@@ -163,7 +170,6 @@ begin
                                   toSlv(16,20),
                                   toSlv(32,20),
                                   toSlv(64,20));
-  
    xpmConfig.partition.l0Select.enabled <= '1';
    xpmConfig.partition.l0Select.rateSel <= x"0000";
    xpmConfig.partition.l0Select.destSel <= x"8000";
@@ -174,7 +180,9 @@ begin
 
    process is
    begin
-     for i in 0 to 7 loop
+     appConfig.partition(0).l0Select.rateSel    <= x"8000";
+     appConfig.partition(0).l0Select.destSel    <= x"8000";
+     for i in 1 to 7 loop
 --       appConfig.partition(i).master              <= '1';
        appConfig.partition(i).master              <= '0';
        appConfig.partition(i).l0Select.enabled    <= '0';
@@ -342,9 +350,10 @@ begin
    dsClk <= (others=>usClk);
    dsRst <= (others=>usRst);
 
-   U_UsSim : entity lcls_timing_core.TPGMini
+   U_UsSim : entity l2si.TPGMini
      generic map ( NARRAYSBSA => 0,
-                   STREAM_INTF => true )
+                   STREAM_INTF => true,
+                   EVENTCODES_G => EVENTCODES_C )
      port map ( statusO   => open,
                 configI   => tpgConfig,
                 --
@@ -628,7 +637,7 @@ begin
                 slave  => seqReadSlave,
                 done   => open );
    
-   U_App : entity l2si_core.XpmApp
+   U_App : entity l2si.XpmApp
      generic map (
        NUM_BP_LINKS_G  => 1,
        AXIL_BASEADDR_G => (others => '0'))
@@ -640,6 +649,7 @@ begin
        regrst          => regRst,
        update          => (others=>'0'),
        config          => appConfig,
+       pattern         => pattern,
        axilReadMaster  => seqReadMaster,
        axilReadSlave   => seqReadSlave,
        axilWriteMaster => seqWriteMaster,
@@ -687,7 +697,7 @@ begin
                 rd_clk            => nscClk,
                 dout              => dsTxDataS );
 
-  U_Stream : entity work.XpmMonitorStream
+  U_Stream : entity l2si.XpmMonitorStream
    port map (
       axilClk         => regClk,
       axilRst         => regRst,
@@ -697,6 +707,7 @@ begin
       pllStat         => x"0",
       monClkRate      => (others=>(others=>'0')),
       status          => status,
+      pattern         => pattern,
       staClk          => scClk,
       seqCount        => (others=>(others=>'0')),
       seqInvalid      => (others=>'0'),
