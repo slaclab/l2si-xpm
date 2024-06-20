@@ -33,12 +33,14 @@ package XpmAppPkg is
    -- Application: Configurations, Constants and Records Types
    -----------------------------------------------------------
    type XpmL0StatisticsType is record
+      sum      : slv(19 downto 0);
       first    : slv(19 downto 0);
       last     : slv(19 downto 0);
       minIntv  : slv(19 downto 0);
       maxIntv  : slv(19 downto 0);
    end record;
    constant XPM_L0_STATISTICS_INIT_C : XpmL0StatisticsType := (
+      sum      => (others=>'0'),
       first    => (others=>'1'),
       last     => (others=>'1'),
       minIntv  => (others=>'1'),
@@ -47,12 +49,12 @@ package XpmAppPkg is
    
    type XpmPatternStatisticsType is record
       l0Stats  : XpmL0StatisticsArray(XPM_PARTITIONS_C-1 downto 0);
-      l0Coinc  : Slv20Array(XPM_PARTITIONS_C*(XPM_PARTITIONS_C-1)/2-1 downto 0);
+      l0Coinc  : Slv20Array(XPM_PARTITIONS_C*(XPM_PARTITIONS_C+1)/2-1 downto 0);
    end record;
    constant XPM_PATTERN_STATS_INIT_C : XpmPatternStatisticsType := (
       l0Stats   => (others => XPM_L0_STATISTICS_INIT_C),
       l0Coinc   => (others => toSlv(0,20)));
-   constant XPM_PATTERN_STATS_BITS_C : integer := 80*XPM_PARTITIONS_C + 20*XPM_PARTITIONS_C*(XPM_PARTITIONS_C-1)/2;
+   constant XPM_PATTERN_STATS_BITS_C : integer := 100*XPM_PARTITIONS_C + 20*XPM_PARTITIONS_C*(XPM_PARTITIONS_C+1)/2;
    
    function toSlv(s             : XpmPatternStatisticsType) return slv;
                   

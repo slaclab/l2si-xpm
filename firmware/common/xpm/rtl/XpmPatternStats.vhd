@@ -202,6 +202,7 @@ begin
           u := r.stats.l0Stats(i);
           p := r.part(i);
           if (p.rateSel = '1' and p.destSel = '1') then
+            u.sum := r.stats.l0Stats(i).sum + 1;
             intv := r.frameNum - u.last;
             if r.frameNum < u.first then
               u.first := r.frameNum;
@@ -218,7 +219,7 @@ begin
           v.stats.l0Stats(i) := u;
 
           -- coincidences
-          for j in i+1 to XPM_PARTITIONS_C-1 loop
+          for j in i to XPM_PARTITIONS_C-1 loop
             q := r.part(j);
             if (q.rateSel = '1' and q.destSel = '1' and
                 p.rateSel = '1' and p.destSel = '1') then
