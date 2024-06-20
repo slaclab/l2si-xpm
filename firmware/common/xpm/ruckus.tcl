@@ -8,3 +8,6 @@ loadSource -lib l2si -dir "$::DIR_PATH/rtl/"
 if { $::env(PRJ_PART) == "XCKU040-FFVA1156-2-E" } {
    loadSource -lib l2si -dir "$::DIR_PATH/rtl/amcc"
 }
+else {
+   loadSource -lib l2si -dir "$::DIR_PATH/rtl/kcu1500"
+}
