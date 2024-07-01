@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-06-18
+-- Last update: 2024-06-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -80,6 +80,7 @@ entity XpmReg is
       seqCount        : in  Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
       seqInvalid      : in  slv(XPM_SEQ_DEPTH_C-1 downto 0) := (others=>'0');
       config          : out XpmConfigType;
+      common          : out slv(XPM_PARTITIONS_C-1 downto 0);
       usRxEnable      : out sl;
       cuRxEnable      : out sl;
       dbgChan         : out slv(4 downto 0));
@@ -117,6 +118,7 @@ architecture rtl of XpmReg is
       state          : StateType;
       load           : sl;
       config         : XpmConfigType;
+      common         : slv(XPM_PARTITIONS_C-1 downto 0);
       partition      : slv(3 downto 0);
       link           : slv(4 downto 0);
       amc            : slv(0 downto 0);
@@ -145,6 +147,7 @@ architecture rtl of XpmReg is
       state          => IDLE_S,
       load           => '1',
       config         => XPM_CONFIG_INIT_C,
+      common         => (others => '0'),
       partition      => (others => '0'),
       link           => (others => '0'),
       amc            => (others => '0'),
@@ -215,6 +218,7 @@ begin
    staRst         <= axilRst;
    dbgChan        <= r.linkDebug(dbgChan'range);
    config         <= r.config;
+   common         <= r.common;
    axilReadSlave  <= r.axilReadSlave;
    axilWriteSlave <= r.axilWriteSlave;
    axilUpdate     <= r.axilRdEn;
@@ -480,6 +484,7 @@ begin
       axiSlaveRegister (axilEp, X"018", 0, v.partitionCfg.l0Select.reset);
       axiSlaveRegister (axilEp, X"018", 8, v.partitionCfg.l0Select.groups);
       axiSlaveRegister (axilEp, X"018", 16, v.partitionCfg.l0Select.enabled);
+      axiSlaveRegister (axilEp, X"018", 29, v.common(ip));
       axiSlaveRegister (axilEp, X"018", 30, v.partitionCfg.master);
       axiSlaveRegister (axilEp, X"018", 31, v.axilRdEn(ip));
 

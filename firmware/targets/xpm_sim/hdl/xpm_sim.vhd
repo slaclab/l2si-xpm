@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2024-06-18
+-- Last update: 2024-07-01
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -105,26 +105,26 @@ architecture top_level_app of xpm_sim is
    signal obMonitorMaster : AxiStreamMasterType;
    signal obMonitorSlave  : AxiStreamSlaveType := AXI_STREAM_SLAVE_FORCE_C;
 
-   signal eventTrigMsgMasters   : AxiStreamMasterArray(0 downto 0);
-   signal eventTrigMsgSlaves    : AxiStreamSlaveArray(0 downto 0);
+   signal eventTrigMsgMasters   : AxiStreamMasterArray(7 downto 0);
+   signal eventTrigMsgSlaves    : AxiStreamSlaveArray(7 downto 0);
 
-   signal eventTrigMsgMastersG  : AxiStreamMasterArray(0 downto 0);
-   signal eventTrigMsgSlavesG   : AxiStreamSlaveArray(0 downto 0);
+   signal eventTrigMsgMastersG  : AxiStreamMasterArray(7 downto 0);
+   signal eventTrigMsgSlavesG   : AxiStreamSlaveArray(7 downto 0);
 
-   signal eventTimingMessagesValid : slv(0 downto 0);
-   signal eventTimingMessages      : TimingMessageArray(0 downto 0);
-   signal eventTimingMessagesRd    : slv(0 downto 0);
+   signal eventTimingMessagesValid : slv(7 downto 0);
+   signal eventTimingMessages      : TimingMessageArray(7 downto 0);
+   signal eventTimingMessagesRd    : slv(7 downto 0);
    
-   signal eventTimingMsgMasters : AxiStreamMasterArray(0 downto 0);
-   signal eventTimingMsgSlaves  : AxiStreamSlaveArray(0 downto 0);
+   signal eventTimingMsgMasters : AxiStreamMasterArray(7 downto 0);
+   signal eventTimingMsgSlaves  : AxiStreamSlaveArray(7 downto 0);
    
-   signal triggerData : TriggerEventDataArray(0 downto 0);
+   signal triggerData : TriggerEventDataArray(7 downto 0);
    signal trgMaster   : AxiStreamMasterType := AxiStreamMasterInit(DMA_AXIS_CONFIG_C);
    signal trgSlave    : AxiStreamSlaveType;
    signal detMaster   : AxiStreamMasterType;
    signal detSlave    : AxiStreamSlaveType;
    
-   signal clearReadout : slv(0 downto 0);
+   signal clearReadout : slv(7 downto 0);
 
    signal appTimingBus : TimingBusType;
    signal appTimingMode : sl;
@@ -153,11 +153,14 @@ architecture top_level_app of xpm_sim is
    signal dsTxDataK  : slv( 1 downto 0);
 
    signal pattern    : XpmPatternStatisticsType;
+   signal common     : slv( 7 downto 0) := x"01";
    
    constant EVENTCODES_C : Slv20Array(16 downto 0) := (0 => toSlv(2,20),
                                                        16 => toSlv(3,20),
                                                        others => toSlv(0,20));
 
+   constant CONSUME_C : boolean := false;
+   
 begin
 
   tpgConfig.FixedRateDivisors <= (toSlv(0,20),
@@ -180,25 +183,39 @@ begin
 
    process is
    begin
+     appConfig.partition(0).master              <= '1';
+--     appConfig.partition(0).l0Select.enabled    <= '1';
      appConfig.partition(0).l0Select.rateSel    <= x"8000";
      appConfig.partition(0).l0Select.destSel    <= x"8000";
+     appConfig.partition(0).l0Select.groups     <= x"FF";
+     appConfig.partition(0).pipeline.depth_fids <= toSlv(105,8);
+     appConfig.partition(0).pipeline.depth_clks <= toSlv(105*200,16);
      for i in 1 to 7 loop
---       appConfig.partition(i).master              <= '1';
-       appConfig.partition(i).master              <= '0';
-       appConfig.partition(i).l0Select.enabled    <= '0';
-       appConfig.partition(i).l0Select.rateSel    <= toSlv(i,16);
+       appConfig.partition(i).master              <= '1';
+--       appConfig.partition(i).master              <= '0';
+--       appConfig.partition(i).l0Select.enabled    <= '1';
+--       appConfig.partition(i).l0Select.rateSel    <= toSlv(i,16);
+       appConfig.partition(i).l0Select.rateSel    <= toSlv(1,16);
        appConfig.partition(i).l0Select.destSel    <= x"8000";
---       appConfig.partition(i).pipeline.depth_fids <= toSlv(10-i,8);
---       appConfig.partition(i).pipeline.depth_clks <= toSlv((10-i)*200,16);
-       appConfig.partition(i).pipeline.depth_fids <= toSlv(90,8);
-       appConfig.partition(i).pipeline.depth_clks <= toSlv(90*200,16);
+       appConfig.partition(i).pipeline.depth_fids <= toSlv(10-i,8);
+       appConfig.partition(i).pipeline.depth_clks <= toSlv((10-i)*200,16);
+--       appConfig.partition(i).pipeline.depth_fids <= toSlv(90,8);
+--       appConfig.partition(i).pipeline.depth_clks <= toSlv(90*200,16);
        appConfig.partition(i).l0Select.rawPeriod  <= toSlv(720-i*100,20);
 --       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(ite(i=7,20,10000),20);
        appConfig.partition(i).l0Select.groups     <= x"FF";
 --       appConfig.partition(i).l0Select.groups     <= x"00";
      end loop;
 
-     --  Simplify
+     --  Need to wait until all pipelines are going else l0Select enables
+     --  aren't sync'd
+     wait for 140 us;
+
+     for i in 0 to 7 loop
+       appConfig.partition(i).l0Select.enabled <= '1';
+     end loop;
+     
+     --  Simplify - no messages
      wait for 10000 us;
      
      wait for 25 us;
@@ -333,11 +350,22 @@ begin
    scRstA <= (others=>scRst);
    
    U_TemConfig : entity l2si.AxiLiteWriteMasterSim
-     generic map ( CMDS => (( addr  => x"0000900C",
---                              value => toSlv(250*14,32)),
-                              value => toSlv(200*4,32)),
-                            ( addr  => x"00009000",
-                              value => x"00000001")) )
+     generic map ( CMDS => (( addr  => x"00009004", value => x"00000000"),
+                            ( addr  => x"00009104", value => x"00000001"),
+                            ( addr  => x"00009204", value => x"00000002"),
+                            ( addr  => x"00009304", value => x"00000003"),
+                            ( addr  => x"00009404", value => x"00000004"),
+                            ( addr  => x"00009504", value => x"00000005"),
+                            ( addr  => x"00009604", value => x"00000006"),
+                            ( addr  => x"00009704", value => x"00000007"),
+                            ( addr  => x"00009000", value => x"00000001"),
+                            ( addr  => x"00009100", value => x"00000001"),
+                            ( addr  => x"00009200", value => x"00000001"),
+                            ( addr  => x"00009300", value => x"00000001"),
+                            ( addr  => x"00009400", value => x"00000001"),
+                            ( addr  => x"00009500", value => x"00000001"),
+                            ( addr  => x"00009600", value => x"00000001"),
+                            ( addr  => x"00009700", value => x"00000001")) )
      port map ( clk    => regClk,
                 rst    => regRst,
                 master => temWriteMaster,
@@ -438,8 +466,8 @@ begin
          gtTxUsrClk       => usClk,
          gtTxUsrRst       => usRst,
          gtRxRecClk       => dsClk(0),
-         gtRxData         => dsTx(0).data,
-         gtRxDataK        => dsTx(0).dataK,
+         gtRxData         => dsTxData,
+         gtRxDataK        => dsTxDataK,
          gtRxDispErr      => "00",
          gtRxDecErr       => "00",
          gtRxControl      => open,
@@ -464,7 +492,7 @@ begin
          TPD_G                          => 1 ns,
          EN_LCLS_I_TIMING_G             => false,
          EN_LCLS_II_TIMING_G            => true,
-         NUM_DETECTORS_G                => 1,
+         NUM_DETECTORS_G                => 8,
          L1_CLK_IS_TIMING_TX_CLK_G      => false,
          TRIGGER_CLK_IS_TIMING_RX_CLK_G => false,
          EVENT_CLK_IS_TIMING_RX_CLK_G   => false)
@@ -498,50 +526,56 @@ begin
          axilWriteMaster          => temWriteMaster,
          axilWriteSlave           => temWriteSlave );
 
-   U_Resize : entity surf.AxiStreamGearbox
-     generic map (
-       -- AXI Stream Port Configurations
-       SLAVE_AXI_CONFIG_G  => EVENT_AXIS_CONFIG_C,
-       MASTER_AXI_CONFIG_G => DMA_AXIS_CONFIG_C)
-     port map (
-       axisClk     => regClk,
-       axisRst     => regRst,
-       -- Slave Port
-       sAxisMaster => eventTrigMsgMasters(0),
-       sAxisSlave  => eventTrigMsgSlaves (0),
-       -- Master Port
-       mAxisMaster => eventTrigMsgMastersG(0),
-       mAxisSlave  => eventTrigMsgSlavesG (0));
+  GEN_NOCONSUME : if not CONSUME_C generate
+    eventTrigMsgSlaves    <= (others=>AXI_STREAM_SLAVE_FORCE_C);
+    eventTimingMessagesRd <= (others=>'1');
+  end generate;
 
-   U_EventTimingMessage : entity l2si_core.EventTimingMessage
-     generic map (
-       TPD_G               => 1 ns,
-       NUM_DETECTORS_G     => 1,
-       EVENT_AXIS_CONFIG_G => DMA_AXIS_CONFIG_C )
-     port map (
-       -- Clock and Reset
-       eventClk                 => regClk,
-       eventRst                 => regRst,
-       -- Input Streams
-       eventTimingMessagesValid => eventTimingMessagesValid,
-       eventTimingMessages      => eventTimingMessages,
-       eventTimingMessagesRd    => eventTimingMessagesRd,
-       -- Output Streams
-       eventTimingMsgMasters    => eventTimingMsgMasters,
-       eventTimingMsgSlaves     => eventTimingMsgSlaves );
-   
-   U_EventBuilder : entity surf.AxiStreamBatcherEventBuilder
-      generic map (
+   GEN_CONSUME : if CONSUME_C generate
+     U_Resize : entity surf.AxiStreamGearbox
+       generic map (
+         -- AXI Stream Port Configurations
+         SLAVE_AXI_CONFIG_G  => EVENT_AXIS_CONFIG_C,
+         MASTER_AXI_CONFIG_G => DMA_AXIS_CONFIG_C)
+       port map (
+         axisClk     => regClk,
+         axisRst     => regRst,
+         -- Slave Port
+         sAxisMaster => eventTrigMsgMasters(0),
+         sAxisSlave  => eventTrigMsgSlaves (0),
+         -- Master Port
+         mAxisMaster => eventTrigMsgMastersG(0),
+         mAxisSlave  => eventTrigMsgSlavesG (0));
+
+     U_EventTimingMessage : entity l2si_core.EventTimingMessage
+       generic map (
+         TPD_G               => 1 ns,
+         NUM_DETECTORS_G     => 8,
+         EVENT_AXIS_CONFIG_G => DMA_AXIS_CONFIG_C )
+       port map (
+         -- Clock and Reset
+         eventClk                 => regClk,
+         eventRst                 => regRst,
+         -- Input Streams
+         eventTimingMessagesValid => eventTimingMessagesValid,
+         eventTimingMessages      => eventTimingMessages,
+         eventTimingMessagesRd    => eventTimingMessagesRd,
+         -- Output Streams
+         eventTimingMsgMasters    => eventTimingMsgMasters,
+         eventTimingMsgSlaves     => eventTimingMsgSlaves );
+     
+     U_EventBuilder : entity surf.AxiStreamBatcherEventBuilder
+       generic map (
          TPD_G          => 1 ns,
          NUM_SLAVES_G   => 3,
          MODE_G         => "ROUTED",
          TDEST_ROUTES_G => (
-            0           => "0000000-",   -- Trig on 0x0, Event on 0x1
-            1           => "00000010",   -- Map PGP[VC1] to TDEST 0x2
-            2           => "00000011"),  -- Map Timing   to TDEST 0x3
+           0           => "0000000-",   -- Trig on 0x0, Event on 0x1
+           1           => "00000010",   -- Map PGP[VC1] to TDEST 0x2
+           2           => "00000011"),  -- Map Timing   to TDEST 0x3
          TRANS_TDEST_G  => X"01",
          AXIS_CONFIG_G  => DMA_AXIS_CONFIG_C )
-      port map (
+       port map (
          -- Clock and Reset
          axisClk         => regClk,
          axisRst         => regRst,
@@ -560,20 +594,19 @@ begin
          mAxisMaster     => eventMaster,
          mAxisSlave      => eventSlave);
 
-   U_File : entity l2si.AxiStreamFile
-     generic map ( filename => "xpm_sim.xtc" )
-     port map ( axisClk     => regClk,
-                axisMaster  => eventMaster,
-                axisSlave   => eventSlave );
+     U_File : entity l2si.AxiStreamFile
+       generic map ( filename => "xpm_sim.xtc" )
+       port map ( axisClk     => regClk,
+                  axisMaster  => eventMaster,
+                  axisSlave   => eventSlave );
+     eventSlave.tReady <= '1';
 
-   eventSlave.tReady <= '1';
-   
-   trgMaster.tValid <= triggerData(0).valid and triggerData(0).l0Accept;
-   trgMaster.tLast  <= '1';
-   trgMaster.tData  <= toSlv(0,trgMaster.tData'length-24) & triggerData(0).count;
+     trgMaster.tValid <= triggerData(0).valid and triggerData(0).l0Accept;
+     trgMaster.tLast  <= '1';
+     trgMaster.tData  <= toSlv(0,trgMaster.tData'length-24) & triggerData(0).count;
 
-   U_TrgData : entity surf.AxiStreamFifoV2
-      generic map (
+     U_TrgData : entity surf.AxiStreamFifoV2
+       generic map (
          TPD_G               => 1 ns,
          INT_PIPE_STAGES_G   => 1,
          PIPE_STAGES_G       => 1,
@@ -585,7 +618,7 @@ begin
          FIFO_PAUSE_THRESH_G => 16,
          SLAVE_AXI_CONFIG_G  => DMA_AXIS_CONFIG_C,
          MASTER_AXI_CONFIG_G => DMA_AXIS_CONFIG_C)
-      port map (
+       port map (
          sAxisClk        => regClk,        -- [in]
          sAxisRst        => clearReadout(0),
          sAxisMaster     => trgMaster,
@@ -597,6 +630,8 @@ begin
          mAxisMaster     => detMaster,
          mAxisSlave      => detSlave);
 
+   end generate;
+   
    --  0x0000 SeqState
    --  0x4000 SeqJump
    --  0x8000 SeqMem
@@ -649,6 +684,7 @@ begin
        regrst          => regRst,
        update          => (others=>'0'),
        config          => appConfig,
+       common          => common,
        pattern         => pattern,
        axilReadMaster  => seqReadMaster,
        axilReadSlave   => seqReadSlave,
@@ -712,5 +748,5 @@ begin
       seqCount        => (others=>(others=>'0')),
       seqInvalid      => (others=>'0'),
       obMonitorSlave  => AXI_STREAM_SLAVE_FORCE_C );
-    
+
 end top_level_app;

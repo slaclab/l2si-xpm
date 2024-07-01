@@ -53,6 +53,7 @@ entity XpmApp is
       regrst          : in  sl;
       update          : in  slv(XPM_PARTITIONS_C-1 downto 0);
       config          : in  XpmConfigType;
+      common          : in  slv(XPM_PARTITIONS_C-1 downto 0) := (others=>'0');
       status          : out XpmStatusType;
       pattern         : out XpmPatternStatisticsType;
       axilReadMaster  : in  AxiLiteReadMasterType;
@@ -185,7 +186,8 @@ architecture top_level_app of XpmApp is
    signal msgConfigS       : slv(MSG_CONFIG_LEN_C-1 downto 0);
    signal msgValid         : sl;
    signal configS          : XpmConfigType;
-
+   signal commonL0         : slv(XPM_PARTITIONS_C-1 downto 0);
+   
    function extractMsgConfig (c : XpmConfigType) return slv is
      variable vector : slv(MSG_CONFIG_LEN_C-1 downto 0) := (others=>'0');
      variable i : integer := 0;
@@ -451,11 +453,10 @@ begin
       --
       --  Get the result word (trigger/message) for each partition
       --
-      U_Master : entity l2si_core.XpmAppMaster
+      U_Master : entity l2si.XpmAppMaster
          generic map (
             TPD_G          => TPD_G,
             NUM_DS_LINKS_G => NUM_DS_LINKS_G,
---            DEBUG_G        => (i < 1))
             DEBUG_G        => false )
          port map (
             regclk     => regclk,
@@ -476,6 +477,8 @@ begin
             lrejectMsg => grejectMsg(i),
             l1Feedback => l1Partitions(i),
             l1Ack      => l1PartitionAcks(i),
+            common     => common  (i),
+            commonL0   => commonL0,
             result     => expWord (i),
             resultValid=> expWordValid(i));
 
@@ -513,6 +516,20 @@ begin
        shift     => r.streamReset,
        data_in   => expWord,
        data_out  => expWordQ);
+
+   U_CommonL0 : entity l2si.XpmCommonL0
+     generic map (
+       TPD_G          => TPD_G,
+       COMMON_DELAY_G => 104 )
+     port map (
+       clk       => timingClk,
+       rst       => timingRst,
+       common    => common,
+       config    => configS,
+       start     => expWordValid,
+       shift     => r.streamReset,
+       data_in   => expWord,
+       data_out  => commonL0);
 
    U_PattStats : entity l2si.XpmPatternStats
      generic map (
