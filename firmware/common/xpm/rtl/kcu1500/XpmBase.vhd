@@ -1,7 +1,7 @@
 -------------------------------------------------------------------------------
 -- Title      : 
 -------------------------------------------------------------------------------
--- File       : XpmBaseKcu1500.vhd
+-- File       : XpmBase.vhd
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
@@ -71,7 +71,7 @@ use l2si_core.XpmSeqPkg.all;
 library l2si;
 use l2si.XpmAppPkg.all;
 
-entity XpmBaseKcu1500 is
+entity XpmBase is
    generic (
       TPD_G               : time    := 1 ns;
       AXIL_BASE_G         : slv(31 downto 0) := (others=>'0');
@@ -111,9 +111,9 @@ entity XpmBaseKcu1500 is
      qsfp1RxN              : in  slv(3 downto 0);
      qsfp1TxP              : out slv(3 downto 0);
      qsfp1TxN              : out slv(3 downto 0) );
-end XpmBaseKcu1500;
+end XpmBase;
 
-architecture top_level of XpmBaseKcu1500 is
+architecture top_level of XpmBase is
 
    -- AmcCarrierCore Configuration Constants
    constant DIAGNOSTIC_SIZE_C   : positive            := 1;

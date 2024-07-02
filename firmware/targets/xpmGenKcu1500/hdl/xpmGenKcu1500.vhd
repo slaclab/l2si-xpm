@@ -180,7 +180,7 @@ begin
    ------------------
    -- Hardware Module
    ------------------
-   U_HSIO : entity l2si.XpmBaseKcu1500
+   U_HSIO : entity l2si.XpmBase
       generic map (
         TPD_G               => TPD_G,
         AXIL_BASE_G         => x"0080_0000",
