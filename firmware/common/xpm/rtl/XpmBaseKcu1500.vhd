@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-06-18
+-- Last update: 2024-07-02
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -250,6 +250,8 @@ architecture top_level of XpmBaseKcu1500 is
    signal usRxControl : TimingPhyControlType;
    signal usRxStatus  : TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
 
+   signal common : slv(XPM_PARTITIONS_C-1 downto 0);
+   
    component ila_0
      port ( clk    : in sl;
             probe0 : in slv(255 downto 0) );
@@ -494,6 +496,7 @@ begin
          update          => regUpdate,
          status          => xpmStatus,
          pattern         => pattern,
+         common          => common,
          config          => xpmConfig,
          axilReadMaster  => axilReadMasters (APP_INDEX_C),
          axilReadSlave   => axilReadSlaves  (APP_INDEX_C),
@@ -584,6 +587,7 @@ begin
          monLatch        => seqCountRst,
          seqCount        => seqCount,
          config          => xpmConfig,
+         common          => common,
          usRxEnable      => open,
          cuRxEnable      => open,
          dbgChan         => dbgChan);

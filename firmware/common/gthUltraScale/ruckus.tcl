@@ -1,6 +1,11 @@
 # Load RUCKUS library
 source -quiet $::env(RUCKUS_DIR)/vivado_proc.tcl
 
-# Load Source Code
-loadSource -dir "$::DIR_PATH/coregen/"
-#loadSource -lib l2si_core -dir "$::DIR_PATH/coregen/"
+if { $::env(PRJ_PART) == "XCKU040-FFVA1156-2-E" } {
+    loadSource -path "$::DIR_PATH/coregen/gt_dslink_ss_nophase_amc0.dcp"
+} else {
+    if { [VersionCheck 2021.1] > 0 } {
+	exit -1
+    }
+    loadSource -path "$::DIR_PATH/coregen/v2021.1/gt_dslink_ss_nophase_amc0.dcp"
+}
