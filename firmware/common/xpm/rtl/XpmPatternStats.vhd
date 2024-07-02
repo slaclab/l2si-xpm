@@ -45,6 +45,9 @@ entity XpmPatternStats is
     streamIds : in  Slv4Array(2 downto 0) := (x"2",x"1",x"0");
     advance   : in  slv(2 downto 0);
     fiducial  : in  sl;
+    -- common group signals
+    common    : in  slv(XPM_PARTITIONS_C-1 downto 0);
+    commonL0  : in  slv(XPM_PARTITIONS_C-1 downto 0);
     status    : out XpmPatternStatisticsType );
 end XpmPatternStats;
 
@@ -85,6 +88,7 @@ architecture rtl of XpmPatternStats is
 
   type XpmL0SelectConfigArray is array(natural range<>) of XpmL0SelectConfigType;
   signal uconfig : XpmL0SelectConfigArray(XPM_PARTITIONS_C-1 downto 0);
+  signal ucommon : slv(XPM_PARTITIONS_C-1 downto 0);
 
   signal frame            : slv(16*TIMING_MESSAGE_WORDS_C-1 downto 0);
   signal timingBus        : TimingBusType;
@@ -100,13 +104,17 @@ begin
     U_SYNC : entity surf.SynchronizerVector
       generic map (
         TPD_G   => TPD_G,
-        WIDTH_G => 32)
+        WIDTH_G => 41)
       port map (
         clk                   => clk,
         dataIn(15 downto 0)   => config.partition(i).l0Select.rateSel,
         dataIn(31 downto 16)  => config.partition(i).l0Select.destSel,
+        dataIn(39 downto 32)  => config.partition(i).l0Select.groups,
+        dataIn(40)            => common(i),
         dataOut(15 downto 0)  => uconfig(i).rateSel,
-        dataOut(31 downto 16) => uconfig(i).destSel);
+        dataOut(31 downto 16) => uconfig(i).destSel,
+        dataOut(39 downto 32) => uconfig(i).groups,
+        dataOut(40)           => ucommon(i) );
   end generate GEN_PART;
 
   U_TIMING_BUS : entity lcls_timing_core.TimingSerialDelay
@@ -126,7 +134,8 @@ begin
       valid_o    => timingBus_valid,
       overflow_o => open);
   
-  comb : process (r, rst, timingBus, uconfig, frame, timingBus_strobe, timingBus_valid) is
+  comb : process (r, rst, timingBus, uconfig, ucommon,
+                  frame, timingBus_strobe, timingBus_valid, commonL0) is
     variable v        : RegType;
     variable p,q      : PartRegType;
     variable u        : XpmL0StatisticsType;
@@ -201,7 +210,8 @@ begin
           -- compute statistics
           u := r.stats.l0Stats(i);
           p := r.part(i);
-          if (p.rateSel = '1' and p.destSel = '1') then
+          if ((ucommon(i) = '0' and (p.rateSel = '1' and p.destSel = '1')) or
+              (ucommon(i) = '1' and (uconfig.groups and commonL0)/=0)) then
             u.sum := r.stats.l0Stats(i).sum + 1;
             intv := r.frameNum - u.last;
             if r.frameNum < u.first then

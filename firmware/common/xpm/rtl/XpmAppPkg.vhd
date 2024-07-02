@@ -67,6 +67,7 @@ package body XpmAppPkg is
       variable i,j    : integer          := 0;
    begin
      for j in 0 to XPM_PARTITIONS_C-1 loop
+       assignSlv(i, vector, s.l0Stats(j).sum);
        assignSlv(i, vector, s.l0Stats(j).first);
        assignSlv(i, vector, s.l0Stats(j).last);
        assignSlv(i, vector, s.l0Stats(j).minIntv);
