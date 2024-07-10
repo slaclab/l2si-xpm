@@ -47,7 +47,6 @@ entity XpmPatternStats is
     fiducial  : in  sl;
     -- common group signals
     common    : in  slv(XPM_PARTITIONS_C-1 downto 0);
-    commonL0  : in  slv(XPM_PARTITIONS_C-1 downto 0);
     status    : out XpmPatternStatisticsType );
 end XpmPatternStats;
 
@@ -71,6 +70,7 @@ architecture rtl of XpmPatternStats is
     state     : PattStateType;
     timingBus : TimingBusType;
     part      : PartRegArray(XPM_PARTITIONS_C-1 downto 0);
+    commonL0  : slv(XPM_PARTITIONS_C-1 downto 0);
     frameNum  : slv(19 downto 0);
     stats     : XpmPatternStatisticsType;
     statsL    : XpmPatternStatisticsType;
@@ -79,6 +79,7 @@ architecture rtl of XpmPatternStats is
     state     => IDLE_S,
     timingBus => TIMING_BUS_INIT_C,
     part      => (others => PART_REG_INIT_C),
+    commonL0  => (others => '0'),
     frameNum  => (others => '0'),
     stats     => XPM_PATTERN_STATS_INIT_C,
     statsL    => XPM_PATTERN_STATS_INIT_C);
@@ -135,7 +136,7 @@ begin
       overflow_o => open);
   
   comb : process (r, rst, timingBus, uconfig, ucommon,
-                  frame, timingBus_strobe, timingBus_valid, commonL0) is
+                  frame, timingBus_strobe, timingBus_valid) is
     variable v        : RegType;
     variable p,q      : PartRegType;
     variable u        : XpmL0StatisticsType;
@@ -144,6 +145,7 @@ begin
     variable destSel  : sl;
     variable controlI : integer;
     variable intv     : slv(19 downto 0);
+    variable l0a      : slv(XPM_PARTITIONS_C-1 downto 0);
     variable i,j,k    : integer;
   begin
     v := r;
@@ -199,19 +201,27 @@ begin
           end if;
           p.rateSel := rateSel;
           p.destSel := destSel;
+          v.commonL0(i) := rateSel and destSel;
           v.part(i) := p;
         end loop;
         v.state := CMPSTAT_S;
 
       when CMPSTAT_S => 
 
+        l0a := (others=>'0');
+        for i in 0 to XPM_PARTITIONS_C-1 loop
+          if ((ucommon(i) = '0' and r.commonL0(i)='1') or
+              (ucommon(i) = '1' and (uconfig(i).groups and r.commonL0)/=0)) then
+            l0a(i) := '1';
+          end if;
+        end loop;
+
         k := 0;
         for i in 0 to XPM_PARTITIONS_C-1 loop
           -- compute statistics
           u := r.stats.l0Stats(i);
           p := r.part(i);
-          if ((ucommon(i) = '0' and (p.rateSel = '1' and p.destSel = '1')) or
-              (ucommon(i) = '1' and (uconfig.groups and commonL0)/=0)) then
+          if l0a(i) = '1' then
             u.sum := r.stats.l0Stats(i).sum + 1;
             intv := r.frameNum - u.last;
             if r.frameNum < u.first then
@@ -231,8 +241,7 @@ begin
           -- coincidences
           for j in i to XPM_PARTITIONS_C-1 loop
             q := r.part(j);
-            if (q.rateSel = '1' and q.destSel = '1' and
-                p.rateSel = '1' and p.destSel = '1') then
+            if l0a(i) = '1' and l0a(j) = '1' then
               v.stats.l0Coinc(k) := r.stats.l0Coinc(k)+1;
             end if;
             k := k+1;

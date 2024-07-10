@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-06-18
+-- Last update: 2024-07-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -107,7 +107,7 @@ architecture rtl of XpmMonitorStream is
        assignSlv(i, v, sL0Stats(j) ); -- 200b
        assignSlv(i, v, x"ee"); -- 1B
      end loop; -- 8*282B
-     assignSlv(i, v, sPatt); -- 160B+140B
+     assignSlv(i, v, sPatt); -- 190B
      for j in 0 to 3 loop
        assignSlv(i, v, pllStat(j));
        assignSlv(i, v, muxSlVectorArray(pllCount,j));

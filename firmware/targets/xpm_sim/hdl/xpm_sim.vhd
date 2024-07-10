@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2024-07-01
+-- Last update: 2024-07-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -132,6 +132,9 @@ architecture top_level_app of xpm_sim is
    signal eventMaster : AxiStreamMasterType;
    signal eventSlave  : AxiStreamSlaveType;
 
+   signal monMaster : AxiStreamMasterType;
+   signal monSlave  : AxiStreamSlaveType;
+
    signal temWriteMaster : AxiLiteWriteMasterType;
    signal temWriteSlave  : AxiLiteWriteSlaveType;
 
@@ -159,8 +162,18 @@ architecture top_level_app of xpm_sim is
                                                        16 => toSlv(3,20),
                                                        others => toSlv(0,20));
 
-   constant CONSUME_C : boolean := false;
-   
+   constant CONSUME_C : boolean := true;
+
+   type StringArray is array (7 downto 0) of string(1 to 15);
+   constant XTC_FILE : StringArray := ("xpm_event_7.xtc",
+                                       "xpm_event_6.xtc",
+                                       "xpm_event_5.xtc",
+                                       "xpm_event_4.xtc",
+                                       "xpm_event_3.xtc",
+                                       "xpm_event_2.xtc",
+                                       "xpm_event_1.xtc",
+                                       "xpm_event_0.xtc" );
+
 begin
 
   tpgConfig.FixedRateDivisors <= (toSlv(0,20),
@@ -187,7 +200,7 @@ begin
 --     appConfig.partition(0).l0Select.enabled    <= '1';
      appConfig.partition(0).l0Select.rateSel    <= x"8000";
      appConfig.partition(0).l0Select.destSel    <= x"8000";
-     appConfig.partition(0).l0Select.groups     <= x"FF";
+     appConfig.partition(0).l0Select.groups     <= x"FF" and not common;
      appConfig.partition(0).pipeline.depth_fids <= toSlv(105,8);
      appConfig.partition(0).pipeline.depth_clks <= toSlv(105*200,16);
      for i in 1 to 7 loop
@@ -195,7 +208,7 @@ begin
 --       appConfig.partition(i).master              <= '0';
 --       appConfig.partition(i).l0Select.enabled    <= '1';
 --       appConfig.partition(i).l0Select.rateSel    <= toSlv(i,16);
-       appConfig.partition(i).l0Select.rateSel    <= toSlv(1,16);
+       appConfig.partition(i).l0Select.rateSel    <= toSlv((i mod 2)+1,16);
        appConfig.partition(i).l0Select.destSel    <= x"8000";
        appConfig.partition(i).pipeline.depth_fids <= toSlv(10-i,8);
        appConfig.partition(i).pipeline.depth_clks <= toSlv((10-i)*200,16);
@@ -203,7 +216,7 @@ begin
 --       appConfig.partition(i).pipeline.depth_clks <= toSlv(90*200,16);
        appConfig.partition(i).l0Select.rawPeriod  <= toSlv(720-i*100,20);
 --       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(ite(i=7,20,10000),20);
-       appConfig.partition(i).l0Select.groups     <= x"FF";
+       appConfig.partition(i).l0Select.groups     <= x"FF" and not common;
 --       appConfig.partition(i).l0Select.groups     <= x"00";
      end loop;
 
@@ -531,7 +544,10 @@ begin
     eventTimingMessagesRd <= (others=>'1');
   end generate;
 
-   GEN_CONSUME : if CONSUME_C generate
+  GEN_CONSUME : if CONSUME_C generate
+    eventTrigMsgSlaves   (7 downto 1) <= (others=>AXI_STREAM_SLAVE_FORCE_C);
+    eventTimingMessagesRd(7 downto 1) <= (others=>'1');
+
      U_Resize : entity surf.AxiStreamGearbox
        generic map (
          -- AXI Stream Port Configurations
@@ -747,6 +763,22 @@ begin
       staClk          => scClk,
       seqCount        => (others=>(others=>'0')),
       seqInvalid      => (others=>'0'),
-      obMonitorSlave  => AXI_STREAM_SLAVE_FORCE_C );
+      obMonitorMaster => monMaster,
+      obMonitorSlave  => monSlave );
 
+  U_MonFile : entity l2si.AxiStreamFile
+    generic map ( filename => "xpm_sim.mon" )
+    port map ( axisClk     => regClk,
+               axisMaster  => monMaster,
+               axisSlave   => monSlave );
+  monSlave.tReady <= '1';
+
+  GEN_XTC : for i in 0 to XPM_PARTITIONS_C-1 generate
+     U_File : entity l2si.AxiStreamFile
+       generic map ( filename => XTC_FILE(i) )
+       port map ( axisClk     => regClk,
+                  axisMaster  => eventTrigMsgMasters(i),
+                  axisSlave   => eventTrigMsgSlaves (i) );
+  end generate;
+  
 end top_level_app;

@@ -543,7 +543,6 @@ begin
        advance    => timingStream.advance,
        fiducial   => timingStream.fiducial,
        common     => common,
-       commonL0   => commonL0,
        status     => pattern);
    
    --
