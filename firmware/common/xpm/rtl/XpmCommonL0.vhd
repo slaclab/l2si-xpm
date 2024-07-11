@@ -34,14 +34,14 @@ use l2si_core.XpmExtensionPkg.all;
 
 entity XpmCommonL0 is
    generic (
-     TPD_G          : time    := 1 ns;
-     COMMON_DELAY_G : natural := 128
+     TPD_G          : time    := 1 ns
      );
    port (
       clk       : in  sl;
       rst       : in  sl;
       config    : in  XpmConfigType;
       common    : in  slv       (XPM_PARTITIONS_C-1 downto 0);
+      delay     : in  slv       (7 downto 0);
       start     : in  slv       (XPM_PARTITIONS_C-1 downto 0);
       shift     : in  sl;
       data_in   : in  Slv48Array(XPM_PARTITIONS_C-1 downto 0);
@@ -77,6 +77,7 @@ architecture rtl of XpmCommonL0 is
 
    signal ramValue  : slv(XPM_PARTITIONS_C-1 downto 0);
    signal ucommon   : slv(XPM_PARTITIONS_C-1 downto 0);
+   signal udelay    : slv(7 downto 0);
   
 begin
 
@@ -90,6 +91,14 @@ begin
          clk     => clk,
          dataIn  => common,
          dataOut => ucommon );
+   U_SYNCD : entity surf.SynchronizerVector
+      generic map (
+         TPD_G   => TPD_G,
+         WIDTH_G => delay'length)
+      port map (
+         clk     => clk,
+         dataIn  => delay,
+         dataOut => udelay );
   --
   --  When a readout group is ready to generate an L0 trigger,
   --  check if the raw data retention flag was set by a prior
@@ -115,7 +124,7 @@ begin
       addrb   => rin.ramAddr,
       doutb   => ramValue );
 
-  comb : process( r, rst, config, ucommon, start, shift, data_in, ramValue ) is
+  comb : process( r, rst, config, ucommon, udelay, start, shift, data_in, ramValue ) is
     variable v : RegType;
     variable event : XpmEventDataType;
     variable trans : XpmTransitionDataType;
@@ -156,7 +165,7 @@ begin
           v.rog     := 0;
           v.index   := r.index-1;
           --  Read the full accumulation
-          v.ramAddr := r.index + toSlv(COMMON_DELAY_G,8);
+          v.ramAddr := r.index + udelay;
           v.state   := READ2_S;
         else
           v.rog     := r.rog+1;

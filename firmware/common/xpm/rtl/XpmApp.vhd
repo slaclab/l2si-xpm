@@ -54,6 +54,7 @@ entity XpmApp is
       update          : in  slv(XPM_PARTITIONS_C-1 downto 0);
       config          : in  XpmConfigType;
       common          : in  slv(XPM_PARTITIONS_C-1 downto 0) := (others=>'0');
+      commonDelay     : in  slv(7 downto 0) := toSlv(99,8);
       status          : out XpmStatusType;
       pattern         : out XpmPatternStatisticsType;
       axilReadMaster  : in  AxiLiteReadMasterType;
@@ -519,12 +520,12 @@ begin
 
    U_CommonL0 : entity l2si.XpmCommonL0
      generic map (
-       TPD_G          => TPD_G,
-       COMMON_DELAY_G => 104 )
+       TPD_G          => TPD_G )
      port map (
        clk       => timingClk,
        rst       => timingRst,
        common    => common,
+       delay     => commonDelay,
        config    => configS,
        start     => expWordValid,
        shift     => r.streamReset,

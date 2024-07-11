@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2024-07-10
+-- Last update: 2024-07-11
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -155,8 +155,9 @@ architecture top_level_app of xpm_sim is
    signal dsTxData   : slv(15 downto 0);
    signal dsTxDataK  : slv( 1 downto 0);
 
-   signal pattern    : XpmPatternStatisticsType;
-   signal common     : slv( 7 downto 0) := x"01";
+   signal pattern     : XpmPatternStatisticsType;
+   signal common      : slv( 7 downto 0) := x"01";
+   signal commonDelay : slv( 7 downto 0) := toSlv(104,8);
    
    constant EVENTCODES_C : Slv20Array(16 downto 0) := (0 => toSlv(2,20),
                                                        16 => toSlv(3,20),
@@ -201,8 +202,8 @@ begin
      appConfig.partition(0).l0Select.rateSel    <= x"8000";
      appConfig.partition(0).l0Select.destSel    <= x"8000";
      appConfig.partition(0).l0Select.groups     <= x"FF" and not common;
-     appConfig.partition(0).pipeline.depth_fids <= toSlv(105,8);
-     appConfig.partition(0).pipeline.depth_clks <= toSlv(105*200,16);
+     appConfig.partition(0).pipeline.depth_fids <= commonDelay+1;
+     appConfig.partition(0).pipeline.depth_clks <= toSlv(conv_integer(commonDelay+1)*200,16);
      for i in 1 to 7 loop
        appConfig.partition(i).master              <= '1';
 --       appConfig.partition(i).master              <= '0';
@@ -701,6 +702,7 @@ begin
        update          => (others=>'0'),
        config          => appConfig,
        common          => common,
+       commonDelay     => commonDelay,
        pattern         => pattern,
        axilReadMaster  => seqReadMaster,
        axilReadSlave   => seqReadSlave,

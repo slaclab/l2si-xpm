@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-06-27
+-- Last update: 2024-07-11
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -81,6 +81,7 @@ entity XpmReg is
       seqInvalid      : in  slv(XPM_SEQ_DEPTH_C-1 downto 0) := (others=>'0');
       config          : out XpmConfigType;
       common          : out slv(XPM_PARTITIONS_C-1 downto 0);
+      commonDelay     : out slv(7 downto 0);
       usRxEnable      : out sl;
       cuRxEnable      : out sl;
       dbgChan         : out slv(4 downto 0));
@@ -119,6 +120,7 @@ architecture rtl of XpmReg is
       load           : sl;
       config         : XpmConfigType;
       common         : slv(XPM_PARTITIONS_C-1 downto 0);
+      commonDelay    : slv(7 downto 0);
       partition      : slv(3 downto 0);
       link           : slv(4 downto 0);
       amc            : slv(0 downto 0);
@@ -148,6 +150,7 @@ architecture rtl of XpmReg is
       load           => '1',
       config         => XPM_CONFIG_INIT_C,
       common         => (others => '0'),
+      commonDelay    => toSlv(99,8),
       partition      => (others => '0'),
       link           => (others => '0'),
       amc            => (others => '0'),
@@ -219,6 +222,7 @@ begin
    dbgChan        <= r.linkDebug(dbgChan'range);
    config         <= r.config;
    common         <= r.common;
+   commonDelay    <= r.commonDelay;
    axilReadSlave  <= r.axilReadSlave;
    axilWriteSlave <= r.axilWriteSlave;
    axilUpdate     <= r.axilRdEn;
@@ -492,6 +496,7 @@ begin
       axiSlaveRegister (axilEp, X"01C", 16, v.partitionCfg.l0Select.destSel);
 
       axiSlaveRegister (axilEp, X"020",  0, v.partitionCfg.l0Select.rawPeriod);
+      axiSlaveRegister (axilEp, X"024",  0, v.commonDelay);
 
       axiSlaveRegisterR(axilEp, X"048", 0, s.partition(ip).l1Select.numAcc);
       
