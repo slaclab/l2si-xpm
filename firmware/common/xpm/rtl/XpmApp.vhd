@@ -29,7 +29,7 @@ use lcls_timing_core.TimingPkg.all;
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
-use l2si_core.XpmSeqPkg.all;
+--use l2si_core.XpmSeqPkg.all;
 use l2si_core.XpmExtensionPkg.all;
 use l2si_core.XpmMiniPkg.all;
 
@@ -44,6 +44,8 @@ entity XpmApp is
       TPD_G           : time             := 1 ns;
       NUM_DS_LINKS_G  : integer          := 7;
       NUM_BP_LINKS_G  : integer          := 14;
+      NUM_SEQ_G       : integer          := 1;
+      NUM_DDC_G       : integer          := 0;
       AXIL_BASEADDR_G : slv(31 downto 0) := (others => '0'));
    port (
       -----------------------
@@ -56,6 +58,7 @@ entity XpmApp is
       common          : in  slv(XPM_PARTITIONS_C-1 downto 0) := (others=>'0');
       commonDelay     : in  slv(7 downto 0) := toSlv(99,8);
       status          : out XpmStatusType;
+      patternCfg      : in  XpmPatternConfigType;
       pattern         : out XpmPatternStatisticsType;
       axilReadMaster  : in  AxiLiteReadMasterType;
       axilReadSlave   : out AxiLiteReadSlaveType;
@@ -88,8 +91,8 @@ entity XpmApp is
       timingFbId      : in  slv(31 downto 0);
       timingFb        : out TimingPhyType;
       seqCountRst     : in  sl := '0';
-      seqCount        : out Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
-      seqInvalid      : out slv(XPM_SEQ_DEPTH_C-1 downto 0));
+      seqCount        : out Slv128Array(NUM_SEQ_G+NUM_DDC_G-1 downto 0);
+      seqInvalid      : out slv(NUM_SEQ_G-1 downto 0) );
 end XpmApp;
 
 architecture top_level_app of XpmApp is
@@ -378,6 +381,8 @@ begin
    U_Seq : entity l2si.XpmSequence
       generic map (
          TPD_G           => TPD_G,
+         NUM_SEQ_G       => NUM_SEQ_G,
+         NUM_DDC_G       => NUM_DDC_G,
          AXIL_BASEADDR_G => AXIL_BASEADDR_G)
       port map (
          axilClk         => regclk,
@@ -539,6 +544,7 @@ begin
        clk        => timingClk,
        rst        => timingRst,
        config     => configS,
+       pconfig    => patternCfg,
        streams    => timingStream_streams,
        streamIds  => streamIds,
        advance    => timingStream.advance,

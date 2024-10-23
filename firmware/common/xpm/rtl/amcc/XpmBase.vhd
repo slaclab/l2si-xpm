@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-06-28
+-- Last update: 2024-10-23
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -180,6 +180,9 @@ architecture top_level of XpmBase is
    constant DIAGNOSTIC_SIZE_C   : positive            := 1;
    constant DIAGNOSTIC_CONFIG_C : AxiStreamConfigType := ssiAxiStreamConfig(4);
 
+   constant NUM_SEQ_C : natural := 8;
+   constant NUM_DDC_C : integer := 2;
+
    -- AXI-Lite Interface (appClk domain)
    signal regClk         : sl;
    signal regRst         : sl;
@@ -202,13 +205,14 @@ architecture top_level of XpmBase is
    constant NUM_FP_LINKS_C : integer := 14;
    constant NUM_BP_LINKS_C : integer := 6;
 
-   signal xpmConfig : XpmConfigType;
-   signal xpmStatus : XpmStatusType;
-   signal pattern   : XpmPatternStatisticsType;
-   signal bpStatus  : XpmBpLinkStatusArray(NUM_BP_LINKS_C downto 0);
-   signal pllStatus : XpmPllStatusArray (1 downto 0);
-   signal pllLocked : slv(1 downto 0);
-   signal txClkRst  : slv(1 downto 0);
+   signal xpmConfig  : XpmConfigType;
+   signal xpmStatus  : XpmStatusType;
+   signal pattern    : XpmPatternStatisticsType;
+   signal patternCfg : XpmPatternConfigType;
+   signal bpStatus   : XpmBpLinkStatusArray(NUM_BP_LINKS_C downto 0);
+   signal pllStatus  : XpmPllStatusArray (1 downto 0);
+   signal pllLocked  : slv(1 downto 0);
+   signal txClkRst   : slv(1 downto 0);
    
    signal dsClockP : slv(1 downto 0);
    signal dsClockN : slv(1 downto 0);
@@ -329,12 +333,12 @@ architecture top_level of XpmBase is
        AMC_DS_LINKS_C(0)+AMC_DS_FIRST_C(0)-1 );
 
    signal seqCountRst : sl;
-   signal seqCount    : Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
+   signal seqCount    : Slv128Array(NUM_DDC_C+NUM_SEQ_C-1 downto 0);
    
    signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
 
    signal common : slv(XPM_PARTITIONS_C-1 downto 0);
-   
+
    component ila_0
      port ( clk    : in sl;
             probe0 : in slv(255 downto 0) );
@@ -638,6 +642,8 @@ begin
          TPD_G           => TPD_G,
          NUM_DS_LINKS_G  => NUM_FP_LINKS_C,
          NUM_BP_LINKS_G  => NUM_BP_LINKS_C,
+         NUM_DDC_G       => NUM_DDC_C,
+         NUM_SEQ_G       => NUM_SEQ_C,
          AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(APP_INDEX_C).baseAddr)
       port map (
          -----------------------
@@ -664,6 +670,7 @@ begin
          regrst          => regRst,
          update          => regUpdate,
          status          => xpmStatus,
+         patternCfg      => patternCfg,
          pattern         => pattern,
          common          => common,
          config          => xpmConfig,
@@ -871,7 +878,9 @@ begin
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
          STA_INTERVAL_C      => ite(UED_MODE_G, 500000, 910000),
-         DSCLK_119MHZ_G      => (L2_FROM_CU_G or UED_MODE_G) )
+         DSCLK_119MHZ_G      => (L2_FROM_CU_G or UED_MODE_G),
+         NUM_SEQ_G           => NUM_SEQ_C,
+         NUM_DDC_G           => NUM_DDC_C )
       port map (
          axilClk         => regClk,
          axilRst         => regRst,
@@ -892,6 +901,7 @@ begin
          pllStatus       => pllStatus,
          status          => xpmStatus,
          pattern         => pattern,
+         patternCfg      => patternCfg,
          monClk(0)       => bpMonClk,
          monClk(1)       => timingPhyClk,
          monClk(2)       => recTimingClk,

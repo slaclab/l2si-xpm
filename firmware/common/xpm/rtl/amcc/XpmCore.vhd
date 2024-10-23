@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2023-12-20
+-- Last update: 2024-10-23
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -212,7 +212,7 @@ architecture mapping of XpmCore is
    signal usGtWriteSlave  : AxiLiteWriteSlaveType;
 
    signal amcReadMasters  : AxiLiteReadMasterArray (2 downto 0);
-   signal amcReadSlaves   : AxiLiteReadSlaveArray (2 downto 0);
+   signal amcReadSlaves   : AxiLiteReadSlaveArray  (2 downto 0);
    signal amcWriteMasters : AxiLiteWriteMasterArray(2 downto 0);
    signal amcWriteSlaves  : AxiLiteWriteSlaveArray (2 downto 0);
 

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-07-02
+-- Last update: 2024-10-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -119,6 +119,9 @@ architecture top_level of XpmBase is
    constant DIAGNOSTIC_SIZE_C   : positive            := 1;
    constant DIAGNOSTIC_CONFIG_C : AxiStreamConfigType := ssiAxiStreamConfig(4);
 
+   constant NUM_SEQ_C : natural := 8;
+   constant NUM_DDC_C : integer := 2;
+
    -- AXI-Lite Interface (appClk domain)
    signal regClk         : sl;
    signal regRst         : sl;
@@ -144,6 +147,7 @@ architecture top_level of XpmBase is
    signal xpmConfig : XpmConfigType;
    signal xpmStatus : XpmStatusType;
    signal pattern   : XpmPatternStatisticsType;
+   signal patternCfg: XpmPatternConfigType;
    signal bpStatus  : XpmBpLinkStatusArray(NUM_BP_LINKS_C downto 0) := (others => XPM_BP_LINK_STATUS_INIT_C);
 
    signal pllStatus : XpmPllStatusArray (1 downto 0);
@@ -199,7 +203,7 @@ architecture top_level of XpmBase is
                        addrBits     => 16,
                        connectivity => X"FFFF"),
      APP_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00040000",
-                       addrBits     => 17,
+                       addrBits     => 18,
                        connectivity => X"FFFF"),
      ASYN_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"00080000",
                        addrBits     => 19,
@@ -243,7 +247,7 @@ architecture top_level of XpmBase is
        AMC_DS_LINKS_C(0)+AMC_DS_FIRST_C(0)-1 );
 
    signal seqCountRst : sl;
-   signal seqCount    : Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
+   signal seqCount    : Slv128Array(NUM_DDC_C+NUM_SEQ_C-1 downto 0);
    
    signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
    signal usRx   : TimingRxType;
@@ -469,6 +473,8 @@ begin
          TPD_G           => TPD_G,
          NUM_DS_LINKS_G  => NUM_DS_LINKS_C,
          NUM_BP_LINKS_G  => NUM_BP_LINKS_C,
+         NUM_DDC_G       => NUM_DDC_C,
+         NUM_SEQ_G       => NUM_SEQ_C,
          AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(APP_INDEX_C).baseAddr)
       port map (
          -----------------------
@@ -496,6 +502,7 @@ begin
          update          => regUpdate,
          status          => xpmStatus,
          pattern         => pattern,
+         patternCfg      => patternCfg,
          common          => common,
          config          => xpmConfig,
          axilReadMaster  => axilReadMasters (APP_INDEX_C),
@@ -559,7 +566,8 @@ begin
          NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          US_RX_ENABLE_INIT_G => (XPM_MODE_G="XpmAsync"),
          CU_RX_ENABLE_INIT_G => false,
-         REMOVE_MONREG_G     => true )
+         NUM_SEQ_G           => NUM_SEQ_G,
+         NUM_DDC_G           => NUM_DDC_G )
       port map (
          axilClk         => regClk,
          axilRst         => regRst,
@@ -580,6 +588,7 @@ begin
          pllStatus       => pllStatus,
          status          => xpmStatus,
          pattern         => pattern,
+         patternCfg      => patternCfg,
          monClk(0)       => timingPhyClk2,
          monClk(1)       => timingPhyClk,
          monClk(2)       => usRecClk,

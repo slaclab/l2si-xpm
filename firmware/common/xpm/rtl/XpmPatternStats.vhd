@@ -40,7 +40,8 @@ entity XpmPatternStats is
   port (
     clk       : in  sl;
     rst       : in  sl;
-    config    : in  XpmConfigType; 
+    config    : in  XpmConfigType;
+    pconfig   : in  XpmPatternConfigType;
     streams   : in  TimingSerialArray(2 downto 0);
     streamIds : in  Slv4Array(2 downto 0) := (x"2",x"1",x"0");
     advance   : in  slv(2 downto 0);
@@ -90,6 +91,7 @@ architecture rtl of XpmPatternStats is
   type XpmL0SelectConfigArray is array(natural range<>) of XpmL0SelectConfigType;
   signal uconfig : XpmL0SelectConfigArray(XPM_PARTITIONS_C-1 downto 0);
   signal ucommon : slv(XPM_PARTITIONS_C-1 downto 0);
+  signal upconfig: XpmPatternConfigType;
 
   signal frame            : slv(16*TIMING_MESSAGE_WORDS_C-1 downto 0);
   signal timingBus        : TimingBusType;
@@ -100,7 +102,16 @@ begin
 
   status    <= r.statsL;
   timingBus <= r.timingBus;
-  
+
+  U_PATT_SYNC : entity surf.SynchronizerVector
+      generic map (
+        TPD_G   => TPD_G,
+        WIDTH_G => pconfig.rateSel'length)
+      port map (
+        clk                   => clk,
+        dataIn                => pconfig.rateSel,
+        dataOut               => upconfig.rateSel );
+    
   GEN_PART : for i in 0 to XPM_PARTITIONS_C-1 generate
     U_SYNC : entity surf.SynchronizerVector
       generic map (
@@ -135,7 +146,7 @@ begin
       valid_o    => timingBus_valid,
       overflow_o => open);
   
-  comb : process (r, rst, timingBus, uconfig, ucommon,
+  comb : process (r, rst, timingBus, uconfig, ucommon, upconfig,
                   frame, timingBus_strobe, timingBus_valid) is
     variable v        : RegType;
     variable p,q      : PartRegType;
@@ -155,8 +166,21 @@ begin
     case r.state is
       when IDLE_S =>
         if (timingBus.strobe = '1') then
+          -- calculate rateSel
+          rateSel := '0';
+          case upconfig.rateSel(15 downto 14) is
+            when "00" => rateSel := m.fixedRates(conv_integer(upconfig.rateSel(3 downto 0)));
+            when "01" =>
+              if (upconfig.rateSel(conv_integer(m.acTimeSlot)+3-1) = '0') then
+                rateSel := '0';
+              else
+                rateSel := m.acRates(conv_integer(upconfig.rateSel(2 downto 0)));
+              end if;
+            -- when "10"   => rateSel := p.seqWord(conv_integer(upconfig.rateSel(3 downto 0)));
+            when others => rateSel := '0';
+          end case;
           -- latch stats from previous second
-          if timingBus.message.fixedRates(0)='1' then
+          if rateSel = '1' then
             v.statsL    := r.stats;
             v.frameNum  := (others=>'0');
             v.stats     := XPM_PATTERN_STATS_INIT_C;

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2021-04-03
+-- Last update: 2024-10-23
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -81,6 +81,14 @@ architecture rtl of XpmGthUltrascaleTWrapperSim is
    signal cuRxControl    : TimingPhyControlType := TIMING_PHY_CONTROL_INIT_C;
    signal cuRxStatus     : TimingPhyStatusType  := TIMING_PHY_STATUS_INIT_C;
 
+   constant GT_INDEX_C   : integer := 0;
+   constant MINI_INDEX_C : integer := 1;
+   signal axilReadMasters  : AxiLiteReadMasterArray (1 downto 0);
+   signal axilReadSlaves   : AxiLiteReadSlaveArray  (1 downto 0);
+   signal axilWriteMasters : AxiLiteWriteMasterArray(1 downto 0);
+   signal axilWriteSlaves  : AxiLiteWriteSlaveArray (1 downto 0);
+   constant AXIL_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(1 downto 0) := genAxiLiteConfig(2, AXIL_BASE_ADDR_G, 24, 20);
+   
 begin
 
   txClk                <= cuTxClk;
@@ -94,17 +102,41 @@ begin
   rxRst                <= not cuRxStatus.bufferByDone;
   tpgRst               <= not cuTxStatus.resetDone;
 
-  U_TPG : entity lcls_timing_core.TPGMiniStream
-    generic map ( NUM_EDEFS => 1,
-                  AC_PERIOD => 331534 )   -- 360Hz syncd to 71.4kHz
-    port map ( config     => TPG_CONFIG_INIT_C,
-               edefConfig => TPG_MINI_EDEF_CONFIG_INIT_C,
-               txClk      => cuTxClk,
-               txRst      => tpgRst,
-               txRdy      => '1',
-               txData     => cuTx.data,
-               txDataK    => cuTx.dataK );
+   --------------------------
+   -- AXI-Lite: Crossbar Core
+   --------------------------  
+   U_XBAR : entity surf.AxiLiteCrossbar
+      generic map (
+         NUM_SLAVE_SLOTS_G  => 1,
+         NUM_MASTER_SLOTS_G => AXIL_XBAR_CONFIG_C'length,
+         MASTERS_CONFIG_G   => AXIL_XBAR_CONFIG_C)
+      port map (
+         axiClk              => regClk,
+         axiClkRst           => regRst,
+         sAxiWriteMasters(0) => axilWriteMaster,
+         sAxiWriteSlaves(0)  => axilWriteSlave,
+         sAxiReadMasters(0)  => axilReadMaster,
+         sAxiReadSlaves(0)   => axilReadSlave,
+         mAxiWriteMasters    => axilWriteMasters,
+         mAxiWriteSlaves     => axilWriteSlaves,
+         mAxiReadMasters     => axilReadMasters,
+         mAxiReadSlaves      => axilReadSlaves);
 
+  U_TPG : entity lcls_timing_core.TPGMiniCore
+    port map ( txClk          => cuTxClk,
+               txRst          => tpgRst,
+               txRdy          => '1',
+               txData(0)      => cuTx.data,
+               txData(1)      => open,
+               txDataK(0)     => cuTx.dataK,
+               txDataK(1)     => open,
+               axiClk         => regClk,
+               axiRst         => regRst,
+               axiReadMaster  => axilReadMasters (MINI_INDEX_C),
+               axiReadSlave   => axilReadSlaves  (MINI_INDEX_C),
+               axiWriteMaster => axilWriteMasters(MINI_INDEX_C),
+               axiWriteSlave  => axilWriteSlaves (MINI_INDEX_C) );
+               
   U_BpTx : entity lcls_timing_core.TimingGtCoreWrapper
     generic map ( ADDR_BITS_G       => 14,
                   AXIL_BASE_ADDR_G  => AXIL_BASE_ADDR_G,
@@ -112,10 +144,10 @@ begin
     port map ( -- AXI-Lite Port
       axilClk         => regClk,
       axilRst         => regRst,
-      axilReadMaster  => axilReadMaster,
-      axilReadSlave   => axilReadSlave ,
-      axilWriteMaster => axilWriteMaster,
-      axilWriteSlave  => axilWriteSlave ,
+      axilReadMaster  => axilReadMasters (GT_INDEX_C),
+      axilReadSlave   => axilReadSlaves  (GT_INDEX_C),
+      axilWriteMaster => axilWriteMasters(GT_INDEX_C),
+      axilWriteSlave  => axilWriteSlaves (GT_INDEX_C),
 
       stableClk       => regClk,
       stableRst       => regRst,

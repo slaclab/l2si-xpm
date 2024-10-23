@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-07-11
+-- Last update: 2024-10-23
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -53,7 +53,9 @@ entity XpmReg is
       DSCLK_119MHZ_G      : boolean := false;
       REMOVE_MONREG_G     : boolean := true;
 --      AXILCLK_FREQ_G      : integer := 125000000);
-      AXILCLK_FREQ_G      : integer := 104166666);
+      AXILCLK_FREQ_G      : integer := 104166666;
+      NUM_SEQ_G           : integer := 8;
+      NUM_DDC_G           : integer := 2 );
    port (
       axilClk         : in  sl;
       axilRst         : in  sl;
@@ -75,10 +77,11 @@ entity XpmReg is
       pllStatus       : in  XpmPllStatusArray(XPM_NUM_AMCS_C-1 downto 0);
       status          : in  XpmStatusType;
       pattern         : in  XpmPatternStatisticsType;
+      patternCfg      : out XpmPatternConfigType;
       monClk          : in  slv(3 downto 0) := (others => '0');
       monLatch        : out sl;
-      seqCount        : in  Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
-      seqInvalid      : in  slv(XPM_SEQ_DEPTH_C-1 downto 0) := (others=>'0');
+      seqCount        : in  Slv128Array(NUM_DDC_G+NUM_SEQ_G-1 downto 0);
+      seqInvalid      : in  slv(NUM_DDC_G+NUM_SEQ_G-1 downto 0) := (others=>'0');
       config          : out XpmConfigType;
       common          : out slv(XPM_PARTITIONS_C-1 downto 0);
       commonDelay     : out slv(7 downto 0);
@@ -131,6 +134,7 @@ architecture rtl of XpmReg is
       partitionStat  : XpmPartitionStatusType;
       pllCfg         : XpmPllConfigType;
       inhibitCfg     : XpmInhibitConfigType;
+      patternCfg     : XpmPatternConfigType;
       axilReadSlave  : AxiLiteReadSlaveType;
       axilWriteSlave : AxiLiteWriteSlaveType;
       axilRdEn       : slv(XPM_PARTITIONS_C-1 downto 0);
@@ -161,6 +165,7 @@ architecture rtl of XpmReg is
       partitionStat  => XPM_PARTITION_STATUS_INIT_C,
       pllCfg         => XPM_PLL_INIT_C,
       inhibitCfg     => XPM_INHIBIT_CONFIG_INIT_C,
+      patternCfg     => XPM_PATTERN_CONFIG_INIT_C,
       axilReadSlave  => AXI_LITE_READ_SLAVE_INIT_C,
       axilWriteSlave => AXI_LITE_WRITE_SLAVE_INIT_C,
       axilRdEn       => (others => '1'),
@@ -223,6 +228,7 @@ begin
    config         <= r.config;
    common         <= r.common;
    commonDelay    <= r.commonDelay;
+   patternCfg     <= r.patternCfg;
    axilReadSlave  <= r.axilReadSlave;
    axilWriteSlave <= r.axilWriteSlave;
    axilUpdate     <= r.axilRdEn;
@@ -535,6 +541,8 @@ begin
          axiSlaveRegister (axilEp, X"080" + toSlv(j*4, 12), 31, v.partitionCfg.inhibit.setup(j).enable);
       end loop;
 
+      axiSlaveRegister (axilEp, X"090",  0, v.patternCfg.rateSel);
+      
       axiSlaveRegister (axilEp, X"1A0",  0, v.monStreamPeriod);
       axiSlaveRegister (axilEp, X"1A0", 31, v.monStreamEnable);
       axiSlaveRegisterR(axilEp, X"1A4",  0, monCount);
@@ -614,6 +622,13 @@ begin
 --  v.anaWrCount(ip) := r.anaWrCount(ip)+1;
 --end if;
 
+      axiSlaveRegisterR(axilEp, X"300",  0, toSlv(NUM_DDC_G,8));
+      axiSlaveRegisterR(axilEp, X"300",  8, toSlv(NUM_SEQ_G,8));
+      axiSlaveRegisterR(axilEp, X"300", 16, toSlv(NUM_DS_LINKS_G,8));
+      axiSlaveRegisterR(axilEp, X"300", 24, toSlv(NUM_BP_LINKS_G,4));
+      axiSlaveRegisterR(axilEp, X"304",  0, toSlv(AXILCLK_FREQ_G,32));
+      axiSlaveRegisterR(axilEp, X"308",  0, toSlv(STA_INTERVAL_C,32));
+      
 -- Set the status
       axiSlaveDefault(axilEp, v.axilWriteSlave, v.axilReadSlave);
 
@@ -636,6 +651,8 @@ begin
    end process;
 
    U_MONSTREAM : entity l2si.XpmMonitorStream
+     generic map (
+       SEQCNT_LEN_G => seqCount'length)
      port map (
       axilClk         => axilClk,
       axilRst         => axilRst,

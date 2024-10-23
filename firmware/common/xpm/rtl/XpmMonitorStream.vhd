@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-07-10
+-- Last update: 2024-10-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -46,6 +46,8 @@ library l2si;
 use l2si.XpmAppPkg.all;
 
 entity XpmMonitorStream is
+   generic (
+      SEQCNT_LEN_G : integer := 8 );
    port (
       axilClk         : in  sl;
       axilRst         : in  sl;
@@ -57,8 +59,8 @@ entity XpmMonitorStream is
       status          : in  XpmStatusType;
       pattern         : in  XpmPatternStatisticsType;
       staClk          : in  sl;
-      seqCount        : in  Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
-      seqInvalid      : in  slv(XPM_SEQ_DEPTH_C-1 downto 0);
+      seqCount        : in  Slv128Array(SEQCNT_LEN_G-1 downto 0);
+      seqInvalid      : in  slv(SEQCNT_LEN_G-1 downto 0);
       -- Status
       busy            : out sl;
       count           : out slv(26 downto 0);
@@ -76,7 +78,7 @@ architecture rtl of XpmMonitorStream is
    signal sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);
 
    constant TDATA_SIZE_C      : integer := EMAC_AXIS_CONFIG_C.TDATA_BYTES_C*8;
-   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*282 + 18 + XPM_SEQ_DEPTH_C*16+4+1) + XPM_PATTERN_STATS_BITS_C;
+   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*282 + 18 + SEQCNT_LEN_G*16+4) + SEQCNT_LEN_G + XPM_PATTERN_STATS_BITS_C;
 
    constant LAST_WORD_C       : integer := (XPM_STATUS_BITS_C-1) / TDATA_SIZE_C;
    
@@ -87,8 +89,8 @@ architecture rtl of XpmMonitorStream is
                   pllCount : SlVectorArray(3 downto 0, 2 downto 0);
                   pllStat  : slv(3 downto 0);
                   monClkR  : Slv32Array(3 downto 0);
-                  seqCount : Slv128Array(XPM_SEQ_DEPTH_C-1 downto 0);
-                  seqInvalid : slv(XPM_SEQ_DEPTH_C-1 downto 0)) return slv is
+                  seqCount : Slv128Array(SEQCNT_LEN_G-1 downto 0);
+                  seqInvalid : slv(SEQCNT_LEN_G-1 downto 0)) return slv is
      variable v : slv(XPM_STATUS_BITS_C-1 downto 0) := (others=>'0');
      variable i : integer := 0;
    begin
@@ -115,9 +117,9 @@ architecture rtl of XpmMonitorStream is
      for j in 0 to 3 loop
        assignSlv(i, v, monClkR(j));
      end loop; --16B
-     for j in 0 to XPM_SEQ_DEPTH_C-1 loop
-       assignSlv(i, v, seqCount(j));
-     end loop; -- 8*16B
+     for j in 0 to SEQCNT_LEN_G-1 loop
+       assignSlv(i, v, seqCount(j)); -- 16B
+     end loop;
      assignSlv(i, v, s.paddr); -- 4B
      assignSlv(i, v, seqInvalid); -- 1B
      return v; --
