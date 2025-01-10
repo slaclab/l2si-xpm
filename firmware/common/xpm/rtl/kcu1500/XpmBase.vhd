@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-10-18
+-- Last update: 2024-10-24
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -566,8 +566,8 @@ begin
          NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          US_RX_ENABLE_INIT_G => (XPM_MODE_G="XpmAsync"),
          CU_RX_ENABLE_INIT_G => false,
-         NUM_SEQ_G           => NUM_SEQ_G,
-         NUM_DDC_G           => NUM_DDC_G )
+         NUM_SEQ_G           => NUM_SEQ_C,
+         NUM_DDC_G           => NUM_DDC_C )
       port map (
          axilClk         => regClk,
          axilRst         => regRst,

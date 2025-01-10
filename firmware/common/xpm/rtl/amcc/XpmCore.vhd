@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2024-10-23
+-- Last update: 2025-01-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -211,10 +211,10 @@ architecture mapping of XpmCore is
    signal usGtWriteMaster : AxiLiteWriteMasterType;
    signal usGtWriteSlave  : AxiLiteWriteSlaveType;
 
-   signal amcReadMasters  : AxiLiteReadMasterArray (2 downto 0);
-   signal amcReadSlaves   : AxiLiteReadSlaveArray  (2 downto 0);
-   signal amcWriteMasters : AxiLiteWriteMasterArray(2 downto 0);
-   signal amcWriteSlaves  : AxiLiteWriteSlaveArray (2 downto 0);
+   signal amcReadMasters  : AxiLiteReadMasterArray (3 downto 0);
+   signal amcReadSlaves   : AxiLiteReadSlaveArray  (3 downto 0);
+   signal amcWriteMasters : AxiLiteWriteMasterArray(3 downto 0);
+   signal amcWriteSlaves  : AxiLiteWriteSlaveArray (3 downto 0);
 
    signal amcReadMaster  : AxiLiteReadMasterType;
    signal amcReadSlave   : AxiLiteReadSlaveType;
@@ -249,7 +249,7 @@ architecture mapping of XpmCore is
    signal xbarControl : XpmLinkConfigType := XPM_LINK_CONFIG_INIT_C;
    signal xbarStatus  : XpmLinkStatusType;
 
-   constant AMC_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(2 downto 0) := genAxiLiteConfig(3, BSA_ADDR_C, 24, 20);
+   constant AMC_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(2 downto 0) := genAxiLiteConfig(4, BSA_ADDR_C, 24, 20);
 
    constant SFP_DEVICE_MAP_C : I2cAxiLiteDevArray(3 downto 0) := (
       -- PCA9506
@@ -261,6 +261,9 @@ architecture mapping of XpmCore is
       -- SFP A2
       3 => MakeI2cAxiLiteDevType("1010001", 8, 8, '0'));
 
+   signal linkIdValid : sl;
+   signal linkId, linkIdS : slv(7 downto 0);
+   
 begin
 
    timingPhyClk <= usTxOutClk;
@@ -668,4 +671,28 @@ begin
          hsrScl          => hsrScl,
          hsrSda          => hsrSda);
 
-end mapping;
+   --
+   -- Extract the linkId
+   -- 
+   linkIdValid <= '1' when usRx.dataK="01" and usRx.data(7 downto 0)=K_281_C;
+   linkId      <= usRx.data(15 downto 8);
+   U_LinkId : entity surf.RegisterVector
+     generic map ( WIDTH_G => 8 )
+     port map ( clk    => usRecClk,
+                en     => linkIdValid,
+                sig_i  => usRx.data(15 downto 8),
+                reg_o  => linkId );
+   U_LinkIdS : entity surf.SynchronizerVector
+     generic map ( WIDTH_G => 8 )
+     port map ( clk     => axilClk,
+                dataIn  => linkId,
+                dataOut => linkIdS );
+   U_Regs : entity surf.AxiLiteRegs
+     port map ( axiClk          => axilClk,
+                axiClkRst       => axilRst,
+                axiReadMaster   => amcReadMasters (3),
+                axiReadSlave    => amcReadSlaves  (3),
+                axiWriteMaster  => amcWriteMasters(3),
+                axiWriteSlave   => amcWriteSlaves (3),
+                readRegister(0) => linkIdS );
+end mapping;   
