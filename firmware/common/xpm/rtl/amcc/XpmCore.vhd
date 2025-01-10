@@ -249,7 +249,7 @@ architecture mapping of XpmCore is
    signal xbarControl : XpmLinkConfigType := XPM_LINK_CONFIG_INIT_C;
    signal xbarStatus  : XpmLinkStatusType;
 
-   constant AMC_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(2 downto 0) := genAxiLiteConfig(4, BSA_ADDR_C, 24, 20);
+   constant AMC_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(3 downto 0) := genAxiLiteConfig(4, BSA_ADDR_C, 24, 20);
 
    constant SFP_DEVICE_MAP_C : I2cAxiLiteDevArray(3 downto 0) := (
       -- PCA9506
