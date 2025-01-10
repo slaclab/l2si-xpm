@@ -262,7 +262,7 @@ architecture mapping of XpmCore is
       3 => MakeI2cAxiLiteDevType("1010001", 8, 8, '0'));
 
    signal linkIdValid : sl;
-   signal linkId, linkIdS : slv(7 downto 0);
+   signal linkId, linkIdS : slv(31 downto 0) := (others=>'0');
    
 begin
 
@@ -681,12 +681,12 @@ begin
      port map ( clk    => usRecClk,
                 en     => linkIdValid,
                 sig_i  => usRx.data(15 downto 8),
-                reg_o  => linkId );
+                reg_o  => linkId(7 downto 0) );
    U_LinkIdS : entity surf.SynchronizerVector
      generic map ( WIDTH_G => 8 )
      port map ( clk     => axilClk,
-                dataIn  => linkId,
-                dataOut => linkIdS );
+                dataIn  => linkId (7 downto 0),
+                dataOut => linkIdS(7 downto 0) );
    U_Regs : entity surf.AxiLiteRegs
      port map ( axiClk          => axilClk,
                 axiClkRst       => axilRst,
