@@ -261,8 +261,8 @@ architecture top_level of XpmBase is
             probe0 : in slv(255 downto 0) );
    end component;
    
-   signal linkIdValid : sl;
-   signal linkId      : slv(7 downto 0) := (others=>'0');
+   signal linkIdValid     : sl;
+   signal linkId, linkIdS : slv(7 downto 0) := (others=>'0');
 
 begin
 
@@ -707,7 +707,6 @@ begin
    -- Extract the linkId
    -- 
    linkIdValid <= '1' when usRx.dataK="01" and usRx.data(7 downto 0)=K_281_C;
-   linkId(7 downto 0) <= usRx.data(15 downto 8);
    U_LinkId : entity surf.RegisterVector
      generic map ( WIDTH_G => 8 )
      port map ( clk    => dsRxClk(0),
@@ -718,7 +717,7 @@ begin
      generic map ( WIDTH_G => 8 )
      port map ( clk     => regClk,
                 dataIn  => linkId (7 downto 0),
-                dataOut => tmpReg(15 downto 8) );
+                dataOut => linkIdS(7 downto 0) );
 
   U_AXI_EMPTY : entity surf.AxiLiteRegs
      port map (
@@ -729,7 +728,7 @@ begin
        axiWriteMaster => axilWriteMasters(TEST_INDEX_C),
        axiWriteSlave  => axilWriteSlaves (TEST_INDEX_C),
        writeRegister(0) => tmpReg,
-       readRegister (0) => tmpReg );
+       readRegister (0) => linkIdS );
 
 end top_level;
 
