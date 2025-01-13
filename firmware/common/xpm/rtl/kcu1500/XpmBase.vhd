@@ -266,26 +266,26 @@ architecture top_level of XpmBase is
 
 begin
 
-  U_ILA : ila_0
-    port map ( clk       => regClk,
-               probe0(0) => dsLinkStatus(0).rxResetDone,
-               probe0(1) => dsLinkStatus(0).rxReady,
-               probe0(2) => dsLinkStatus(0).txResetDone,
-               probe0(3) => dsLinkStatus(0).txReady,
-               probe0(4) => dsRxRst(0),
-               probe0(5) => dsLinkConfig(0).enable,
-               probe0(6) => dsLinkConfig(0).txReset,
-               probe0(7) => dsLinkConfig(0).txPllReset,
-               probe0(8) => dsLinkConfig(0).rxReset,
-               probe0(9) => dsLinkConfig(0).rxPllReset,
-               probe0(255 downto 10) => (others=>'0') );
+  -- U_ILA : ila_0
+  --   port map ( clk       => regClk,
+  --              probe0(0) => dsLinkStatus(0).rxResetDone,
+  --              probe0(1) => dsLinkStatus(0).rxReady,
+  --              probe0(2) => dsLinkStatus(0).txResetDone,
+  --              probe0(3) => dsLinkStatus(0).txReady,
+  --              probe0(4) => dsRxRst(0),
+  --              probe0(5) => dsLinkConfig(0).enable,
+  --              probe0(6) => dsLinkConfig(0).txReset,
+  --              probe0(7) => dsLinkConfig(0).txPllReset,
+  --              probe0(8) => dsLinkConfig(0).rxReset,
+  --              probe0(9) => dsLinkConfig(0).rxPllReset,
+  --              probe0(255 downto 10) => (others=>'0') );
   
-  U_ILA_RX : ila_0
-    port map ( clk       => dsRxClk(0),
-               probe0(15 downto  0) => dsRxData (0),
-               probe0(17 downto 16) => dsRxDataK(0),
-               probe0(18) => dsRxErr(0),
-               probe0(255 downto 19) => (others=>'0') );
+  -- U_ILA_RX : ila_0
+  --   port map ( clk       => dsRxClk(0),
+  --              probe0(15 downto  0) => dsRxData (0),
+  --              probe0(17 downto 16) => dsRxDataK(0),
+  --              probe0(18) => dsRxErr(0),
+  --              probe0(255 downto 19) => (others=>'0') );
                
    axilClk <= regClk;
    axilRst <= regRst;
