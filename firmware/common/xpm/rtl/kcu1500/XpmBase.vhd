@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-10-24
+-- Last update: 2025-01-13
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -237,11 +237,11 @@ architecture top_level of XpmBase is
    signal txAdvance   : slv              (2 downto 0) := (others=>'0');
    signal txFiducial  : sl;
 
-   constant AMC_DS_PORT0_C : IntegerArray(1 downto 0) := ( 0, 0 );
+   constant AMC_DS_PORT0_C : IntegerArray(1 downto 0) := ( 0, ite(XPM_MODE_G="XpmAsync",1,0) );
    constant AMC_DS_PORTN_C : IntegerArray(1 downto 0) := ( 3, 3 );
    
-   constant AMC_DS_LINKS_C : IntegerArray(1 downto 0) := ( 4, 4 );
-   constant AMC_DS_FIRST_C : IntegerArray(1 downto 0) := ( 4, 0 );
+   constant AMC_DS_LINKS_C : IntegerArray(1 downto 0) := ( 4, ite(XPM_MODE_G="XpmAsync",3,4) );
+   constant AMC_DS_FIRST_C : IntegerArray(1 downto 0) := ( 4, ite(XPM_MODE_G="XpmAsync",1,0) );
    constant AMC_DS_LAST_C  : IntegerArray(1 downto 0) :=
      ( AMC_DS_LINKS_C(1)+AMC_DS_FIRST_C(1)-1,
        AMC_DS_LINKS_C(0)+AMC_DS_FIRST_C(0)-1 );
@@ -261,6 +261,9 @@ architecture top_level of XpmBase is
             probe0 : in slv(255 downto 0) );
    end component;
    
+   signal linkIdValid : sl;
+   signal linkId      : slv(7 downto 0) := (others=>'0');
+
 begin
 
   U_ILA : ila_0
@@ -700,7 +703,24 @@ begin
          dataOut => timingPhyId(timingPhyId'left downto 4) );
    timingPhyId(3 downto 0) <= x"F";
    
-   U_AXI_EMPTY : entity surf.AxiLiteRegs
+   --
+   -- Extract the linkId
+   -- 
+   linkIdValid <= '1' when usRx.dataK="01" and usRx.data(7 downto 0)=K_281_C;
+   linkId(7 downto 0) <= usRx.data(15 downto 8);
+   U_LinkId : entity surf.RegisterVector
+     generic map ( WIDTH_G => 8 )
+     port map ( clk    => dsRxClk(0),
+                en     => linkIdValid,
+                sig_i  => usRx.data(15 downto 8),
+                reg_o  => linkId(7 downto 0) );
+   U_LinkIdS : entity surf.SynchronizerVector
+     generic map ( WIDTH_G => 8 )
+     port map ( clk     => regClk,
+                dataIn  => linkId (7 downto 0),
+                dataOut => tmpReg(15 downto 8) );
+
+  U_AXI_EMPTY : entity surf.AxiLiteRegs
      port map (
        axiClk         => regClk,
        axiClkRst      => regRst,

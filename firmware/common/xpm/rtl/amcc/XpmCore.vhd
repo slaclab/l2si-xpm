@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2025-01-10
+-- Last update: 2025-01-13
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -675,7 +675,7 @@ begin
    -- Extract the linkId
    -- 
    linkIdValid <= '1' when usRx.dataK="01" and usRx.data(7 downto 0)=K_281_C;
-   linkId      <= usRx.data(15 downto 8);
+   linkId(7 downto 0) <= usRx.data(15 downto 8);
    U_LinkId : entity surf.RegisterVector
      generic map ( WIDTH_G => 8 )
      port map ( clk    => usRecClk,
