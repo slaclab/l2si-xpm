@@ -262,7 +262,7 @@ architecture top_level of XpmBase is
    end component;
    
    signal linkIdValid     : sl;
-   signal linkId, linkIdS : slv(7 downto 0) := (others=>'0');
+   signal linkId, linkIdS : slv(31 downto 0) := (others=>'0');
 
 begin
 
