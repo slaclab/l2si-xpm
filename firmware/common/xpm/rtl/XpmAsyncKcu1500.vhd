@@ -129,8 +129,9 @@ begin
 
    TimingGtCoreWrapper_1 : entity lcls_timing_core.TimingGtCoreWrapper
       generic map (ADDR_BITS_G      => 14,
-                   AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(TIM_INDEX_C).baseAddr,
-                   GTH_DRP_OFFSET_G => x"00004000")
+                   AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(GTH_INDEX_C).baseAddr,
+                   GTH_DRP_OFFSET_G => x"00004000",
+                   EXTREF_G         => true)
       port map (
          axilClk         => axilClk,
          axilRst         => axilRst,
