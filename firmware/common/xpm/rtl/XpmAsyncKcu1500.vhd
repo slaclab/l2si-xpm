@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2023-05-07
+-- Last update: 2025-01-21
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -59,13 +59,16 @@ entity XpmAsyncKcu1500 is
      axilWriteMaster       : in  AxiLiteWriteMasterType;
      axilWriteSlave        : out AxiLiteWriteSlaveType;
 
-     usRecClk              : in  sl;
-     usRx                  : in  TimingRxType;
-     usRxStatus            : in  TimingPhyStatusType;
-     usRxControl           : out TimingPhyControlType;
+     usRxP                 : in    sl;
+     usRxN                 : in    sl;
+     usTxP                 : out   sl;
+     usTxN                 : out   sl;
+     usRefClk              : in    sl;
+     usRefClkGt            : in    sl;
      
      timingPhyClk          : in  sl;
      timingPhyRst          : in  sl;
+     timingPhy             : in  TimingPhyType;
      recStream             : out XpmStreamType );
 end XpmAsyncKcu1500;
 
@@ -86,6 +89,11 @@ architecture rtl of XpmAsyncKcu1500 is
    signal txAdvance   : slv              (2 downto 0) := (others=>'0');
    signal usRxClk     : sl;
    signal usTxOutClk  : sl;
+   signal usRx        : TimingRxType;
+   signal usRxControl : TimingPhyControlType;
+   signal usRxStatus  : TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
+   signal usRxStable  : sl;
+   signal usRecClk    : sl;
    signal usRxTimingBus : TimingBusType;
    signal usRxMessage : TimingMessageType;
    signal usRxVector  : slv(TIMING_MESSAGE_BITS_C-1 downto 0);
@@ -119,6 +127,45 @@ begin
       mAxiReadMasters     => axilReadMasters,
       mAxiReadSlaves      => axilReadSlaves);
 
+   TimingGtCoreWrapper_1 : entity lcls_timing_core.TimingGtCoreWrapper
+      generic map (ADDR_BITS_G      => 14,
+                   AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(TIM_INDEX_C).baseAddr,
+                   GTH_DRP_OFFSET_G => x"00004000")
+      port map (
+         axilClk         => axilClk,
+         axilRst         => axilRst,
+         axilReadMaster  => axilReadMasters (GTH_INDEX_C),
+         axilReadSlave   => axilReadSlaves  (GTH_INDEX_C),
+         axilWriteMaster => axilWriteMasters(GTH_INDEX_C),
+         axilWriteSlave  => axilWriteSlaves (GTH_INDEX_C),
+         stableClk       => axilClk,
+         stableRst       => axilRst,
+         gtRefClk        => usRefClkGt,
+         gtRefClkDiv2    => '0',
+         gtRxP           => usRxP,
+         gtRxN           => usRxN,
+         gtTxP           => usTxP,
+         gtTxN           => usTxN,
+         rxControl       => usRxControl,
+         rxStatus        => usRxStatus,
+         rxUsrClkActive  => '1',
+         rxCdrStable     => usRxStable,
+         rxUsrClk        => usRecClk,
+         rxData          => usRx.data,
+         rxDataK         => usRx.dataK,
+         rxDispErr       => usRx.dspErr,
+         rxDecErr        => usRx.decErr,
+         rxOutClk        => usRecClk,
+         txControl       => timingPhy.control,
+         txStatus        => open,
+         txUsrClk        => usTxOutClk,
+         txUsrClkActive  => '1',
+         txData          => timingPhy.data,
+         txDataK         => timingPhy.dataK,
+         txOutClk        => usTxOutClk,  -- will this be source synchronous?
+         loopback        => "000");
+
+  
   U_UsRx : entity lcls_timing_core.TimingCore
     generic map (
       AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(TIM_INDEX_C).baseAddr,

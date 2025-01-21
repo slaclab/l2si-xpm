@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-13
+-- Last update: 2025-01-21
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -137,8 +137,6 @@ architecture top_level of XpmBase is
    signal gphyClk01 : sl;
    signal gphyClk11 : sl;
    signal phyRst01  : sl;
-   signal usRecClk  : sl;
-   signal usRefClk  : sl;
    
    constant NUM_DS_LINKS_C : integer := 8;
    constant NUM_FP_LINKS_C : integer := 8;
@@ -160,7 +158,7 @@ architecture top_level of XpmBase is
    signal idsTxP   : Slv7Array(1 downto 0);
    signal idsTxN   : Slv7Array(1 downto 0);
 
-   signal dsLinkStatus : XpmLinkStatusArray(NUM_FP_LINKS_C-1 downto 0);
+   signal dsLinkStatus : XpmLinkStatusArray(NUM_FP_LINKS_C-1 downto 0) := (others=>XPM_LINK_STATUS_INIT_C);
    signal dsLinkConfig : XpmLinkConfigArray(NUM_FP_LINKS_C-1 downto 0);
    signal dsLinkConfig0: XpmLinkConfigType := XPM_LINK_CONFIG_INIT_C;
    signal dsTxData     : Slv16Array(NUM_FP_LINKS_C-1 downto 0);
@@ -251,8 +249,6 @@ architecture top_level of XpmBase is
    
    signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
    signal usRx   : TimingRxType;
-   signal usRxControl : TimingPhyControlType;
-   signal usRxStatus  : TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
 
    signal common : slv(XPM_PARTITIONS_C-1 downto 0);
    
@@ -266,27 +262,6 @@ architecture top_level of XpmBase is
 
 begin
 
-  -- U_ILA : ila_0
-  --   port map ( clk       => regClk,
-  --              probe0(0) => dsLinkStatus(0).rxResetDone,
-  --              probe0(1) => dsLinkStatus(0).rxReady,
-  --              probe0(2) => dsLinkStatus(0).txResetDone,
-  --              probe0(3) => dsLinkStatus(0).txReady,
-  --              probe0(4) => dsRxRst(0),
-  --              probe0(5) => dsLinkConfig(0).enable,
-  --              probe0(6) => dsLinkConfig(0).txReset,
-  --              probe0(7) => dsLinkConfig(0).txPllReset,
-  --              probe0(8) => dsLinkConfig(0).rxReset,
-  --              probe0(9) => dsLinkConfig(0).rxPllReset,
-  --              probe0(255 downto 10) => (others=>'0') );
-  
-  -- U_ILA_RX : ila_0
-  --   port map ( clk       => dsRxClk(0),
-  --              probe0(15 downto  0) => dsRxData (0),
-  --              probe0(17 downto 16) => dsRxDataK(0),
-  --              probe0(18) => dsRxErr(0),
-  --              probe0(255 downto 19) => (others=>'0') );
-               
    axilClk <= regClk;
    axilRst <= regRst;
    --
@@ -321,7 +296,8 @@ begin
                  DIV     => "000",
                  O       => timingPhyClk2 );
    
-    IBUFDS_GTE3_REFCLK01 : IBUFDS_GTE3
+
+   IBUFDS_GTE3_REFCLK01 : IBUFDS_GTE3
       generic map (
         REFCLK_EN_TX_PATH  => '0',
         REFCLK_HROW_CK_SEL => "00",    -- 2'b01: ODIV2 = Divide-by-2 version of O
@@ -594,8 +570,8 @@ begin
          patternCfg      => patternCfg,
          monClk(0)       => timingPhyClk2,
          monClk(1)       => timingPhyClk,
-         monClk(2)       => usRecClk,
-         monClk(3)       => usRefClk,
+         monClk(2)       => timingPhyClk,
+         monClk(3)       => timingPhyClk,
          monLatch        => seqCountRst,
          seqCount        => seqCount,
          config          => xpmConfig,
@@ -617,8 +593,6 @@ begin
          timingPhyClk          => timingPhyClk,
          timingPhyRst          => timingPhyRst,
          recStream             => recStream );
-     usRecClk     <= timingPhyClk;
-     usRefClk     <= timingPhyClk;
      dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 0);
    end generate;
    
@@ -635,27 +609,16 @@ begin
          axilReadSlave         => axilReadSlaves  (ASYN_INDEX_C),
          axilWriteMaster       => axilWriteMasters(ASYN_INDEX_C),
          axilWriteSlave        => axilWriteSlaves (ASYN_INDEX_C),
-         usRecClk              => dsRxClk(0),
-         usRx                  => usRx,
-         usRxStatus            => usRxStatus,
-         usRxControl           => usRxControl,
+         usRxP                 => qsfp0RxP(0),
+         usRxN                 => qsfp0RxN(0),
+         usTxP                 => qsfp0TxP(0),
+         usTxN                 => qsfp0TxN(0),
+         usRefClk              => timingPhyClk,
+         usRefClkGt            => dsClkBuf(0),
          timingPhyClk          => timingPhyClk,
          timingPhyRst          => timingPhyRst,
+         timingPhy             => timingPhy,
          recStream             => recStream );
-     usRxStatus.locked       <= dsLinkStatus(0).rxReady;
-     usRxStatus.resetDone    <= dsLinkStatus(0).rxReady;
-     usRxStatus.bufferByDone <= dsLinkStatus(0).rxResetDone;
-     usRxStatus.bufferByErr  <= '0';
-     usRecClk    <= dsRxClk  (0);
-     usRx.data   <= dsRxData (0);
-     usRx.dataK  <= dsRxDataK(0);
-     usRx.dspErr <= dsRxErr(0) & dsRxErr(0);
-     usRx.decErr <= "00";
-     usRefClk    <= timingPhyClk;
-     dsTxData (0) <= timingPhy.data;
-     dsTxDataK(0) <= timingPhy.dataK;
-     dsLinkConfig0.rxReset    <= usRxControl.reset;
-     dsLinkConfig0.rxPllReset <= usRxControl.pllReset;
      dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 1) & dsLinkConfig0;
    end generate GEN_XPMASYNC;
    
