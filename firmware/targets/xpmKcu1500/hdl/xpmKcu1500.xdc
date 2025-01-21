@@ -43,9 +43,8 @@ set_clock_groups -asynchronous \
 
 set_clock_groups -asynchronous \
 		 -group [get_clocks qsfp0RefClkP0] \
-		 -group [get_clocks -of_objects [get_pins U_HSIO/GEN_XPMASYNC.U_XpmAsync/TimingGtCoreWrapper_1/LOCREF_G.TIMING_TXCLK_BUFG_GT/O]]
+		 -group [get_clocks -of_objects [get_pins {U_HSIO/GEN_XPMASYNC.U_XpmAsync/TimingGtCoreWrapper_1/GEN_EXTREF.U_TimingGthCore/inst/gen_gtwizard_gthe3_top.TimingGth_extref_gtwizard_gthe3_inst/gen_gtwizard_gthe3.gen_channel_container[0].gen_enabled_channel.gthe3_channel_wrapper_inst/channel_inst/gthe3_channel_gen.gen_gthe3_channel_inst[0].GTHE3_CHANNEL_PRIM_INST/TXOUTCLK}]]
 
 set_clock_groups -asynchronous \
 		 -group [get_clocks qsfp0RefClkP0] \
-		 -group [get_clocks -of_objects [get_pins {U_HSIO/GEN_XPMASYNC.U_XpmAsync/TimingGtCoreWrapper_1/LOCREF_G.U_TimingGthCore/inst/gen_gtwizard_gthe3_top.TimingGth_fixedlat_gtwizard_gthe3_inst/gen_gtwizard_gthe3.gen_channel_container[0].gen_enabled_channel.gthe3_channel_wrapper_inst/channel_inst/gthe3_channel_gen.gen_gthe3_channel_inst[0].GTHE3_CHANNEL_PRIM_INST/RXOUTCLK}]]
-
+		 -group [get_clocks -of_objects [get_pins {U_HSIO/GEN_XPMASYNC.U_XpmAsync/TimingGtCoreWrapper_1/GEN_EXTREF.U_TimingGthCore/inst/gen_gtwizard_gthe3_top.TimingGth_extref_gtwizard_gthe3_inst/gen_gtwizard_gthe3.gen_channel_container[0].gen_enabled_channel.gthe3_channel_wrapper_inst/channel_inst/gthe3_channel_gen.gen_gthe3_channel_inst[0].GTHE3_CHANNEL_PRIM_INST/RXOUTCLK}]]
