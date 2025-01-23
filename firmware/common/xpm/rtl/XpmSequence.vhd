@@ -75,18 +75,20 @@ architecture mapping of XpmSequence is
    signal axilWriteSlaves     : AxiLiteWriteSlaveArray (NUM_AXI_MASTERS_C-1 downto 0);
    signal axilReadMasters     : AxiLiteReadMasterArray (NUM_AXI_MASTERS_C-1 downto 0);
    signal axilReadSlaves      : AxiLiteReadSlaveArray  (NUM_AXI_MASTERS_C-1 downto 0);
-   
-   constant DDC_CROSSBAR_MASTERS_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_DDC_G-1 downto 0) :=
-     genAxiLiteConfig(NUM_DDC_G, AXI_CROSSBAR_MASTERS_CONFIG_C(DDC_INDEX_C).baseAddr, 17, 12);
-   signal ddcAxilWriteMasters : AxiLiteWriteMasterArray(NUM_DDC_G-1 downto 0);
-   signal ddcAxilWriteSlaves  : AxiLiteWriteSlaveArray (NUM_DDC_G-1 downto 0);
-   signal ddcAxilReadMasters  : AxiLiteReadMasterArray (NUM_DDC_G-1 downto 0);
-   signal ddcAxilReadSlaves   : AxiLiteReadSlaveArray  (NUM_DDC_G-1 downto 0);
+
+   --  Handle NUM_DDC_G = 0
+   constant NUM_DDC_C : natural := ite(NUM_DDC_G>0,NUM_DDC_G,1);
+   constant DDC_CROSSBAR_MASTERS_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_DDC_C-1 downto 0) :=
+     genAxiLiteConfig(NUM_DDC_C, AXI_CROSSBAR_MASTERS_CONFIG_C(DDC_INDEX_C).baseAddr, 17, 12);
+   signal ddcAxilWriteMasters : AxiLiteWriteMasterArray(NUM_DDC_C-1 downto 0);
+   signal ddcAxilWriteSlaves  : AxiLiteWriteSlaveArray (NUM_DDC_C-1 downto 0);
+   signal ddcAxilReadMasters  : AxiLiteReadMasterArray (NUM_DDC_C-1 downto 0);
+   signal ddcAxilReadSlaves   : AxiLiteReadSlaveArray  (NUM_DDC_C-1 downto 0);
 
    signal status       : XpmSeqStatusArray(NUM_SEQ_G-1 downto 0);
    signal gconfig      : XpmSeqGConfigType;
    signal config       : XpmSeqConfigArray(NUM_SEQ_G-1 downto 0);
-   signal ddcData      : Slv4Array   (NUM_DDC_G-1 downto 0);
+   signal ddcData      : Slv4Array   (NUM_DDC_C-1 downto 0);
    signal seqData      : Slv4Array   (NUM_SEQ_G-1 downto 0);
    signal seqReset     : slv         (NUM_SEQ_G-1 downto 0);
    signal seqJump      : slv         (NUM_SEQ_G-1 downto 0);

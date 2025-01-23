@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-21
+-- Last update: 2025-01-22
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -66,9 +66,13 @@ entity XpmAsyncKcu1500 is
      usRefClk              : in    sl;
      usRefClkGt            : in    sl;
      
-     timingPhyClk          : in  sl;
-     timingPhyRst          : in  sl;
-     timingPhy             : in  TimingPhyType;
+     timingFbClk           : out sl;
+     timingFbRst           : in  sl;
+     timingFb              : in  TimingPhyType;
+     timingFbStatus        : out TimingPhyStatusType;
+
+     recClk                : in  sl;
+     recClkRst             : in  sl;
      recStream             : out XpmStreamType );
 end XpmAsyncKcu1500;
 
@@ -87,8 +91,7 @@ architecture rtl of XpmAsyncKcu1500 is
    signal txStreams   : TimingSerialArray(2 downto 0);
    signal txStreamIds : Slv4Array        (2 downto 0);
    signal txAdvance   : slv              (2 downto 0) := (others=>'0');
-   signal usRxClk     : sl;
-   signal usTxOutClk  : sl;
+
    signal usRx        : TimingRxType;
    signal usRxControl : TimingPhyControlType;
    signal usRxStatus  : TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
@@ -105,9 +108,20 @@ architecture rtl of XpmAsyncKcu1500 is
    signal xpmValid    : sl;
    signal cuRecVector : slv(CU_TIMING_BITS_C-1 downto 0);
    signal cuRecValid  : sl;
+
+   signal timingFbClkB : sl;
+   signal usTxControl  : TimingPhyControlType;
    
 begin
 
+  timingFbClk <= timingFbClkB;
+
+  p_txcontrol : process(timingFb) is
+  begin
+    usTxControl <= timingFb.control;
+    usTxControl.pllReset <= timingFbRst;
+  end process p_txcontrol;
+  
   U_XBAR : entity surf.AxiLiteCrossbar
     generic map (
       TPD_G              => TPD_G,
@@ -157,13 +171,13 @@ begin
          rxDispErr       => usRx.dspErr,
          rxDecErr        => usRx.decErr,
          rxOutClk        => usRecClk,
-         txControl       => timingPhy.control,
-         txStatus        => open,
-         txUsrClk        => usTxOutClk,
+         txControl       => usTxControl,
+         txStatus        => timingFbStatus,
+         txUsrClk        => timingFbClkB,
          txUsrClkActive  => '1',
-         txData          => timingPhy.data,
-         txDataK         => timingPhy.dataK,
-         txOutClk        => usTxOutClk,  -- will this be source synchronous?
+         txData          => timingFb.data,
+         txDataK         => timingFb.dataK,
+         txOutClk        => timingFbClkB,
          loopback        => "000");
 
   
@@ -174,8 +188,8 @@ begin
       AXIL_RINGB_G     => false,
       USE_TPGMINI_G    => false )
     port map (
-      gtTxUsrClk          => timingPhyClk,
-      gtTxUsrRst          => timingPhyRst,
+      gtTxUsrClk          => timingFbClkB,
+      gtTxUsrRst          => timingFbRst,
       
       gtRxRecClk          => usRecClk,
       gtRxData            => usRx.data,
@@ -184,8 +198,8 @@ begin
       gtRxDecErr          => usRx.decErr,
       gtRxControl         => usRxControl,
       gtRxStatus          => usRxStatus,
-      appTimingClk        => timingPhyClk,
-      appTimingRst        => timingPhyRst,
+      appTimingClk        => recClk,
+      appTimingRst        => recClkRst,
       appTimingBus        => usRxTimingBus,
 
       axilClk             => axilClk,
@@ -207,8 +221,8 @@ begin
     generic map (
       NWORDS_G => TIMING_MESSAGE_WORDS_C)
     port map (
-      txClk    => timingPhyClk,
-      txRst    => timingPhyRst,
+      txClk    => recClk,
+      txRst    => recClkRst,
       fiducial => usRxStrobe,
       words    => usRxVector,
       ready    => usRxValid,
@@ -223,8 +237,8 @@ begin
     generic map (
       NWORDS_G => CU_TIMING_WORDS_C)
     port map (
-      txClk    => timingPhyClk,
-      txRst    => timingPhyRst,
+      txClk    => recClk,
+      txRst    => recClkRst,
       fiducial => usRxStrobe,
       words    => cuRecVector,
       ready    => cuRecValid,
@@ -238,8 +252,8 @@ begin
     generic map (
       NWORDS_G => XPM_MESSAGE_WORDS_C)
     port map (
-      txClk    => timingPhyClk,
-      txRst    => timingPhyRst,
+      txClk    => recClk,
+      txRst    => recClkRst,
       fiducial => usRxStrobe,
       words    => xpmVector,
       ready    => xpmValid,
@@ -254,8 +268,8 @@ begin
     generic map (
       STREAMS_C => 3)
     port map (
-      clk       => timingPhyClk,
-      rst       => timingPhyRst,
+      clk       => recClk,
+      rst       => recClkRst,
       fiducial  => usRxStrobe,
       streams   => txStreams,
       streamIds => txStreamIds,

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-21
+-- Last update: 2025-01-22
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -120,7 +120,7 @@ architecture top_level of XpmBase is
    constant DIAGNOSTIC_CONFIG_C : AxiStreamConfigType := ssiAxiStreamConfig(4);
 
    constant NUM_SEQ_C : natural := 8;
-   constant NUM_DDC_C : integer := 2;
+   constant NUM_DDC_C : integer := 0;
 
    -- AXI-Lite Interface (appClk domain)
    signal regClk         : sl;
@@ -153,10 +153,10 @@ architecture top_level of XpmBase is
 
    signal dsClockP : slv(1 downto 0);
    signal dsClockN : slv(1 downto 0);
-   signal idsRxP   : Slv7Array(1 downto 0);
-   signal idsRxN   : Slv7Array(1 downto 0);
-   signal idsTxP   : Slv7Array(1 downto 0);
-   signal idsTxN   : Slv7Array(1 downto 0);
+   signal idsRxP   : Slv4Array(1 downto 0);
+   signal idsRxN   : Slv4Array(1 downto 0);
+   signal idsTxP   : Slv4Array(1 downto 0);
+   signal idsTxN   : Slv4Array(1 downto 0);
 
    signal dsLinkStatus : XpmLinkStatusArray(NUM_FP_LINKS_C-1 downto 0) := (others=>XPM_LINK_STATUS_INIT_C);
    signal dsLinkConfig : XpmLinkConfigArray(NUM_FP_LINKS_C-1 downto 0);
@@ -228,8 +228,11 @@ architecture top_level of XpmBase is
 
    -- Timing Interface (timingClk domain)
    signal recStream   : XpmStreamType;
-   signal timingPhy   : TimingPhyType := TIMING_PHY_INIT_C;
-   signal timingPhyId : slv(xpmConfig.paddr'range);
+   signal timingFbClk : sl;
+   signal timingFbRst : sl := '0';
+   signal timingFb    : TimingPhyType := TIMING_PHY_INIT_C;
+   signal timingFbId  : slv(xpmConfig.paddr'range);
+   signal timingFbStatus : TimingPhyStatusType;
    signal txStreams   : TimingSerialArray(2 downto 0);
    signal txStreamIds : Slv4Array        (2 downto 0);
    signal txAdvance   : slv              (2 downto 0) := (others=>'0');
@@ -247,8 +250,9 @@ architecture top_level of XpmBase is
    signal seqCountRst : sl;
    signal seqCount    : Slv128Array(NUM_DDC_C+NUM_SEQ_C-1 downto 0);
    
-   signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
-   signal usRx   : TimingRxType;
+   signal tmpReg  : slv(31 downto 0) := x"DEADBEEF";
+   signal tmpRegR : slv(31 downto 0) := x"DEADBEEF";
+   signal usRx    : TimingRxType;
 
    signal common : slv(XPM_PARTITIONS_C-1 downto 0);
    
@@ -374,6 +378,14 @@ begin
        asyncRst => tmpReg(0),
        syncRst  => timingPhyRst );
       
+   U_TimingFbRst : entity surf.RstSync
+     generic map (
+       IN_POLARITY_G => '0' )
+     port map (
+       clk      => timingFbClk,
+       asyncRst => tmpReg(0),
+       syncRst  => timingFbRst );
+      
    U_XBAR : entity surf.AxiLiteCrossbar
       generic map (
          TPD_G              => TPD_G,
@@ -445,8 +457,6 @@ begin
          axilWriteMaster => axilWriteMasters(RING_INDEX_C),
          axilWriteSlave  => axilWriteSlaves (RING_INDEX_C));
 
-   pllLocked <= "11";
-
    U_Application : entity l2si.XpmApp
       generic map (
          TPD_G           => TPD_G,
@@ -480,8 +490,8 @@ begin
          regrst          => regRst,
          update          => regUpdate,
          status          => xpmStatus,
-         pattern         => pattern,
          patternCfg      => patternCfg,
+         pattern         => pattern,
          common          => common,
          config          => xpmConfig,
          axilReadMaster  => axilReadMasters (APP_INDEX_C),
@@ -497,10 +507,10 @@ begin
          timingRst       => timingPhyRst,
 --         timingIn        => recTimingData,
          timingStream    => recStream,
-         timingFbClk     => timingPhyClk,
-         timingFbRst     => '0',
-         timingFbId      => timingPhyId,
-         timingFb        => timingPhy,
+         timingFbClk     => timingFbClk,
+         timingFbRst     => timingFbRst,
+         timingFbId      => timingFbId,
+         timingFb        => timingFb,
          seqCountRst     => seqCountRst,
          seqCount        => seqCount );
 
@@ -570,7 +580,7 @@ begin
          patternCfg      => patternCfg,
          monClk(0)       => timingPhyClk2,
          monClk(1)       => timingPhyClk,
-         monClk(2)       => timingPhyClk,
+         monClk(2)       => timingFbClk,
          monClk(3)       => timingPhyClk,
          monLatch        => seqCountRst,
          seqCount        => seqCount,
@@ -609,17 +619,22 @@ begin
          axilReadSlave         => axilReadSlaves  (ASYN_INDEX_C),
          axilWriteMaster       => axilWriteMasters(ASYN_INDEX_C),
          axilWriteSlave        => axilWriteSlaves (ASYN_INDEX_C),
-         usRxP                 => qsfp0RxP(0),
-         usRxN                 => qsfp0RxN(0),
-         usTxP                 => qsfp0TxP(0),
-         usTxN                 => qsfp0TxN(0),
+         usRxP                 => idsRxP(0)(0),
+         usRxN                 => idsRxN(0)(0),
+         usTxP                 => idsTxP(0)(0),
+         usTxN                 => idsTxN(0)(0),
          usRefClk              => timingPhyClk,
          usRefClkGt            => dsClkBuf(0),
-         timingPhyClk          => timingPhyClk,
-         timingPhyRst          => timingPhyRst,
-         timingPhy             => timingPhy,
+         timingFbClk           => timingFbClk,
+         timingFbRst           => timingFbRst,
+         timingFb              => timingFb,
+         timingFbStatus        => timingFbStatus,
+         recClk                => timingPhyClk,
+         recClkRst             => timingPhyRst,
          recStream             => recStream );
      dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 1) & dsLinkConfig0;
+     dsRxClk(0)   <= timingPhyClk;
+     dsRxRst(0)   <= timingPhyRst;
    end generate GEN_XPMASYNC;
    
    GEN_AMC_MGT : for i in 0 to 1 generate
@@ -663,26 +678,26 @@ begin
       port map (
          clk     => timingPhyClk,
          dataIn  => xpmConfig.paddr(xpmConfig.paddr'left-4 downto 0),
-         dataOut => timingPhyId(timingPhyId'left downto 4) );
-   timingPhyId(3 downto 0) <= x"F";
-   
-   --
-   -- Extract the linkId
-   -- 
-   linkIdValid <= '1' when usRx.dataK="01" and usRx.data(7 downto 0)=K_281_C;
-   U_LinkId : entity surf.RegisterVector
-     generic map ( WIDTH_G => 8 )
-     port map ( clk    => dsRxClk(0),
-                en     => linkIdValid,
-                sig_i  => usRx.data(15 downto 8),
-                reg_o  => linkId(7 downto 0) );
-   U_LinkIdS : entity surf.SynchronizerVector
-     generic map ( WIDTH_G => 8 )
-     port map ( clk     => regClk,
-                dataIn  => linkId (7 downto 0),
-                dataOut => linkIdS(7 downto 0) );
+         dataOut => timingFbId(timingFbId'left downto 4) );
+   timingFbId(3 downto 0) <= x"F";
 
-  U_AXI_EMPTY : entity surf.AxiLiteRegs
+   U_timingFbDbg : entity surf.SynchronizerFifo
+     generic map (
+       DATA_WIDTH_G => 23 )
+     port map (
+       wr_clk            => timingFbClk,
+       din(15 downto  0) => timingFb.data,
+       din(17 downto 16) => timingFb.dataK,
+       din(18)           => timingFbRst,
+       din(19)           => timingFbStatus.locked,
+       din(20)           => timingFbStatus.resetDone,
+       din(21)           => timingFbStatus.bufferByDone,
+       din(22)           => timingFbStatus.bufferByErr,
+       rd_clk            => regClk,
+       valid             => tmpRegR(23),
+       dout              => tmpRegR(22 downto 0) );
+   
+   U_AXI_EMPTY : entity surf.AxiLiteRegs
      port map (
        axiClk         => regClk,
        axiClkRst      => regRst,
@@ -691,7 +706,7 @@ begin
        axiWriteMaster => axilWriteMasters(TEST_INDEX_C),
        axiWriteSlave  => axilWriteSlaves (TEST_INDEX_C),
        writeRegister(0) => tmpReg,
-       readRegister (0) => linkIdS );
+       readRegister (0) => tmpRegR );
 
 end top_level;
 

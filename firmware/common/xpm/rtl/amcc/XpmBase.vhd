@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-21
+-- Last update: 2025-01-22
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -181,7 +181,7 @@ architecture top_level of XpmBase is
    constant DIAGNOSTIC_CONFIG_C : AxiStreamConfigType := ssiAxiStreamConfig(4);
 
    constant NUM_SEQ_C : natural := 8;
-   constant NUM_DDC_C : integer := 2;
+   constant NUM_DDC_C : integer := 0;
 
    -- AXI-Lite Interface (appClk domain)
    signal regClk         : sl;
