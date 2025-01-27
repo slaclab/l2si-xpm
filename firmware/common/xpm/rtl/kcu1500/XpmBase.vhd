@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-22
+-- Last update: 2025-01-23
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -603,7 +603,9 @@ begin
          timingPhyClk          => timingPhyClk,
          timingPhyRst          => timingPhyRst,
          recStream             => recStream );
-     dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 0);
+     timingFbClk    <= timingPhyClk;
+     timingFbStatus <= TIMING_PHY_STATUS_INIT_C;
+     dsLinkConfig   <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 0);
    end generate;
    
 

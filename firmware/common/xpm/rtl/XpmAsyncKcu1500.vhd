@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-22
+-- Last update: 2025-01-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -111,6 +111,43 @@ architecture rtl of XpmAsyncKcu1500 is
 
    signal timingFbClkB : sl;
    signal usTxControl  : TimingPhyControlType;
+
+   type TimingSuperFrameType is record
+     valid            : sl;
+     timingMessage    : TimingMessageType;
+     timingExtension  : TimingExtensionArray;
+   end record;
+
+   constant SUPER_FRAME_BITS_C : integer := 1 + TIMING_MESSAGE_BITS_C +
+                                            15*(TIMING_EXTENSION_MESSAGE_BITS_C+1);
+   signal superFrame, superFrameS : TimingSuperFrameType;
+   signal superFrameSlv, superFrameSlvS : slv(SUPER_FRAME_BITS_C-1 downto 0);
+   
+   function toSlv(frame : TimingSuperFrameType) return slv
+   is
+     variable vector : slv(SUPER_FRAME_BITS_C-1 downto 0);
+     variable i      : integer := 0;
+     variable j      : integer;
+   begin
+     assignSlv(i, vector, frame.valid);
+     assignSlv(i, vector, frame.timingMessage);
+     for j in range 1 to 15 loop
+       assignSlv(i, vector, frame.timingExtension(j));
+     end loop;
+     return vector;
+   end function toSlv;
+   
+   function toTimingSuperFrameType(vector : slv) return TimingSuperFrameType is
+     variable v : TimingSuperFrameType;
+     variable i : integer := 0;
+   begin
+     assignRecord(i, vector, v.valid);
+     assignRecord(i, vector, v.timingMessage);
+     for j in range 1 to 15 loop
+       assignRecord(i, vector, v.timingExtension(j));
+     end loop;
+     return v;
+   end function toTimingSuperFrameType;
    
 begin
 
@@ -185,6 +222,7 @@ begin
     generic map (
       AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(TIM_INDEX_C).baseAddr,
       CLKSEL_MODE_G    => "LCLSII",
+      ASYNC_G          => false,  -- need to do the CDC for the super frame
       AXIL_RINGB_G     => false,
       USE_TPGMINI_G    => false )
     port map (
@@ -198,8 +236,8 @@ begin
       gtRxDecErr          => usRx.decErr,
       gtRxControl         => usRxControl,
       gtRxStatus          => usRxStatus,
-      appTimingClk        => recClk,
-      appTimingRst        => recClkRst,
+      appTimingClk        => usRecClk,
+      appTimingRst        => recClkRst,  -- ?
       appTimingBus        => usRxTimingBus,
 
       axilClk             => axilClk,
@@ -212,10 +250,27 @@ begin
   --
   --  Reconstructed streams
   --
-  usRxVector <= toSlv(usRxTimingBus.message);
-  usRxValid  <= usRxTimingBus.valid;
-  usRxStrobe <= usRxTimingBus.strobe;
-  usRxExtn   <= usRxTimingBus.extension;
+  superFrame.valid           <= usRxTimingBus.valid;
+  superFrame.timingMessage   <= usRxTimingBus.message;
+  superFrame.timingExtension <= usRxTimingBus.extension;
+  superFrameSlv <= toSlv(superFrame);
+
+  U_SuperSynchronizer : entity surf.SynchronizerFifo
+    generic map (
+      TPD_G        => TPD_G,
+      DATA_WIDTH_G => SUPER_FRAME_BITS_C )
+    port map (
+      rst      => recClkRst,
+      wr_clk   => usRecClk,
+      wr_en    => usRxTimingBus.strobe,
+      din      => superFrameSlv,
+      rd_clk   => recClk,
+      dout     => superFrameSlvS,
+      valid    => usRxStrobe );
+      
+  usRxVector <= toSlv(superFrameS.timingMessage);
+  usRxValid  <= superFrameS.valid;
+  usRxExtn   <= superFrameS.extension;
   
   U_UsRecSerializer : entity lcls_timing_core.WordSerializer
     generic map (
