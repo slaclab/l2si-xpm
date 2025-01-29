@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-27
+-- Last update: 2025-01-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -130,21 +130,27 @@ architecture rtl of XpmAsyncKcu1500 is
      variable j      : integer;
    begin
      assignSlv(i, vector, frame.valid);
-     assignSlv(i, vector, frame.timingMessage);
-     for j in range 1 to 15 loop
-       assignSlv(i, vector, frame.timingExtension(j));
+     vector(TIMING_MESSAGE_BITS_C+i-1 downto i) := toSlv(frame.timingMessage);
+     i := i + TIMING_MESSAGE_BITS_C;
+     for j in 1 to 15 loop
+       assignSlv(i, vector, frame.timingExtension(j).valid);
+       assignSlv(i, vector, frame.timingExtension(j).data);
      end loop;
      return vector;
    end function toSlv;
    
    function toTimingSuperFrameType(vector : slv) return TimingSuperFrameType is
      variable v : TimingSuperFrameType;
+     variable m : slv(TIMING_MESSAGE_BITS_C-1 downto 0);
      variable i : integer := 0;
    begin
      assignRecord(i, vector, v.valid);
-     assignRecord(i, vector, v.timingMessage);
-     for j in range 1 to 15 loop
-       assignRecord(i, vector, v.timingExtension(j));
+     m := vector(TIMING_MESSAGE_BITS_C-1+i downto i);
+     v.timingMessage := toTimingMessageType(m);
+     i := i + TIMING_MESSAGE_BITS_C;
+     for j in 1 to 15 loop
+       assignRecord(i, vector, v.timingExtension(j).valid);
+       assignRecord(i, vector, v.timingExtension(j).data);
      end loop;
      return v;
    end function toTimingSuperFrameType;
@@ -267,10 +273,11 @@ begin
       rd_clk   => recClk,
       dout     => superFrameSlvS,
       valid    => usRxStrobe );
-      
+
+  superFrameS <= toTimingSuperFrameType(superFrameSlvS);
   usRxVector <= toSlv(superFrameS.timingMessage);
   usRxValid  <= superFrameS.valid;
-  usRxExtn   <= superFrameS.extension;
+  usRxExtn   <= superFrameS.timingExtension;
   
   U_UsRecSerializer : entity lcls_timing_core.WordSerializer
     generic map (

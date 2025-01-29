@@ -97,7 +97,8 @@ architecture mapping of XpmSequence is
    signal frame        : TimingMessageType;
    signal tframeSlv    : slv(TIMING_MESSAGE_BITS_C-1 downto 0);
    signal tframe       : TimingMessageType;
-
+   signal sinkSlv      : Slv13Array  (NUM_SEQ_G-1 downto 0);
+     
    constant S0 : integer := 12;
    constant SN : integer := S0+46;
    constant SEQBITS : integer := 4;
@@ -298,7 +299,7 @@ begin
             seqNotify    => seqNotify (i),
             seqNotifyWr  => seqNotifyValid (i),
             seqNotifyAck => r.ack (i),
-            dataO(16 downto 4) => open,
+            dataO(16 downto 4) => sinkSlv (i),
             dataO( 3 downto 0) => seqData (i),
             monReset     => seqCountRst,
             monCount     => status(i).countRequest);

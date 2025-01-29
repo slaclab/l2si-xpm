@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2024-07-11
+-- Last update: 2025-01-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -175,6 +175,56 @@ architecture top_level_app of xpm_sim is
                                        "xpm_event_1.xtc",
                                        "xpm_event_0.xtc" );
 
+   ------
+   -- XpmAsync
+   ------
+   type TimingSuperFrameType is record
+     valid            : sl;
+     timingMessage    : TimingMessageType;
+     timingExtension  : TimingExtensionArray;
+   end record;
+
+   constant SUPER_FRAME_BITS_C : integer := 1 + TIMING_MESSAGE_BITS_C +
+                                            15*(TIMING_EXTENSION_MESSAGE_BITS_C+1);
+   signal superFrame, superFrameS : TimingSuperFrameType;
+   signal superFrameSlv, superFrameSlvS : slv(SUPER_FRAME_BITS_C-1 downto 0);
+   
+   function toSlv(frame : TimingSuperFrameType) return slv
+   is
+     variable vector : slv(SUPER_FRAME_BITS_C-1 downto 0);
+     variable i      : integer := 0;
+     variable j      : integer;
+   begin
+     assignSlv(i, vector, frame.valid);
+     vector(TIMING_MESSAGE_BITS_C+i-1 downto i) := toSlv(frame.timingMessage);
+     i := i + TIMING_MESSAGE_BITS_C;
+     for j in 1 to 15 loop
+       assignSlv(i, vector, frame.timingExtension(j).valid);
+       assignSlv(i, vector, frame.timingExtension(j).data);
+     end loop;
+     return vector;
+   end function toSlv;
+   
+   function toTimingSuperFrameType(vector : slv) return TimingSuperFrameType is
+     variable v : TimingSuperFrameType;
+     variable m : slv(TIMING_MESSAGE_BITS_C-1 downto 0);
+     variable i : integer := 0;
+   begin
+     assignRecord(i, vector, v.valid);
+     m := vector(TIMING_MESSAGE_BITS_C-1+i downto i);
+     v.timingMessage := toTimingMessageType(m);
+     i := i + TIMING_MESSAGE_BITS_C;
+     for j in 1 to 15 loop
+       assignRecord(i, vector, v.timingExtension(j).valid);
+       assignRecord(i, vector, v.timingExtension(j).data);
+     end loop;
+     return v;
+   end function toTimingSuperFrameType;
+   
+
+   signal usRxTimingBus : TimingBusType;
+   signal usRxStrobe : sl;
+   
 begin
 
   tpgConfig.FixedRateDivisors <= (toSlv(0,20),
@@ -703,6 +753,7 @@ begin
        config          => appConfig,
        common          => common,
        commonDelay     => commonDelay,
+       patternCfg      => XPM_PATTERN_CONFIG_INIT_C,
        pattern         => pattern,
        axilReadMaster  => seqReadMaster,
        axilReadSlave   => seqReadSlave,
@@ -782,5 +833,60 @@ begin
                   axisMaster  => eventTrigMsgMasters(i),
                   axisSlave   => eventTrigMsgSlaves (i) );
   end generate;
+
+
+  --  XpmAsync
+
+  U_UsRxAsyn : entity lcls_timing_core.TimingCore
+    generic map (
+--      AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(TIM_INDEX_C).baseAddr,
+      CLKSEL_MODE_G    => "LCLSII",
+      ASYNC_G          => false,  -- need to do the CDC for the super frame
+      AXIL_RINGB_G     => false,
+      USE_TPGMINI_G    => false )
+    port map (
+      gtTxUsrClk          => usClk,
+      gtTxUsrRst          => usRst,
+      
+      gtRxRecClk          => dsClk(0),
+      gtRxData            => dsTxData,
+      gtRxDataK           => dsTxDataK,
+      gtRxDispErr         => "00",
+      gtRxDecErr          => "00",
+      gtRxControl         => open,
+      gtRxStatus          => TIMING_PHY_STATUS_FORCE_C,
+      appTimingClk        => dsClk(0),
+      appTimingRst        => dsRst(0),
+      appTimingBus        => usRxTimingBus,
+
+      axilClk             => regClk,
+      axilRst             => regRst,
+      axilReadMaster      => AXI_LITE_READ_MASTER_INIT_C,
+      axilReadSlave       => open,
+      axilWriteMaster     => AXI_LITE_WRITE_MASTER_INIT_C,
+      axilWriteSlave      => open );
+
+  --
+  --  Reconstructed streams
+  --
+  superFrame.valid           <= usRxTimingBus.valid;
+  superFrame.timingMessage   <= usRxTimingBus.message;
+  superFrame.timingExtension <= usRxTimingBus.extension;
+  superFrameSlv <= toSlv(superFrame);
+
+  U_SuperSynchronizer : entity surf.SynchronizerFifo
+    generic map (
+      TPD_G        => 1 ns,
+      DATA_WIDTH_G => SUPER_FRAME_BITS_C )
+    port map (
+      rst      => scRst,
+      wr_clk   => dsClk(0),
+      wr_en    => usRxTimingBus.strobe,
+      din      => superFrameSlv,
+      rd_clk   => scClk,
+      dout     => superFrameSlvS,
+      valid    => usRxStrobe );
+
+  superFrameS <= toTimingSuperFrameType(superFrameSlvS);
   
 end top_level_app;
