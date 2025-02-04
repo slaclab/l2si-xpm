@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2025-01-28
+-- Last update: 2025-02-03
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -254,22 +254,23 @@ begin
      appConfig.partition(0).l0Select.groups     <= x"FF" and not common;
      appConfig.partition(0).pipeline.depth_fids <= commonDelay+1;
      appConfig.partition(0).pipeline.depth_clks <= toSlv(conv_integer(commonDelay+1)*200,16);
-     for i in 1 to 7 loop
+     for i in 1 to 6 loop
        appConfig.partition(i).master              <= '1';
---       appConfig.partition(i).master              <= '0';
---       appConfig.partition(i).l0Select.enabled    <= '1';
---       appConfig.partition(i).l0Select.rateSel    <= toSlv(i,16);
        appConfig.partition(i).l0Select.rateSel    <= toSlv((i mod 2)+1,16);
        appConfig.partition(i).l0Select.destSel    <= x"8000";
        appConfig.partition(i).pipeline.depth_fids <= toSlv(10-i,8);
        appConfig.partition(i).pipeline.depth_clks <= toSlv((10-i)*200,16);
---       appConfig.partition(i).pipeline.depth_fids <= toSlv(90,8);
---       appConfig.partition(i).pipeline.depth_clks <= toSlv(90*200,16);
        appConfig.partition(i).l0Select.rawPeriod  <= toSlv(720-i*100,20);
---       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(ite(i=7,20,10000),20);
        appConfig.partition(i).l0Select.groups     <= x"FF" and not common;
---       appConfig.partition(i).l0Select.groups     <= x"00";
      end loop;
+     -- Group 7 is copy of group 6
+     appConfig.partition(7).master              <= '1';
+     appConfig.partition(7).l0Select.rateSel    <= toSlv((6 mod 2)+1,16);
+     appConfig.partition(7).l0Select.destSel    <= x"8000";
+     appConfig.partition(7).pipeline.depth_fids <= toSlv(10-6,8);
+     appConfig.partition(7).pipeline.depth_clks <= toSlv((10-6)*200,16);
+     appConfig.partition(7).l0Select.rawPeriod  <= toSlv(720-6*100,20);
+     appConfig.partition(7).l0Select.groups     <= x"FF" and not common;
 
      --  Need to wait until all pipelines are going else l0Select enables
      --  aren't sync'd
@@ -414,22 +415,33 @@ begin
    scRstA <= (others=>scRst);
    
    U_TemConfig : entity l2si.AxiLiteWriteMasterSim
-     generic map ( CMDS => (( addr  => x"00009004", value => x"00000000"),
-                            ( addr  => x"00009104", value => x"00000001"),
-                            ( addr  => x"00009204", value => x"00000002"),
-                            ( addr  => x"00009304", value => x"00000003"),
-                            ( addr  => x"00009404", value => x"00000004"),
-                            ( addr  => x"00009504", value => x"00000005"),
-                            ( addr  => x"00009604", value => x"00000006"),
-                            ( addr  => x"00009704", value => x"00000007"),
-                            ( addr  => x"00009000", value => x"00000001"),
-                            ( addr  => x"00009100", value => x"00000001"),
-                            ( addr  => x"00009200", value => x"00000001"),
-                            ( addr  => x"00009300", value => x"00000001"),
-                            ( addr  => x"00009400", value => x"00000001"),
-                            ( addr  => x"00009500", value => x"00000001"),
-                            ( addr  => x"00009600", value => x"00000001"),
-                            ( addr  => x"00009700", value => x"00000001")) )
+     generic map ( CMDS => -- group 0 to 5
+                   (( addr  => x"00009004", value => x"00000000"),
+                    ( addr  => x"00009000", value => x"00000001"),
+                    ( addr  => x"00009104", value => x"00000001"),
+                    ( addr  => x"00009100", value => x"00000001"),
+                    ( addr  => x"00009204", value => x"00000002"),
+                    ( addr  => x"00009200", value => x"00000001"),
+                    ( addr  => x"00009304", value => x"00000003"),
+                    ( addr  => x"00009300", value => x"00000001"),
+                    ( addr  => x"00009404", value => x"00000004"),
+                    ( addr  => x"00009400", value => x"00000001"),
+                    ( addr  => x"00009504", value => x"00000005"),
+                    ( addr  => x"00009500", value => x"00000001"),
+                    -- group 6
+                    ( addr  => x"00009604", value => x"00010006"), -- EVR
+                    ( addr  => x"0000960C", value => x"00000000"), -- delay
+                    ( addr  => x"00009600", value => x"00000001"),
+                    -- group 7
+                    ( addr  => x"00009704", value => x"00000007"), -- XPM
+                    ( addr  => x"0000970C", value => x"00000000"), -- delay
+                    ( addr  => x"00009700", value => x"00000001"),
+                    -- EvrV2CoreTriggers, channel 1
+                    ( addr  => x"00000600", value => x"00000001"),
+                    ( addr  => x"00000604", value => x"40000001"),
+                    ( addr  => x"00001600", value => x"80010006"),
+                    ( addr  => x"00001604", value => x"000003e8"),
+                    ( addr  => x"00001608", value => x"00000080")) )
      port map ( clk    => regClk,
                 rst    => regRst,
                 master => temWriteMaster,
@@ -558,7 +570,7 @@ begin
          EN_LCLS_II_TIMING_G            => true,
          NUM_DETECTORS_G                => 8,
          L1_CLK_IS_TIMING_TX_CLK_G      => false,
-         TRIGGER_CLK_IS_TIMING_RX_CLK_G => false,
+         TRIGGER_CLK_IS_TIMING_RX_CLK_G => true,
          EVENT_CLK_IS_TIMING_RX_CLK_G   => false)
       port map (
          timingRxClk              => dsClk(0),
@@ -568,8 +580,8 @@ begin
          timingTxClk              => usClk,
          timingTxRst              => usRst,
          timingTxPhy              => open,
-         triggerClk               => regClk,
-         triggerRst               => regRst,
+         triggerClk               => dsClk(0),
+         triggerRst               => dsRst(0),
          triggerData              => triggerData,                    -- [out]
          clearReadout             => clearReadout,                   -- [out]
          l1Clk                    => dsClk(0),
