@@ -18,6 +18,7 @@
 #-----------------------------------------------------------------------------
 
 import pyrogue        as pr
+import json
 
 class SeqState(pr.Device):
     def __init__(   self, 
@@ -86,7 +87,7 @@ class SeqJump(pr.Device):
             base         = pr.UInt,
             mode         = "RW",
             number       = 16,
-            hidden       = True,
+            #hidden       = True,
         )
 
     def setManSync(self,sync):
@@ -119,20 +120,23 @@ class SeqMem(pr.Device):
             mode         = "RW",
             number       = 2048,
             hidden       = True,
+            verify       = False,
         )
 
 class XpmSequenceEngine(pr.Device):
     def __init__(   self, 
-            name        = "XpmSequenceEngine", 
-            description = "XPM Sequence Engine module", 
-            **kwargs):
+                    name        = "XpmSequenceEngine", 
+                    description = "XPM Sequence Engine module",
+                    nseq        = 8,
+                    alen        = 11,
+                    **kwargs):
         super().__init__(name=name, description=description, **kwargs)
 
         self.add(pr.RemoteVariable(    
             name         = "seqAddrLen",
             description  = "Sequence address length",
             offset       =  0x00,
-            bitSize      =  12,
+            bitSize      =  4,
             bitOffset    =  0x00,
             base         = pr.UInt,
             mode         = "RO",
@@ -162,38 +166,71 @@ class XpmSequenceEngine(pr.Device):
             name         = "seqEn",
             description  = "Sequence enable",
             offset       =  0x04,
-            bitSize      =  32,
+            bitSize      =  nseq,
             bitOffset    =  0x00,
             base         = pr.UInt,
             mode         = "RW",
+            verify       = False,
         ))
 
         self.add(pr.RemoteVariable(    
             name         = "seqRestart",
             description  = "Sequence restart",
             offset       =  0x08,
-            bitSize      =  32,
+            bitSize      =  nseq,
             bitOffset    =  0x00,
             base         = pr.UInt,
             mode         = "RW",
             verify       = False,  # resets itself
         ))
 
-        for i in range(16):
+        for i in range(nseq):
             self.add(SeqState(
                 name     = 'SeqState_%d'%i,
                 offset   = 0x80+i*0x10,
             ))
 
-        for i in range(16):
+        for i in range(nseq):
             self.add(SeqJump(
                 name     = 'SeqJump_%d'%i,
                 offset   = 0x4000+i*0x40,
             ))
 
-        for i in range(2):
+        for i in range(nseq):
             self.add(SeqMem(
                 name     = 'SeqMem_%d'%i,
-                offset   = 0x8000+i*0x2000,
+                offset   = 0x10000+i*(1<<(alen+2)),
             ))
 
+        self.add(pr.LocalCommand(
+            name        = 'LoadSequence',
+            description = 'Load a sequence engine [engine, filename]',
+            value       = [0,'filename'],
+            function    = self.fnLoadSequence))
+        
+    def fnLoadSequence(self, dev, cmd, arg):
+        """LoadSequence command function"""
+
+        if self.enable.get():
+            print(f'fnLoadSequence: arg {arg}')
+
+            engine = arg[0]
+            fname  = arg[1]
+            with open(fname,'r') as f:
+                instr = json.load(f)
+
+            ram = getattr(self,f'SeqMem_{engine}')
+            for n,i in enumerate(instr):
+                print(f'{n}: {i:x}')
+                ram.mem[n].set(i)
+
+            jump = getattr(self,f'SeqJump_{engine}')
+            jump.setManStart(0,0)
+            jump.setManSync(6)
+
+            mask = self.seqEn.get()
+            mask |= (1<<engine)
+            self.seqEn.set(mask)
+            self.seqRestart.set(1<<engine)
+            
+            

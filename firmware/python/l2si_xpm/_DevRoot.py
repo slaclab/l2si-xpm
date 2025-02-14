@@ -89,6 +89,8 @@ class DataDebug(rogue.interfaces.stream.Slave):
                 d = {'Group':i,'L0Ena':l0Ena,'L0Inh':l0Inh,'NumL0':numL0,'rTim':rT}
                 print(d)
 
+            # pattern 5*38 bytes
+            
             for i in range(2):
                 offset += 1
 
@@ -97,6 +99,13 @@ class DataDebug(rogue.interfaces.stream.Slave):
             d = {'bpClk ':w[0]&0xfffffff,'fbClk ':w[1]&0xfffffff,'recClk':w[2]&0xfffffff,'phyClk':w[3]&0xfffffff}
             print(d)
 
+            # seqcodes 128 bytes
+            NCODES = 32
+            w = struct.unpack_from(f'<{NCODES}L',msg,offset)
+            offset += 4*NCODES
+            offc = NCODES//2
+            for i in range(offc):
+                print(f'Code {256+i}: {w[i]:6d} Hz\t\tCode {256+i+offc}: {w[i+offc]:6d} Hz')
                 
 class DevRoot(pr.Root):
 

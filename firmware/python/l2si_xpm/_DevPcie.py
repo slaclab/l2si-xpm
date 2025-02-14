@@ -49,12 +49,13 @@ class DevPcie(pr.Device):
                   ['MmcmPL186', 0x80040000] ]
 
     def __init__(   self,       
-            name        = "Top",
-            description = "Container for XPM",
-            memBase     = 0,
-            **kwargs):
+                    name        = "Top",
+                    description = "Container for XPM",
+                    memBase     = 0,
+                    isXpmGen    = True,
+                    **kwargs):
         super().__init__(name=name, description=description, **kwargs)
-        
+        self.isXpmGen = isXpmGen
         ######################################################################
         
         # Add devices
@@ -102,11 +103,6 @@ class DevPcie(pr.Device):
             offset       = 0x00820000,
         ))
 
-        self.add(xpm.XpmPhase(
-            memBase = memBase,
-            name   = 'CuToScPhase',
-            offset = 0x00850000,
-        ))
 
     def start(self):
         #  Reprogram the reference clock
@@ -134,3 +130,22 @@ class DevPcie(pr.Device):
         self.XpmApp.link.set(0)
         time.sleep(0.01)
         self.DevReset.clearTimingPhyReset.set(1)
+
+        if self.isXpmGen:
+            #  Set the fixed rate markers
+            self.TpgMini.FixedRateDiv[0].set(910000)
+            self.TpgMini.FixedRateDiv[1].set( 91000)
+            self.TpgMini.FixedRateDiv[2].set(  9100)
+            self.TpgMini.FixedRateDiv[3].set(   910)
+            self.TpgMini.FixedRateDiv[4].set(    91)
+            self.TpgMini.FixedRateDiv[5].set(    13)
+            self.TpgMini.FixedRateDiv[6].set(     1)
+            self.TpgMini.RateReload.set(1)
+
+        #  Reset to realign the rate markers
+        self.DevReset.clearTimingPhyReset.set(0)
+        time.sleep(0.001)
+        self.DevReset.clearTimingPhyReset.set(1)
+
+            
+        

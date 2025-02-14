@@ -780,6 +780,55 @@ class XpmApp(pr.Device):
                 verify       = False,
             ))
 
+        self.add(pr.LocalCommand(
+            name        = 'MonStream_Enable',
+            description = 'Enable/disable the monitoring stream',
+            value       = [0],
+            function    = self.fnMonStream_Enable))
+        
+        self.add(pr.LocalCommand(
+            name        = 'SetGroup_EventCode',
+            description = 'Set eventcode trigger for group',
+            value       = [0,256],
+            function    = self.fnSetGroup_EventCode))
+        
+        self.add(pr.LocalCommand(
+            name        = 'SetGroup_FixedRate',
+            description = 'Set fixed rate trigger for group [1H,10H,100H,1kH,10kH,70kH,910kH]',
+            value       = [0,'1H'],
+            function    = self.fnSetGroup_FixedRate))
+        
+    def fnMonStream_Enable(self, dev, cmd, arg):
+        if self.enable.get():
+            self.monStreamEnable.set(arg[0])
+
+    def fnSetGroup_EventCode(self, dev, cmd, arg):
+        if self.enable.get():
+            group   = arg[0]
+            ecode   = arg[1]
+            ratesel = (2<<14) | ((ecode&0x3f0)<<4) | (ecode&0xf)
+            self.partition.set(group)
+            self.l0Master.set(1)
+            self.l0RateSel.set(ratesel)
+            self.l0DestSel.set(0x8000)
+
+            self.groupL0Reset.set(1<<group)
+            self.groupL0Enable.set(1<<group)
+
+    def fnSetGroup_FixedRate(self, dev, cmd, arg):
+        if self.enable.get():
+            d = {'1H':0, '10H':1, '100H':2, '1kH':3, '10kH':4, '70kH':5, '910kH':6}
+            group   = arg[0]
+            frate   = d[arg[1]]
+            ratesel = (0<<14) | (frate&0x3ff)
+            self.partition.set(group)
+            self.l0Master.set(1)
+            self.l0RateSel.set(ratesel)
+            self.l0DestSel.set(0x8000)
+
+            self.groupL0Reset.set(1<<group)
+            self.groupL0Enable.set(1<<group)
+            
     def l0EnaCnt(self, l0Stats):
         return (l0Stats>>0)&((1<<64)-1)
 

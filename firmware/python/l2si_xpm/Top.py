@@ -172,7 +172,7 @@ class Top(pr.Device):
         self.add(xpm.XpmSequenceEngine(
             memBase = memBase,
             name   = 'SeqEng_0',
-            offset = 0x80020000,
+            offset = 0x80040000,
         ))
 
 #        self.add(xpm.CuPhase(
@@ -181,9 +181,10 @@ class Top(pr.Device):
 #            offset = 0x80050000,
 #        ))
 
-        self.add(xpm.XpmPhase(
-            memBase = memBase,
-            name   = 'CuToScPhase',
-            offset = 0x80050000,
-        ))
+        if False:
+            self.add(xpm.XpmPhase(
+                memBase = memBase,
+                name   = 'CuToScPhase',
+                offset = 0x80080000,
+            ))
 
