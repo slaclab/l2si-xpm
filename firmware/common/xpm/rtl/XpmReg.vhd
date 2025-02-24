@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-10-23
+-- Last update: 2025-02-24
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -64,6 +64,8 @@ entity XpmReg is
       axilWriteSlave  : out AxiLiteWriteSlaveType;
       axilReadMaster  : in  AxiLiteReadMasterType;
       axilReadSlave   : out AxiLiteReadSlaveType;
+      seqRestart      : out slv(NUM_SEQ_G-1 downto 0);
+      seqDisable      : out slv(NUM_SEQ_G-1 downto 0);
       groupLinkClear  : in  slv(XPM_PARTITIONS_C-1 downto 0);
       -- Application Debug Interface (sysclk domain)
       ibDebugMaster   : in  AxiStreamMasterType;
@@ -103,9 +105,10 @@ architecture rtl of XpmReg is
    constant STEP_INIT_C : StepType := (
       enable   => '0',
       numL0Acc => (others=>'0'),
-      groups   => (others=>'0') );
+      groups   => (others=>'0'));
 
    type StepArray is array (natural range<>) of StepType;
+   type SeqMaskArray is array (natural range<>) of slv(NUM_SEQ_G-1 downto 0);
 
    constant XPM_PLL_INIT_C : XpmPllConfigType := (
       bwSel  => "0111",
@@ -144,6 +147,9 @@ architecture rtl of XpmReg is
       cuRxEnable     : sl;
       step           : StepArray(XPM_PARTITIONS_C-1 downto 0);
       stepMaster     : AxiStreamMasterType;
+      seqMask        : SeqMaskArray(XPM_PARTITIONS_C-1 downto 0);
+      seqRestart     : slv(NUM_SEQ_G-1 downto 0);
+      seqDisable     : slv(NUM_SEQ_G-1 downto 0);
       monStreamEnable: sl;
       monStreamPeriod: slv(26 downto 0);
       l0Select_reset : sl;
@@ -175,6 +181,9 @@ architecture rtl of XpmReg is
       cuRxEnable     => toSl(CU_RX_ENABLE_INIT_G),
       step           => (others=>STEP_INIT_C),
       stepMaster     => AxiStreamMasterInit(EMAC_AXIS_CONFIG_C),
+      seqMask        => (others=>(others=>'0')),
+      seqRestart     => (others=>'0'),
+      seqDisable     => (others=>'0'),
       monStreamEnable=> '0',
       monStreamPeriod=> toSlv(AXILCLK_FREQ_G,27),
       l0Select_reset => '0' );
@@ -236,7 +245,9 @@ begin
    cuRxEnable     <= r.cuRxEnable;
    obDebugMaster  <= r.stepMaster;
    ibDebugSlave   <= AXI_STREAM_SLAVE_FORCE_C;
-     
+   seqRestart     <= r.seqRestart;
+   seqDisable     <= r.seqDisable;
+   
    GEN_MONCLK : for i in 0 to 3 generate
       U_SYNC : entity surf.SyncClockFreq
          generic map (
@@ -254,12 +265,6 @@ begin
             locClk      => axilClk,
             refClk      => axilClk);
    end generate;
-
-   --
-   --  Still need to cross clock-domains for register readout of:
-   --    link status (32 links)
-   --    partition inhibit counts (from 32 links for each partition)
-   --
 
    GEN_BP : for i in 0 to NUM_BP_LINKS_G generate
       U_LinkUp : entity surf.Synchronizer
@@ -452,7 +457,6 @@ begin
       axiSlaveRegister(axilEp, X"004", 10, v.linkDebug);
       axiSlaveRegister(axilEp, X"004", 16, v.amc);
       axiSlaveRegister(axilEp, X"004", 20, v.inhibit);
---    axiSlaveRegister(axilEp, X"004", 24, v.config.tagStream);
 --    axiSlaveRegister(axilEp, X"004", 25, v.usRxEnable);
 --    axiSlaveRegister(axilEp, X"004", 26, v.cuRxEnable);
       axiSlaveRegisterR(axilEp, X"004", 25, toSl(US_RX_ENABLE_INIT_G));
@@ -582,7 +586,9 @@ begin
             v.stepMaster.tData(63 downto 32) := r.step(i).numL0Acc;
          end if;
       end loop;
-      
+
+      v.seqRestart := (others=>'0');
+      v.seqDisable := (others=>'0');
       for i in 0 to XPM_PARTITIONS_C-1 loop
          if groupL0Reset(i) = '1' then
             v.config.partition(i).l0Select.reset := '1';
@@ -591,10 +597,12 @@ begin
          if groupL0Enable(i) = '1' then
             v.config.partition(i).l0Select.enabled := '1';
             v.load                                 := '1';
+            v.seqRestart                           := v.seqRestart or r.seqMask(i);
          end if;
          if groupL0Disable(i) = '1' then
             v.config.partition(i).l0Select.enabled := '0';
             v.load                                 := '1';
+            v.seqDisable                           := v.seqDisable or r.seqMask(i);
          end if;
          if groupMsgInsert(i) = '1' then
             v.config.partition(i).message.insert := '1';
@@ -604,6 +612,7 @@ begin
 
       for i in 0 to XPM_PARTITIONS_C-1 loop
          axiSlaveRegister (axilEp, toSlv(528+8*i+0,12), 0, v.step(i).groups);
+         axiSlaveRegister (axilEp, toSlv(528+8*i+0,12),16, v.seqmask(i));
          axiSlaveRegister (axilEp, toSlv(528+8*i+4,12), 0, v.step(i).numL0Acc);
       end loop;
       
@@ -615,12 +624,6 @@ begin
             v.config.dsLink(i).groupMask := v.config.dsLink(i).groupMask and not groupLinkClear;
          end if;
       end loop;
-
---if r.partitionCfg.analysis.rst(1)='1' then
---  v.anaWrCount(ip) := (others=>'0');
---elsif r.partitionCfg.analysis.push(1)='1' then
---  v.anaWrCount(ip) := r.anaWrCount(ip)+1;
---end if;
 
       axiSlaveRegisterR(axilEp, X"300",  0, toSlv(NUM_DDC_G,8));
       axiSlaveRegisterR(axilEp, X"300",  8, toSlv(NUM_SEQ_G,8));
@@ -732,5 +735,5 @@ begin
                     dataIn  => q.stepDone(i),
                     dataOut => stepDone(i) );
    end generate;
-   
+
 end rtl;

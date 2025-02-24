@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-22
+-- Last update: 2025-02-24
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -334,40 +334,15 @@ architecture top_level of XpmBase is
 
    signal seqCountRst : sl;
    signal seqCount    : Slv128Array(NUM_DDC_C+NUM_SEQ_C-1 downto 0);
+   signal seqRestart  : slv(NUM_SEQ_C-1 downto 0);
+   signal seqDisable  : slv(NUM_SEQ_C-1 downto 0);
    
    signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
 
    signal common : slv(XPM_PARTITIONS_C-1 downto 0);
 
-   component ila_0
-     port ( clk    : in sl;
-            probe0 : in slv(255 downto 0) );
-   end component;
-   
 begin
 
-  U_ILA : ila_0
-    port map ( clk                    => regClk,
-               probe0(31 downto 0)    => regReadMaster.araddr,
-               probe0(32)             => regReadMaster.arvalid,
-               probe0(64 downto 33)   => regReadSlave.rdata,
-               probe0(65)             => regReadSlave.rvalid,
-               probe0(97 downto 66)   => regWriteMaster.awaddr,
-               probe0(98)             => regWriteMaster.awvalid,
-               probe0(130 downto 99)  => regWriteMaster.wdata,
-               probe0(131)            => regWriteSlave.bvalid,
-               probe0(132)            => axilReadSlaves(0).rvalid,
-               probe0(133)            => axilReadSlaves(1).rvalid,
-               probe0(134)            => axilReadSlaves(2).rvalid,
-               probe0(135)            => axilReadSlaves(3).rvalid,
-               probe0(136)            => axilReadSlaves(4).rvalid,
-               probe0(137)            => axilWriteSlaves(0).bvalid,
-               probe0(138)            => axilWriteSlaves(1).bvalid,
-               probe0(139)            => axilWriteSlaves(2).bvalid,
-               probe0(140)            => axilWriteSlaves(3).bvalid,
-               probe0(141)            => axilWriteSlaves(4).bvalid,
-               probe0(255 downto 142) => (others=>'0') );
-               
    amcRstN <= "11";
 
    --
@@ -497,7 +472,7 @@ begin
                     gtTxN(0) => timingTxN );
      end generate GEN_CU_RX;
    end generate;
-   
+
    U_XBAR : entity surf.AxiLiteCrossbar
       generic map (
          TPD_G              => TPD_G,
@@ -679,6 +654,8 @@ begin
          axilWriteMaster => axilWriteMasters(APP_INDEX_C),
          axilWriteSlave  => axilWriteSlaves (APP_INDEX_C),
          groupLinkClear  => groupLinkClear,
+         seqRestart      => seqRestart,
+         seqDisable      => seqDisable,
          -- Async Notification
          obAppMaster     => seqMaster,
          obAppSlave      => seqSlave,
@@ -889,6 +866,8 @@ begin
          axilReadSlave   => axilReadSlaves  (REG_INDEX_C),
          axilWriteMaster => axilWriteMasters(REG_INDEX_C),
          axilWriteSlave  => axilWriteSlaves (REG_INDEX_C),
+         seqRestart      => seqRestart,
+         seqDisable      => seqDisable,
          groupLinkClear  => groupLinkClear,
          -- Streaming input (regClk domain)
          ibDebugMaster   => ibDebugMaster,

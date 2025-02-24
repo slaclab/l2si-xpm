@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2025-02-03
+-- Last update: 2025-02-24
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -224,6 +224,8 @@ architecture top_level_app of xpm_sim is
 
    signal usRxTimingBus : TimingBusType;
    signal usRxStrobe : sl;
+
+   signal seqRestart, seqDisable : slv(0 downto 0);
    
 begin
 
@@ -272,9 +274,19 @@ begin
      appConfig.partition(7).l0Select.rawPeriod  <= toSlv(720-6*100,20);
      appConfig.partition(7).l0Select.groups     <= x"FF" and not common;
 
+     wait for 20 us;
+     seqRestart <= (others=>'1');
+     wait for 10 ns;
+     seqRestart <= (others=>'0');
+
+     wait for 5 us;
+     seqDisable <= (others=>'1');
+     wait for 10 ns;
+     seqDisable <= (others=>'0');
+     
      --  Need to wait until all pipelines are going else l0Select enables
      --  aren't sync'd
-     wait for 140 us;
+     wait for 115 us;
 
      for i in 0 to 7 loop
        appConfig.partition(i).l0Select.enabled <= '1';
@@ -771,6 +783,8 @@ begin
        axilReadSlave   => seqReadSlave,
        axilWriteMaster => seqWriteMaster,
        axilWriteSlave  => seqWriteSlave,
+       seqRestart      => seqRestart,
+       seqDisable      => seqDisable,
        obAppSlave      => AXI_STREAM_SLAVE_INIT_C,
        -- AMC's DS Ports
        dsLinkStatus    => (others=>XPM_LINK_STATUS_INIT_C),

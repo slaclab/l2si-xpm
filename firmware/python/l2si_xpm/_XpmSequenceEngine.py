@@ -18,6 +18,7 @@
 #-----------------------------------------------------------------------------
 
 import pyrogue        as pr
+import json
 
 class SeqState(pr.Device):
     def __init__(   self, 
@@ -197,3 +198,25 @@ class XpmSequenceEngine(pr.Device):
                 offset   = 0x8000+i*0x2000,
             ))
 
+    def fnLoadSequence(self, dev, cmd, arg):
+        """LoadSequence command function"""
+
+        if self.enable.get():
+            self.reportCmd(dev,cmd,arg)
+
+            engine = arg[0]
+            fname  = arg[1]
+            with open(fname,'r') as f:
+                instr = json.load(f)
+
+            ram = getattr(self,f'SeqMem_{engine}')[0]
+            for n,i in enumerate(instr):
+                print(f'{n}: {i:x}')
+                ram.mem[n].put(i)
+
+            jump = getattr(self,f'SeqJump_{engine}')[0]
+            jump.setManStart(0,0)
+            jump.setManSync(6)
+
+            self.seqRestart.put(1<<engine)
+            
