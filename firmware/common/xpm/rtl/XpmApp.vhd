@@ -67,6 +67,8 @@ entity XpmApp is
       obAppMaster     : out AxiStreamMasterType;
       obAppSlave      : in  AxiStreamSlaveType;
       groupLinkClear  : out slv (XPM_PARTITIONS_C-1 downto 0);
+      seqRestart      : in  slv(NUM_SEQ_G-1 downto 0);
+      seqDisable      : in  slv(NUM_SEQ_G-1 downto 0);
       -- AMC's DS Ports
       dsLinkStatus    : in  XpmLinkStatusArray(NUM_DS_LINKS_G-1 downto 0);
       dsRxData        : in  Slv16Array (NUM_DS_LINKS_G-1 downto 0);
@@ -391,6 +393,8 @@ begin
          axilReadSlave   => axilReadSlave,
          axilWriteMaster => axilWriteMaster,
          axilWriteSlave  => axilWriteSlave,
+         seqRestart      => seqRestart,
+         seqDisable      => seqDisable,
          obAppMaster     => obAppMaster,
          obAppSlave      => obAppSlave,
          timingClk       => timingClk,

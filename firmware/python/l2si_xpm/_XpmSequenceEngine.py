@@ -233,4 +233,3 @@ class XpmSequenceEngine(pr.Device):
             self.seqEn.set(mask)
             self.seqRestart.set(1<<engine)
             
-            

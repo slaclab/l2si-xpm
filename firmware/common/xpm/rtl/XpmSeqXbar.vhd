@@ -42,6 +42,8 @@ entity XpmSeqXbar is
       axiReadSlave    : out AxiLiteReadSlaveType;
       axiWriteMaster  : in  AxiLiteWriteMasterType;
       axiWriteSlave   : out AxiLiteWriteSlaveType;
+      seqRestart      : in  slv(NUM_SEQ_G-1 downto 0);
+      seqDisable      : in  slv(NUM_SEQ_G-1 downto 0);
       -- Configuration/Status (on clk domain)
       clk             : in  sl;
       rst             : in  sl;
@@ -83,8 +85,8 @@ architecture xbar of XpmSeqXbar is
    signal statusSlvS : slv(NUM_SEQ_G*XPM_SEQ_STATUS_BITS_C-1 downto 0);
 
    signal gConfigS : XpmSeqGConfigType;
-   signal mConfig0,mConfig1,mConfig2    : XpmSeqConfigArray(NUM_SEQ_G-1 downto 0);
-   signal mConfigS0,mConfigS1,mConfigS2 : XpmSeqConfigArray(NUM_SEQ_G-1 downto 0);
+   type XpmSeqConfigArrayArray is array (natural range<>) of XpmSeqConfigArray(NUM_SEQ_G-1 downto 0);
+   signal mConfig, mConfigS : XpmSeqConfigArrayArray(NUM_AXI_MASTERS_C-1 downto 0);
 
    signal gConfigSlv,gConfigSlvS : slv(SEQADDRLEN+31 downto 0);
    type XpmSeqConfigSlvArray is array (natural range <>) of slv(NUM_SEQ_G*XPM_SEQ_CONFIG_BITS_C-1 downto 0);
@@ -125,7 +127,7 @@ begin
          axiWriteMaster => mAxilWriteMasters(SEQJUMP_INDEX_C),
          axiWriteSlave  => mAxilWriteSlaves (SEQJUMP_INDEX_C),
          status         => statusS,
-         config         => mConfigS0,
+         config         => mConfigS         (SEQJUMP_INDEX_C),
          axiClk         => regclk,
          axiRst         => regrst);
 
@@ -137,8 +139,10 @@ begin
          axiReadSlave   => mAxilReadSlaves  (SEQSTATE_INDEX_C),
          axiWriteMaster => mAxilWriteMasters(SEQSTATE_INDEX_C),
          axiWriteSlave  => mAxilWriteSlaves (SEQSTATE_INDEX_C),
+         seqRestart     => seqRestart,
+         seqDisable     => seqDisable,
          status         => statusS,
-         config         => mConfigS1,
+         config         => mConfigS         (SEQSTATE_INDEX_C),
          axiClk         => regclk,
          axiRst         => regrst);
 
@@ -153,7 +157,7 @@ begin
          axiWriteSlave  => mAxilWriteSlaves (SEQMEM_INDEX_C),
          status         => statusS,
          gconfig        => gConfigS,
-         config         => mConfigS2,
+         config         => mConfigS         (SEQMEM_INDEX_C),
          axiClk         => regclk,
          axiRst         => regrst);
 
@@ -161,9 +165,8 @@ begin
      regclk     <= clk;
      regrst     <= rst;
      statusS    <= status;
-     mConfig0   <= mConfigS0;
-     mConfig1   <= mConfigS1;
-     mConfig2   <= mConfigS2;
+     gConfig    <= gConfigS;
+     mConfig    <= mConfigS;
 
      U_AxiLiteAsync : entity surf.AxiLiteAsync
        generic map (
@@ -204,13 +207,7 @@ begin
          dataOut => statusSlvS);
 
      gconfig  <= toXpmSeqGConfigType(gConfigSlv);
-     mConfig0 <= toXpmSeqConfigArray(mConfigSlv(0),NUM_SEQ_G);
-     mConfig1 <= toXpmSeqConfigArray(mConfigSlv(1),NUM_SEQ_G);
-     mConfig2 <= toXpmSeqConfigArray(mConfigSlv(2),NUM_SEQ_G);
      gConfigSlvS    <= toSlv(gConfigS);
-     mConfigSlvS(0) <= toSlv(mConfigS0);
-     mConfigSlvS(1) <= toSlv(mConfigS1);
-     mConfigSlvS(2) <= toSlv(mConfigS2);
      
      U_ConfigSyncG : entity surf.SynchronizerVector
        generic map (
@@ -220,6 +217,8 @@ begin
          dataIn  => gConfigSlvS,
          dataOut => gConfigSlv );
      GEN_CONFIG_SYNC : for i in 0 to NUM_AXI_MASTERS_C-1 generate
+       mConfigSlvS(i) <= toSlv(mConfigS(i));
+       mConfig    (i) <= toXpmSeqConfigArray(mConfigSlv(i),NUM_SEQ_G);
        U_ConfigSync : entity surf.SynchronizerVector
          generic map (
            WIDTH_G => mConfigSlvS(i)'length)
@@ -233,14 +232,14 @@ begin
    -------------------------------
    -- Configuration Register
    -------------------------------
-   comb : process (mConfig0,mConfig1,mConfig2) is
+   comb : process (mConfig) is
       variable v : XpmSeqConfigArray(NUM_SEQ_G-1 downto 0);
    begin
       for i in 0 to NUM_SEQ_G-1 loop
-        v(i)               := mConfig2(i);
-        v(i).seqJumpConfig := mConfig1(i).seqJumpConfig;
-        v(i).seqEnable     := mConfig0(i).seqEnable;
-        v(i).seqRestart    := mConfig0(i).seqRestart;
+        v(i)               := mConfig(SEQMEM_INDEX_C)  (i);
+        v(i).seqJumpConfig := mConfig(SEQJUMP_INDEX_C) (i).seqJumpConfig;
+        v(i).seqEnable     := mConfig(SEQSTATE_INDEX_C)(i).seqEnable;
+        v(i).seqRestart    := mConfig(SEQSTATE_INDEX_C)(i).seqRestart;
         config(i)          <= v(i);
       end loop;
    end process comb;

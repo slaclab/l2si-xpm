@@ -39,6 +39,8 @@ entity XpmSeqStateReg is
       axiReadSlave   : out AxiLiteReadSlaveType;
       axiWriteMaster : in  AxiLiteWriteMasterType;
       axiWriteSlave  : out AxiLiteWriteSlaveType;
+      seqRestart     : in  slv(NUM_SEQ_G-1 downto 0);
+      seqDisable     : in  slv(NUM_SEQ_G-1 downto 0);
       -- EVR Interface
       status         : in  XpmSeqStatusArray(NUM_SEQ_G-1 downto 0);
       config         : out XpmSeqConfigArray(NUM_SEQ_G-1 downto 0);
@@ -70,7 +72,8 @@ begin
    -------------------------------
    -- Configuration Register
    -------------------------------
-   comb : process (axiReadMaster, axiRst, axiWriteMaster, r, status) is
+   comb : process (axiReadMaster, axiRst, axiWriteMaster, r, status,
+                   seqRestart, seqDisable) is
       variable v  : RegType;
       variable ep : AxiLiteEndpointType;
    begin
@@ -84,10 +87,17 @@ begin
       axiSlaveRegisterR(ep, toSlv(0, 12), 24, toSlv(NUM_SEQ_G, 8));
 
       for i in 0 to NUM_SEQ_G-1 loop
-         v.config(i).SeqRestart := '0';
+         v.config(i).seqRestart := '0';
          axiSlaveRegister (ep, toSlv(4, 12), i+0, v.config(i).seqEnable);
          axiSlaveRegister (ep, toSlv(8, 12), i+0, v.config(i).seqRestart);
 
+         if seqRestart(i) = '1' then
+            v.config(i).seqRestart := '1';
+            v.config(i).seqEnable  := '1';
+         elsif seqDisable(i) = '1' then
+            v.config(i).seqEnable  := '0';
+         end if;
+         
          if (axiReadMaster.araddr(6 downto 4) = i) then
             v.seqState := status(i).seqState;
          end if;

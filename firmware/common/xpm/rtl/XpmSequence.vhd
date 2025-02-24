@@ -52,6 +52,8 @@ entity XpmSequence is
       axilWriteSlave  : out AxiLiteWriteSlaveType;
       obAppMaster     : out AxiStreamMasterType;
       obAppSlave      : in  AxiStreamSlaveType;
+      seqRestart      : in  slv(NUM_SEQ_G-1 downto 0);
+      seqDisable      : in  slv(NUM_SEQ_G-1 downto 0);
       -- Configuration/Status (on clk domain)
       timingClk       : in  sl;
       timingRst       : in  sl;
@@ -193,6 +195,8 @@ begin
          axiReadSlave   => axilReadSlaves  (SEQ_INDEX_C),
          axiWriteMaster => axilWriteMasters(SEQ_INDEX_C),
          axiWriteSlave  => axilWriteSlaves (SEQ_INDEX_C),
+         seqRestart     => seqRestart,
+         seqDisable     => seqDisable,
          clk            => timingClk,
          rst            => timingRst,
          status         => status,

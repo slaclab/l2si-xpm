@@ -186,8 +186,8 @@ begin
       axiWriteSlave <= r.axiWriteSlave;
       axiReadSlave  <= r.axiReadSlave;
 
-      config          <= r.config;
-      gconfig.seqAddr <= v.gconfig.seqAddr;
+      config        <= r.config;
+      gconfig       <= v.gconfig;
    end process comb;
 
    seq : process (axiClk) is
