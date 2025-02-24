@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-23
+-- Last update: 2025-02-24
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -250,6 +250,9 @@ architecture top_level of XpmBase is
    signal seqCountRst : sl;
    signal seqCount    : Slv128Array(NUM_DDC_C+NUM_SEQ_C-1 downto 0);
    
+   signal seqRestart  : slv(NUM_SEQ_C-1 downto 0);
+   signal seqDisable  : slv(NUM_SEQ_C-1 downto 0);
+
    signal tmpReg  : slv(31 downto 0) := x"DEADBEEF";
    signal tmpRegR : slv(31 downto 0) := x"DEADBEEF";
    signal usRx    : TimingRxType;
@@ -499,6 +502,8 @@ begin
          axilWriteMaster => axilWriteMasters(APP_INDEX_C),
          axilWriteSlave  => axilWriteSlaves (APP_INDEX_C),
          groupLinkClear  => groupLinkClear,
+         seqRestart      => seqRestart,
+         seqDisable      => seqDisable,
          -- Async Notification
          obAppMaster     => seqMaster,
          obAppSlave      => seqSlave,
@@ -566,6 +571,8 @@ begin
          axilWriteMaster => axilWriteMasters(REG_INDEX_C),
          axilWriteSlave  => axilWriteSlaves (REG_INDEX_C),
          groupLinkClear  => groupLinkClear,
+         seqRestart      => seqRestart,
+         seqDisable      => seqDisable,
          -- Streaming input (regClk domain)
          ibDebugMaster   => ibDebugMaster,
          ibDebugSlave    => ibDebugSlave,
