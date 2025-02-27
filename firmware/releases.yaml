@@ -22,6 +22,10 @@ Targets:
     ImageDir: targets/xpmGenKcu1500/images
     Extensions:
       - mcs      
+  xpmKcu1500:
+    ImageDir: targets/xpmKcu1500/images
+    Extensions:
+      - mcs      
   xtpg:
     ImageDir: targets/xtpg/images
     Extensions:
@@ -44,6 +48,7 @@ Releases:
     Primary: True
     Targets:
       - xpmGenKcu1500
+      - xpmKcu1500
       - xtpg
       - xpm
       - xpm_noRTM
