@@ -143,7 +143,8 @@ begin
    timingDataOut <= r_in.data;
 
    GEN_SEQCOUNT : for i in 0 to NUM_SEQ_G-1 generate
-     seqCount(i+NUM_DDC_G) <= status(i).countRequest;
+     seqCount(i+NUM_DDC_G) <= config(i).seqEnable &
+                              status(i).countRequest(126 downto 0);
    end generate;
 
    seqInvalid         <= r.seqInvalid;
