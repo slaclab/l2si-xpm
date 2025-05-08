@@ -77,11 +77,11 @@ begin
     port map (
       s_axi_aclk    => axilClk,
       s_axi_aresetn => naxilRst,
-      S_AXI_araddr  => axilReadMaster.araddr,
+      S_AXI_araddr  => axilReadMaster.araddr(4 downto 0),
       S_AXI_arprot  => axilReadMaster.arprot,
       S_AXI_arready => axilReadSlave.arready,
       S_AXI_arvalid => axilReadMaster.arvalid,
-      S_AXI_awaddr  => axilWriteMaster.awaddr,
+      S_AXI_awaddr  => axilWriteMaster.awaddr(4 downto 0),
       S_AXI_awprot  => axilWriteMaster.awprot,
       S_AXI_awready => axilWriteSlave.awready,
       S_AXI_awvalid => axilWriteMaster.awvalid,
