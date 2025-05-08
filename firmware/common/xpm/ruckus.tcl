@@ -9,5 +9,5 @@ if { $::env(PRJ_PART) == "XCKU040-FFVA1156-2-E" } {
     loadSource -lib l2si -dir "$::DIR_PATH/rtl/amcc"
 } else {
     loadSource -lib l2si -dir "$::DIR_PATH/rtl/kcu1500"
-    loadIpCore -path "$::DIR_PATH/coregen/debug_bridge_0.xci"
+    loadIpCore -path "$::DIR_PATH/coregen/axi_debug_bridge.xci"
 }

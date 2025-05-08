@@ -1,7 +1,7 @@
 {
   "schema": "xilinx.com:schema:json_instance:1.0",
   "ip_inst": {
-    "xci_name": "debug_bridge_0",
+    "xci_name": "axi_debug_bridge",
     "component_reference": "xilinx.com:ip:debug_bridge:3.0",
     "ip_revision": "10",
     "gen_directory": ".",
@@ -38,7 +38,7 @@
         "C_PCIE_EXT_CFG_VSEC_LENGTH": [ { "value": "0x020", "resolve_type": "user", "format": "bitString", "enabled": false, "usage": "all" } ],
         "C_PCIE_EXT_CFG_NEXT_PTR": [ { "value": "0x000", "resolve_type": "user", "format": "bitString", "usage": "all" } ],
         "C_PCIE_EXT_CFG_VSEC_ID": [ { "value": "0x0008", "resolve_type": "user", "format": "bitString", "usage": "all" } ],
-        "Component_Name": [ { "value": "debug_bridge_0", "resolve_type": "user", "usage": "all" } ],
+        "Component_Name": [ { "value": "axi_debug_bridge", "resolve_type": "user", "usage": "all" } ],
         "C_CLK_INPUT_FREQ_HZ": [ { "value": "300000000", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "C_S_AXI_DATA_WIDTH": [ { "value": "32", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "C_S_AXI_ADDR_WIDTH": [ { "value": "5", "resolve_type": "user", "format": "long", "usage": "all" } ],

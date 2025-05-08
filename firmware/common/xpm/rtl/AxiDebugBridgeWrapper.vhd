@@ -41,7 +41,7 @@ end AxiDebugBridgeWrapper;
 
 architecture rtl of AxiDebugBridgeWrapper is
 
-  COMPONENT debug_bridge_0
+  COMPONENT axi_debug_bridge
     PORT (
       s_axi_aclk : IN sl;
       s_axi_aresetn : IN sl;
@@ -73,7 +73,7 @@ begin
 
   naxilRst <= not axilRst;
 
-  U_DebugBridge : debug_bridge_0
+  U_DebugBridge : axi_debug_bridge
     port map (
       s_axi_aclk    => axilClk,
       s_axi_aresetn => naxilRst,
