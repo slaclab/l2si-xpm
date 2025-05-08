@@ -440,7 +440,7 @@ begin
         gtwiz_reset_all_in                   => "0",
         gtwiz_reset_tx_pll_and_datapath_in(0)=> txpllreset(i),
         gtwiz_reset_tx_datapath_in        (0)=> txUsrRst(i),
-        gtwiz_reset_rx_pll_and_datapath_in(0)=> rxpllresest(i),
+        gtwiz_reset_rx_pll_and_datapath_in(0)=> rxpllreset(i),
         gtwiz_reset_rx_datapath_in        (0)=> rxReset(i),
         gtwiz_reset_rx_cdr_stable_out        => open,
         gtwiz_reset_tx_done_out           (0)=> txReady(i),
