@@ -95,7 +95,7 @@ begin
       S_AXI_wdata   => axilWriteMaster.wdata,
       S_AXI_wready  => axilWriteSlave.wready,
       S_AXI_wstrb   => axilWriteMaster.wstrb,
-      S_AXI_wvalid  => axilWriteMaster.wvalid,
+      S_AXI_wvalid  => axilWriteMaster.wvalid
       );
 
 end rtl;
