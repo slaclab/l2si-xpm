@@ -48,7 +48,7 @@ architecture rtl of XpmPllClk is
    signal clkDdr   : sl := '0';
    signal clk, rst : sl;
 
-   constant DEBUG_C : boolean := true;
+   constant DEBUG_C : boolean := false;
 
    component ila_0
      port ( clk     : in sl;
