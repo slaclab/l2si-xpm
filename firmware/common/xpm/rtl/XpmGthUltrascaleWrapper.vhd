@@ -176,7 +176,6 @@ END COMPONENT;
 
   signal txOutClkO  : slv(NLINKS_G-1 downto 0);
   signal txUsrClk   : slv(NLINKS_G-1 downto 0);
-  signal txUsrRst   : slv(NLINKS_G-1 downto 0);
   signal txFifoRst  : slv(NLINKS_G-1 downto 0);
   signal gtRefClk   : sl;
   signal gRefClk    : sl;
@@ -191,24 +190,24 @@ END COMPONENT;
   signal txDataS      : Slv18Array(NLINKS_G-1 downto 0);
 
   --  Signals also on ILA (set to constant length)
-  signal rxErrIn      : slv(7 downto 0);
-  signal rxReset      : slv(7 downto 0);
-  signal rxResetDone  : slv(7 downto 0);
-
-  signal txReady      : slv(7 downto 0);
-  signal txResetDone  : slv(7 downto 0);
-
-  signal rxpllreset   : slv(7 downto 0);
-  signal rxbypassrst  : slv(7 downto 0);
-  signal rxbypassdone : slv(7 downto 0);
-  signal rxpmarst     : slv(7 downto 0);
-  signal rxpmarstdone : slv(7 downto 0);
-  signal rxcdrlock    : slv(7 downto 0);
-  signal txpllreset   : slv(7 downto 0);
   signal txbypassrst  : slv(7 downto 0);
   signal txbypassdone : slv(7 downto 0);
   signal txbypasserr  : slv(7 downto 0);
+  signal txpllreset   : slv(7 downto 0);
+  signal txUsrRst     : slv(7 downto 0);
+  signal txReady      : slv(7 downto 0);
   signal txpmarstdone : slv(7 downto 0);
+  signal rxbypassrst  : slv(7 downto 0);
+  signal rxbypassdone : slv(7 downto 0);
+  signal rxpllreset   : slv(7 downto 0);
+  signal rxReset      : slv(7 downto 0);
+  signal rxResetDone  : slv(7 downto 0);
+  signal rxpmarst     : slv(7 downto 0);
+  signal rxpmarstdone : slv(7 downto 0);
+  signal rxcdrlock    : slv(7 downto 0);
+  signal rxErrIn      : slv(7 downto 0);
+
+  signal txResetDone  : slv(7 downto 0);
   --
   
   signal loopback  : Slv3Array(NLINKS_G-1 downto 0);
