@@ -723,12 +723,12 @@ begin
 
    U_Debug : entity l2si.AxiDebugBridgeWrapper
      port map (
-       axiClk         => regClk,
-       axiClkRst      => regRst,
-       axiReadMaster  => axilReadMasters (XVC_INDEX_C),
-       axiReadSlave   => axilReadSlaves  (XVC_INDEX_C),
-       axiWriteMaster => axilWriteMasters(XVC_INDEX_C),
-       axiWriteSlave  => axilWriteSlaves (XVC_INDEX_C) );
+       axilClk         => regClk,
+       axilClkRst      => regRst,
+       axilReadMaster  => axilReadMasters (XVC_INDEX_C),
+       axilReadSlave   => axilReadSlaves  (XVC_INDEX_C),
+       axilWriteMaster => axilWriteMasters(XVC_INDEX_C),
+       axilWriteSlave  => axilWriteSlaves (XVC_INDEX_C) );
 
 end top_level;
 
