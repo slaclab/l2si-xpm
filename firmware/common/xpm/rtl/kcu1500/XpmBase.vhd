@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-02-24
+-- Last update: 2025-05-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -184,10 +184,11 @@ architecture top_level of XpmBase is
    constant REG_INDEX_C  : integer := 0;
    constant RING_INDEX_C : integer := 1;
    constant TEST_INDEX_C : integer := 2;
-   constant TIM_INDEX_C  : integer := 3;
-   constant APP_INDEX_C  : integer := 4;
-   constant ASYN_INDEX_C : integer := 5;
-   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(5 downto 0) := (
+   constant XVC_INDEX_C  : integer := 3;
+   constant TIM_INDEX_C  : integer := 4;
+   constant APP_INDEX_C  : integer := 5;
+   constant ASYN_INDEX_C : integer := 6;
+   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(6 downto 0) := (
      REG_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00000000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
@@ -195,7 +196,10 @@ architecture top_level of XpmBase is
                        addrBits     => 16,
                        connectivity => X"FFFF"),
      TEST_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"00020000",
-                       addrBits     => 16,
+                       addrBits     => 15,
+                       connectivity => X"FFFF"),
+     XVC_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00028000",
+                       addrBits     => 15,
                        connectivity => X"FFFF"),
      TIM_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00030000",
                        addrBits     => 16,
