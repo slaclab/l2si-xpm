@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-06-18
+-- Last update: 2025-05-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -37,10 +37,11 @@ use unisim.vcomponents.all;
 
 
 entity XpmGthUltrascaleWrapper is
-   generic ( GTGCLKRX   : boolean := true;
-             NLINKS_G   : integer range 1 to 7:= 7;
-             USE_IBUFDS : boolean := true;
-             AXIL_BASE_ADDR_G            : slv(31 downto 0)      := (others => '0')
+   generic ( GTGCLKRX         : boolean := true;
+             NLINKS_G         : integer range 1 to 7:= 7;
+             USE_IBUFDS       : boolean := true;
+             AXIL_BASE_ADDR_G : slv(31 downto 0) := (others => '0');
+             DEBUG_G          : boolean := true
        );
    port (
       gtTxP            : out slv(NLINKS_G-1 downto 0);
@@ -187,21 +188,29 @@ END COMPONENT;
   signal rxOutClk  : slv(NLINKS_G-1 downto 0);
   signal rxUsrClk  : slv(NLINKS_G-1 downto 0);
   signal rxFifoRst : slv(NLINKS_G-1 downto 0);
-  signal rxErrIn   : slv(NLINKS_G-1 downto 0);
-
-  signal rxReset      : slv(NLINKS_G-1 downto 0);
-  signal rxResetDone  : slv(NLINKS_G-1 downto 0);
-
-  signal txReady      : slv(NLINKS_G-1 downto 0);
-  signal txResetDone  : slv(NLINKS_G-1 downto 0);
-
   signal txDataS      : Slv18Array(NLINKS_G-1 downto 0);
-  
-  signal rxbypassrst  : slv(NLINKS_G-1 downto 0);
-  signal txbypassrst  : slv(NLINKS_G-1 downto 0);
-  signal txbypassdone : slv(NLINKS_G-1 downto 0);
-  signal txbypasserr  : slv(NLINKS_G-1 downto 0);
 
+  --  Signals also on ILA (set to constant length)
+  signal rxErrIn      : slv(7 downto 0);
+  signal rxReset      : slv(7 downto 0);
+  signal rxResetDone  : slv(7 downto 0);
+
+  signal txReady      : slv(7 downto 0);
+  signal txResetDone  : slv(7 downto 0);
+
+  signal rxpllreset   : slv(7 downto 0);
+  signal rxbypassrst  : slv(7 downto 0);
+  signal rxbypassdone : slv(7 downto 0);
+  signal rxpmarst     : slv(7 downto 0);
+  signal rxpmarstdone : slv(7 downto 0);
+  signal rxcdrlock    : slv(7 downto 0);
+  signal txpllreset   : slv(7 downto 0);
+  signal txbypassrst  : slv(7 downto 0);
+  signal txbypassdone : slv(7 downto 0);
+  signal txbypasserr  : slv(7 downto 0);
+  signal txpmarstdone : slv(7 downto 0);
+  --
+  
   signal loopback  : Slv3Array(NLINKS_G-1 downto 0);
 
   signal drpdo    : Slv16Array(NLINKS_G-1 downto 0);
@@ -256,11 +265,15 @@ END COMPONENT;
   signal axilWriteSlaves  : AxiLiteWriteSlaveArray (AXI_XBAR_CONFIG_C'range) := (others=>AXI_LITE_WRITE_SLAVE_EMPTY_OK_C);
    
   constant TX_SYNC_C : boolean := true;
+
+  component ila_0
+    port ( clk    : sl;
+           probe0 : slv(255 downto 0) );
+  end component;
   
 begin
 
   rxClk    <= rxUsrClk;
-  rxRst    <= rxFifoRst;
   rxErr    <= rxErrL;
   txClk    <= txUsrClk(0);
   txOutClk <= txUsrClk;
@@ -421,13 +434,13 @@ begin
         gtwiz_buffbypass_tx_error_out    (0) => txbypasserr(i),
         gtwiz_buffbypass_rx_reset_in     (0) => rxbypassrst(i),
         gtwiz_buffbypass_rx_start_user_in    => "0",
-        gtwiz_buffbypass_rx_done_out     (0) => status(i).rxResetDone,
+        gtwiz_buffbypass_rx_done_out     (0) => rxbypassdone(i),
         gtwiz_buffbypass_rx_error_out        => open,  -- Might need this
         gtwiz_reset_clk_freerun_in(0)        => stableClk,
         gtwiz_reset_all_in                   => "0",
-        gtwiz_reset_tx_pll_and_datapath_in(0)=> config(i).txPllReset,
+        gtwiz_reset_tx_pll_and_datapath_in(0)=> txpllreset(i),
         gtwiz_reset_tx_datapath_in        (0)=> txUsrRst(i),
-        gtwiz_reset_rx_pll_and_datapath_in(0)=> config(i).rxPllReset,
+        gtwiz_reset_rx_pll_and_datapath_in(0)=> rxpllresest(i),
         gtwiz_reset_rx_datapath_in        (0)=> rxReset(i),
         gtwiz_reset_rx_cdr_stable_out        => open,
         gtwiz_reset_tx_done_out           (0)=> txReady(i),
@@ -462,21 +475,29 @@ begin
         rxctrl2_out                          => open,
         rxctrl3_out                          => rxCtrl3Out(i),
         rxoutclk_out                      (0)=> rxOutClk(i),
-        rxpmaresetdone_out                (0)=> status(i).rxpmarstdone,
+        rxpmaresetdone_out                (0)=> rxpmarstdone(i),
         txoutclk_out                      (0)=> txOutClkO(i),
-        txpmaresetdone_out                (0)=> status(i).txpmarstdone,
+        txpmaresetdone_out                (0)=> txpmarstdone(i),
         drpdo_out                            => drpdo(i),
         drprdy_out                        (0)=> drprdy(i),
         drpaddr_in                           => drpaddr(i),
         drpdi_in                             => drpdi(i),
         drpen_in                          (0)=> drpen(i),
         drpwe_in                          (0)=> drpwe(i),
-        rxcdrlock_out                     (0)=> status(i).rxcdrlock,
+        rxcdrlock_out                     (0)=> rxcdrlock(i),
         gtpowergood_out                   (0)=> status(i).gtpowergood,
         eyescanreset_in                   (0)=> config(i).eyescanrst,
-        rxpmareset_in                     (0)=> config(i).rxpmarst
+        rxpmareset_in                     (0)=> rxpmarst(i) 
         );
- 
+
+    txpllreset(i) <= config(i).txPllReset;
+    rxpllreset(i) <= config(i).rxPllReset;
+    rxpmarst(i)   <= config(i).rxpmarst;
+    
+    status(i).rxpmarstdone  <= rxpmarstdone(i);
+    status(i).txpmarstdone  <= txpmarstdone(i);
+    status(i).rxResetDone   <= rxbypassdone(i);
+    status(i).rxcdrlock     <= rxcdrlock(i);
     status(i).rxGTHWordCnts <= r(i).gthWrdCnt;
     status(i).rxGTHErrCnts  <= r(i).gthErrCnt;
     
@@ -527,4 +548,30 @@ begin
     
   end generate GEN_CTRL;
 
+  GEN_ILA : if DEBUG_G generate
+    U_ILA : ila_0
+      port map (
+        clk     => stableClk,
+        probe0(  7 downto   0) => txbypassrst,
+        probe0( 15 downto   8) => txbypassdone,
+        probe0( 23 downto  16) => txbypasserr,
+        probe0( 31 downto  24) => txpllreset,
+        probe0( 39 downto  32) => txUsrRst,
+        probe0( 47 downto  40) => txReady,
+        probe0( 55 downto  48) => txpmarstdone,
+        
+        probe0( 63 downto  56) => rxbypassrst,
+        probe0( 71 downto  64) => rxbypassdone,
+        probe0( 79 downto  72) => rxpllreset,
+        probe0( 87 downto  80) => rxReset,
+        probe0( 95 downto  88) => rxResetDone,
+        probe0(103 downto  96) => rxpmarst,
+        probe0(111 downto 104) => rxpmarstdone,
+        probe0(119 downto 112) => rxcdrlock,
+        probe0(127 downto 120) => rxErrIn,
+
+        probe0(255 downto 128) => (others=>'0') );
+  end generate GEN_ILA;
+  
 end rtl;
+

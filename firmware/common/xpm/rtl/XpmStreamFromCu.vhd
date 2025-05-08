@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver  <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-11-09
--- Last update: 2023-10-20
+-- Last update: 2025-05-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
   signal r   : RegType := REG_INIT_C;
   signal rin : RegType;
 
-  constant DEBUG_C : boolean := true;
+  constant DEBUG_C : boolean := false;
 
   component ila_0
     port (
