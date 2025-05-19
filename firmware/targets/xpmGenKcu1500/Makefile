@@ -29,6 +29,8 @@ export BYPASS_RECONFIG = 1
 
 export TIMING_EXT_PKG = 1
 
+export USE_XVC_DEBUG = 1
+
 # Define target output
 target: prom
 
