@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-05-08
+-- Last update: 2025-05-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -75,6 +75,7 @@ entity XpmBase is
    generic (
       TPD_G               : time    := 1 ns;
       AXIL_BASE_G         : slv(31 downto 0) := (others=>'0');
+      DMA_SIZE_G          : integer := 1;
       DMA_AXIS_CONFIG_G   : AxiStreamConfigType;
       XPM_MODE_G          : string := "XpmGen" );
    -- "XpmGen"   : generate timing locally
@@ -90,10 +91,10 @@ entity XpmBase is
      -- AXI-Stream Interface
      dmaClk                : in  sl;
      dmaRst                : in  sl;
-     obDmaMaster           : in  AxiStreamMasterType;
-     obDmaSlave            : out AxiStreamSlaveType;
-     ibDmaMaster           : out AxiStreamMasterType;
-     ibDmaSlave            : in  AxiStreamSlaveType;
+     obDmaMasters          : in  AxiStreamMasterArray(DMA_SIZE_G-1 downto 0);
+     obDmaSlaves           : out AxiStreamSlaveArray (DMA_SIZE_G-1 downto 0);
+     ibDmaMasters          : out AxiStreamMasterArray(DMA_SIZE_G-1 downto 0);
+     ibDmaSlaves           : in  AxiStreamSlaveArray (DMA_SIZE_G-1 downto 0);
      ------------------
      --  Hardware Ports
      ------------------
@@ -184,11 +185,10 @@ architecture top_level of XpmBase is
    constant REG_INDEX_C  : integer := 0;
    constant RING_INDEX_C : integer := 1;
    constant TEST_INDEX_C : integer := 2;
-   constant XVC_INDEX_C  : integer := 3;
-   constant TIM_INDEX_C  : integer := 4;
-   constant APP_INDEX_C  : integer := 5;
-   constant ASYN_INDEX_C : integer := 6;
-   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(6 downto 0) := (
+   constant TIM_INDEX_C  : integer := 3;
+   constant APP_INDEX_C  : integer := 4;
+   constant ASYN_INDEX_C : integer := 5;
+   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(5 downto 0) := (
      REG_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00000000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
@@ -196,10 +196,7 @@ architecture top_level of XpmBase is
                        addrBits     => 16,
                        connectivity => X"FFFF"),
      TEST_INDEX_C  => (baseAddr     => AXIL_BASE_G + X"00020000",
-                       addrBits     => 15,
-                       connectivity => X"FFFF"),
-     XVC_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00028000",
-                       addrBits     => 15,
+                       addrBits     => 16,
                        connectivity => X"FFFF"),
      TIM_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00030000",
                        addrBits     => 16,
@@ -554,9 +551,23 @@ begin
        -- Master Port
        mAxisClk    => dmaClk,
        mAxisRst    => dmaRst,
-       mAxisMaster => ibDmaMaster,
-       mAxisSlave  => ibDmaSlave );
+       mAxisMaster => ibDmaMasters(0),
+       mAxisSlave  => ibDmaSlaves (0) );
 
+   obDmaSlaves(0) <= AXI_STREAM_SLAVE_FORCE_C;
+
+   U_XVC : entity surf.DmaXvcWrapper
+     generic map ( DMA_AXIS_CONFIG_G => DMA_AXIS_CONFIG_G )
+     port map (
+       xvcClk156    => phyClk01,
+       xvcRst156    => phyRst01,
+       dmaClk       => dmaClk,
+       dmaRst       => dmaRst,
+       dmaObMaster  => obDmaMasters(1),
+       dmaObSlave   => obDmaSlaves (1),
+       dmaIbMaster  => ibDmaMasters(1),
+       dmaIbSlave   => ibDmaSlaves (1) );
+       
    U_Reg : entity l2si.XpmReg
       generic map(
          TPD_G               => TPD_G,
@@ -720,15 +731,6 @@ begin
        axiWriteSlave  => axilWriteSlaves (TEST_INDEX_C),
        writeRegister(0) => tmpReg,
        readRegister (0) => tmpRegR );
-
-   U_Debug : entity l2si.AxiDebugBridgeWrapper
-     port map (
-       axilClk         => regClk,
-       axilRst         => regRst,
-       axilReadMaster  => axilReadMasters (XVC_INDEX_C),
-       axilReadSlave   => axilReadSlaves  (XVC_INDEX_C),
-       axilWriteMaster => axilWriteMasters(XVC_INDEX_C),
-       axilWriteSlave  => axilWriteSlaves (XVC_INDEX_C) );
 
 end top_level;
 

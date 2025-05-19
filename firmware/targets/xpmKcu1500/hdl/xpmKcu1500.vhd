@@ -94,7 +94,7 @@ architecture top_level of xpmKcu1500 is
 
    constant DMA_AXIS_CONFIG_C : AxiStreamConfigType := ssiAxiStreamConfig(8, TKEEP_COMP_C, TUSER_FIRST_LAST_C, 8, 2);  -- 64-bit interface
    constant AXIL_CLK_FREQ_C   : real                := 125.0E+6;  -- units of Hz
-   constant DMA_SIZE_C        : positive            := 1;
+   constant DMA_SIZE_C        : positive            := 2;
 
    signal axilClk          : sl;
    signal axilRst          : sl;
@@ -185,6 +185,7 @@ begin
         TPD_G               => TPD_G,
         XPM_MODE_G          => "XpmAsync",
         AXIL_BASE_G         => x"0080_0000",
+        DMA_SIZE_G          => DMA_SIZE_C,
         DMA_AXIS_CONFIG_G   => DMA_AXIS_CONFIG_C )
       port map (
          -- AXI-Lite Interface (axilClk domain)
@@ -196,10 +197,10 @@ begin
          axilWriteSlave        => axilWriteSlave ,
          dmaClk                => dmaClk,
          dmaRst                => dmaRst,
-         ibDmaMaster           => DmaIbMasters(0),
-         ibDmaSlave            => DmaIbSlaves (0),
-         obDmaMaster           => DmaObMasters(0),
-         obDmaSlave            => DmaObSlaves (0),
+         ibDmaMasters          => dmaIbMasters,
+         ibDmaSlaves           => dmaIbSlaves ,
+         obDmaMasters          => dmaObMasters,
+         obDmaSlaves           => dmaObSlaves ,
          ------------------
          --  Hardware Ports
          ------------------
