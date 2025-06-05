@@ -193,6 +193,7 @@ package XpmPkg is
       partition : XpmPartitionStatusArray(XPM_PARTITIONS_C-1 downto 0);
       pattern   : XpmPatternStatisticsType;
       paddr     : slv(XPM_PARTITION_ADDR_LENGTH_C-1 downto 0);
+      timeStamp : slv(63 downto 0);
    end record;
 
    constant XPM_STATUS_INIT_C : XpmStatusType := (
@@ -200,7 +201,8 @@ package XpmPkg is
       bpLink    => (others => XPM_BP_LINK_STATUS_INIT_C),
       partition => (others => XPM_PARTITION_STATUS_INIT_C),
       pattern   => XPM_PATTERN_STATS_INIT_C,
-      paddr     => (others => '1'));
+      paddr     => (others => '1'),
+      timeStamp => (others => '0'));
 
    type XpmPllConfigType is record
       bwSel  : slv(3 downto 0);

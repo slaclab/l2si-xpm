@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2024-10-23
+-- Last update: 2025-06-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -346,7 +346,7 @@ begin
          simFiducial     => simFiducial,
          simSync         => simSync,
          simAdvance      => txAdvance(0),
-         simStream       => simStream);
+         simStream       => simStream );
 
    U_CuRx : entity lcls_timing_core.TimingRx
       generic map (

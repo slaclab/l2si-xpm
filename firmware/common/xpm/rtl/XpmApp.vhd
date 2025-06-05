@@ -43,7 +43,6 @@ entity XpmApp is
    generic (
       TPD_G           : time             := 1 ns;
       NUM_DS_LINKS_G  : integer          := 7;
-      NUM_BP_LINKS_G  : integer          := 14;
       NUM_SEQ_G       : integer          := 1;
       NUM_DDC_G       : integer          := 0;
       AXIL_BASEADDR_G : slv(31 downto 0) := (others => '0'));
@@ -78,11 +77,6 @@ entity XpmApp is
       dsRxErr         : in  slv (NUM_DS_LINKS_G-1 downto 0);
       dsRxClk         : in  slv (NUM_DS_LINKS_G-1 downto 0);
       dsRxRst         : in  slv (NUM_DS_LINKS_G-1 downto 0);
-      --  BP DS Ports
-      bpTxData        : out slv(15 downto 0);
-      bpTxDataK       : out slv(1 downto 0);
-      bpStatus        : in  XpmBpLinkStatusArray(NUM_BP_LINKS_G downto 0);
-      bpRxLinkPause   : in  Slv16Array (NUM_BP_LINKS_G-1 downto 0);
       -- Timing Interface (timingClk domain)
       timingClk       : in  sl;
       timingRst       : in  sl;
@@ -94,7 +88,8 @@ entity XpmApp is
       timingFb        : out TimingPhyType;
       seqCountRst     : in  sl := '0';
       seqCount        : out Slv128Array(NUM_SEQ_G+NUM_DDC_G-1 downto 0);
-      seqInvalid      : out slv(NUM_SEQ_G-1 downto 0) );
+      seqInvalid      : out slv(NUM_SEQ_G-1 downto 0);
+      timeStamp       : out slv(63 downto 0) );
 end XpmApp;
 
 architecture top_level_app of XpmApp is
@@ -166,7 +161,6 @@ architecture top_level_app of XpmApp is
    signal dsOverflow     : PauseArray (NUM_DS_LINKS_G-1 downto 0);
    signal dsRxRcvs       : Slv32Array (NUM_DS_LINKS_G-1 downto 0);
    signal dsId           : Slv32Array (NUM_DS_LINKS_G-1 downto 0);
-   signal bpRxLinkPauseS : Slv16Array (NUM_BP_LINKS_G-1 downto 0);
 
    signal timingStream_streams : TimingSerialArray(NSTREAMS_C-1 downto 0);
    signal fstreams             : TimingSerialArray(NSTREAMS_C-1 downto 0);
@@ -193,6 +187,7 @@ architecture top_level_app of XpmApp is
    signal msgValid         : sl;
    signal configS          : XpmConfigType;
    signal commonL0         : slv(XPM_PARTITIONS_C-1 downto 0);
+   signal timeStampA       : Slv64Array(XPM_PARTITIONS_C-1 downto 0);
    
    function extractMsgConfig (c : XpmConfigType) return slv is
      variable vector : slv(MSG_CONFIG_LEN_C-1 downto 0) := (others=>'0');
@@ -223,7 +218,7 @@ architecture top_level_app of XpmApp is
 
 begin
 
-   linkstatp : process (bpStatus, dsLinkStatus, dsRxRcvs, isXpm, dsId) is
+   linkstatp : process (dsLinkStatus, dsRxRcvs, isXpm, dsId) is
       variable linkStat : XpmLinkStatusType;
    begin
       for i in status.dsLink'range loop
@@ -236,19 +231,17 @@ begin
          end if;
          status.dsLink(i)   <= linkStat;
       end loop;
-      status.bpLink(bpStatus'range) <= bpStatus;
+      status.bpLink <= (others=>XPM_BP_LINK_STATUS_INIT_C);
    end process;
 
-   GEN_SYNCBP : for i in 0 to NUM_BP_LINKS_G-1 generate
-      U_SyncPause : entity surf.SynchronizerVector
-         generic map (
-            TPD_G   => TPD_G,
-            WIDTH_G => 16)
-         port map (
-            clk     => timingClk,
-            dataIn  => bpRxLinkPause(i),
-            dataOut => bpRxLinkPauseS(i));
-   end generate;
+   U_SyncTimeStamp : entity surf.SynchronizerVector
+      generic map (
+         TPD_G   => TPD_G,
+         WIDTH_G => timeStamp'length)
+      port map (
+         clk     => regclk,
+         dataIn  => timeStampA(0),
+         dataOut => timeStamp );
 
    U_SyncPaddrRx : entity surf.SynchronizerVector
       generic map (
@@ -362,8 +355,8 @@ begin
          paddrStrobe => r.paddrStrobe,
          fiducial    => fiducial(0),
          advance_o   => advance,
-         txData      => bpTxData,
-         txDataK     => bpTxDataK);
+         txData      => open,
+         txDataK     => open );
 
    U_L1Router : entity l2si_core.XpmL1Router
       generic map (
@@ -490,7 +483,8 @@ begin
             common     => common  (i),
             commonL0   => commonL0,
             result     => expWord (i),
-            resultValid=> expWordValid(i));
+            resultValid=> expWordValid(i),
+            timeStamp  => timeStampA(i));
 
       U_SyncMaster : entity surf.Synchronizer
          generic map(
@@ -559,7 +553,7 @@ begin
    --
    -- timingStream carries its own 'advance' signal as well as fiducial.
    --
-   comb : process (advance, bpRxLinkPauseS, dsPause, dsOverflow, expWordQ, fstreams, paddr,
+   comb : process (advance, dsPause, dsOverflow, expWordQ, fstreams, paddr,
                    pdepth, pmaster, r, timingRst, timingStream) is
       variable v         : RegType;
       variable tidx      : integer;
@@ -670,9 +664,6 @@ begin
          for j in 0 to NUM_DS_LINKS_G-1 loop
             v.pause (i)(j)   := dsPause (j)(i);
             v.overflow(i)(j) := dsOverflow(j)(i);
-         end loop;
-         for j in 0 to NUM_BP_LINKS_G-1 loop
-            v.pause (i)(j+16) := bpRxLinkPauseS(j)(i);
          end loop;
          if pmaster(i) = '0' and v.pause(i) /= 0 then
             v.pausefb(i) := '1';

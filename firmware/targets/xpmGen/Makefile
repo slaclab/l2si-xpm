@@ -1,12 +1,4 @@
 export GIT_BYPASS = 1
-##########################################################################################
-# Applications must define the 32-bitFirmware Version Number
-# PRJ_VERSION = 0x00000013 - Adopt TimingExtnPkg and factorization
-# PRJ_VERSION = 0x00000014 - Automate front panel link rx resets, fix paddr latching
-# PRJ_VERSION = 0x00000015 - Add readout group registers and LCLS1 timing input
-# PRJ_VERSION = 0x00000016 - Add cuRxEnable/usRxEnable
-##########################################################################################
-export PRJ_VERSION = 0x00000016
 
 ##########################################################################################
 # Applications must define if using advance AMC carrier build
@@ -83,4 +75,5 @@ export BOARD_PART =
 export PRJ_FMC =
 
 # Use top level makefile
+include ../shared_config.mk
 include ../../submodules/ruckus/system_vivado.mk

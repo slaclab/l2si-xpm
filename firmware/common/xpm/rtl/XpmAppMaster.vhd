@@ -69,7 +69,8 @@ entity XpmAppMaster is
       commonL0   : in  slv(XPM_PARTITIONS_C-1 downto 0) := (others=>'0');
       -- output
       result     : out slv (47 downto 0);
-      resultValid: out sl);
+      resultValid: out sl;
+      timeStamp  : out slv (63 downto 0));
 end XpmAppMaster;
 
 architecture rtl of XpmAppMaster is
@@ -172,6 +173,7 @@ begin
 
    result          <= r.result;
    resultValid     <= r.resultValid;
+   timeStamp       <= r.timingBus.message.timeStamp;
    status.l1Select <= XPM_L1_SELECT_STATUS_INIT_C;
    lrejectMsg      <= msgInhibit;
 

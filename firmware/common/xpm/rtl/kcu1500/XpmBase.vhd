@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-05-16
+-- Last update: 2025-06-04
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -141,13 +141,11 @@ architecture top_level of XpmBase is
    
    constant NUM_DS_LINKS_C : integer := 8;
    constant NUM_FP_LINKS_C : integer := 8;
-   constant NUM_BP_LINKS_C : integer := 1;
  
    signal xpmConfig : XpmConfigType;
    signal xpmStatus : XpmStatusType;
    signal pattern   : XpmPatternStatisticsType;
    signal patternCfg: XpmPatternConfigType;
-   signal bpStatus  : XpmBpLinkStatusArray(NUM_BP_LINKS_C downto 0) := (others => XPM_BP_LINK_STATUS_INIT_C);
 
    signal pllStatus : XpmPllStatusArray (1 downto 0);
    signal pllLocked : slv(1 downto 0);
@@ -170,11 +168,6 @@ architecture top_level of XpmBase is
    signal dsRxRst      : slv (NUM_FP_LINKS_C-1 downto 0);
    signal dsRxErr      : slv (NUM_FP_LINKS_C-1 downto 0);
    signal dsTxOutClk   : slv (NUM_FP_LINKS_C-1 downto 0);
-
-   signal bpRxLinkUp   : slv        (NUM_BP_LINKS_C-1 downto 0) := (others=>'0');
-   signal bpRxLinkFull : Slv16Array (NUM_BP_LINKS_C-1 downto 0) := (others=>x"0000");
-   signal bpTxData     : Slv16Array(0 downto 0) := (others=>X"0000");
-   signal bpTxDataK    : Slv2Array (0 downto 0) := (others=> "00");
 
    signal dbgChan   : slv(4 downto 0);
    signal dbgChanS  : slv(4 downto 0);
@@ -222,7 +215,6 @@ architecture top_level of XpmBase is
 
    signal dsClkBuf    : slv(1 downto 0);
 
-   signal bpMonClk : sl := '0';
    signal ipAddr   : slv(31 downto 0);
 
    signal groupLinkClear         : slv(XPM_PARTITIONS_C-1 downto 0);
@@ -465,7 +457,6 @@ begin
       generic map (
          TPD_G           => TPD_G,
          NUM_DS_LINKS_G  => NUM_DS_LINKS_C,
-         NUM_BP_LINKS_G  => NUM_BP_LINKS_C,
          NUM_DDC_G       => NUM_DDC_C,
          NUM_SEQ_G       => NUM_SEQ_C,
          AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(APP_INDEX_C).baseAddr)
@@ -482,11 +473,6 @@ begin
          dsRxClk         => dsRxClk     (NUM_DS_LINKS_C-1 downto 0),
          dsRxRst         => dsRxRst     (NUM_DS_LINKS_C-1 downto 0),
          dsRxErr         => dsRxErr     (NUM_DS_LINKS_C-1 downto 0),
-         --  BP DS Ports
-         bpTxData        => bpTxData (0),
-         bpTxDataK       => bpTxDataK(0),
-         bpStatus        => bpStatus,
-         bpRxLinkPause   => bpRxLinkFull,
          ----------------------
          -- Top Level Interface
          ----------------------
@@ -572,7 +558,6 @@ begin
       generic map(
          TPD_G               => TPD_G,
          NUM_DS_LINKS_G      => NUM_FP_LINKS_C,
-         NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          US_RX_ENABLE_INIT_G => (XPM_MODE_G="XpmAsync"),
          CU_RX_ENABLE_INIT_G => false,
          NUM_SEQ_G           => NUM_SEQ_C,

@@ -73,8 +73,8 @@ architecture TPGMiniClock of TPGMiniClock is
 
   signal pulseIdWr : sl;
 
-  signal acTSn      : slv(2 downto 0);
-  signal acTSPhasen : slv(11 downto 0);
+  signal triggerTS1 : sl;
+  signal trigger360 : sl;
 
   constant ACRateWidth : integer := 8;
   constant ACRateDepth : integer := lcls_timing_core.TPGPkg.ACRATEDEPTH;
@@ -156,7 +156,44 @@ begin
       divisor  => config.baseDivisor,
       trigO    => baseEnable);
 
-  frame.acRates <= (others=>'0');
+  TriggerTS1 : entity lcls_timing_core.Divider
+    generic map (
+        TPD_G => TPD_G,
+        Width => FixedRateWidth)
+      port map (
+        sysClk   => txClk,
+        sysReset => txRst,
+        enable   => baseEnable,
+        clear    => '0',
+        divisor  => toSlv(15444,FixedRateWidth),
+        trigO    => triggerTS1);
+      
+  Trigger360 : entity lcls_timing_core.Divider
+    generic map (
+        TPD_G => TPD_G,
+        Width => FixedRateWidth)
+      port map (
+        sysClk   => txClk,
+        sysReset => txRst,
+        enable   => baseEnable,
+        clear    => '0',
+        divisor  => toSlv(2574,FixedRateWidth),
+        trigO    => trigger360);
+      
+  ACDivider_loop : for i in 0 to ACRateDepth-1 generate
+    U_ACDivider_1 : entity work.ACDivider
+      generic map (
+        TPD_G   => TPD_G,
+        Width => ACRateWidth)
+      port map (
+        sysClk   => txClk,
+        sysReset => acReset,
+        enable   => triggerTS1,
+        clear    => baseEnable,
+        repulse  => trigger360,
+        divisor  => config.ACRateDivisors(i),
+        trigO    => frame.acRates(i));
+  end generate ACDivider_loop;
 
   FixedDivider_loop : for i in 0 to FixedRateDepth-1 generate
     U_FixedDivider_1 : entity lcls_timing_core.Divider
@@ -246,15 +283,29 @@ begin
                countBRT+1 when baseEnable = '1' else
                countBRT;
 
-  process (txClk, txRst, txRdy, config)
+  process (txClk, txRst, txRdy, config, baseEnable)
     variable outOfSyncd : sl;
     variable txRdyd     : sl;
+    variable acTsn      : integer range 1 to 6;
+    variable acTSPhasen : integer range 0 to 2574;
   begin  -- process
     if rising_edge(txClk) then
       frame.pulseId         <= pulseIdn                                              after TPD_G;
       pulseIdWr             <= '0';
-      frame.acTimeSlot      <= acTSn                                                 after TPD_G;
-      frame.acTimeSlotPhase <= acTSPhasen                                            after TPD_G;
+      if baseEnable = '1' then
+        if trigger360 = '1' then
+          if triggerTS1 = '1' then
+            acTsn := 1;
+          else
+            acTsn := acTsn + 1;
+          end if;
+          acTSPhasen := 0;
+        else
+          acTSPhasen := acTSPhasen + 1;
+        end if;
+        frame.acTimeSlot      <= toSlv(acTSn     ,frame.acTimeSlot'length)      after TPD_G;
+        frame.acTimeSlotPhase <= toSlv(acTSPhasen,frame.acTimeSlotPhase'length) after TPD_G;
+      end if;
       baseEnabled           <= baseEnabled(baseEnabled'left-1 downto 0) & baseEnable after TPD_G;
       count186M             <= count186M+1;
       if (frame.syncStatus = '1' and outOfSyncd = '0') then
