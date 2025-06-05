@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-10-23
+-- Last update: 2025-06-04
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -52,8 +52,6 @@ entity XpmGthUltrascaleTWrapperSim is
       timRefClkGt      : in  sl;
       --
       stableClk        : in  sl;
-      txData           : in  slv(15 downto 0);
-      txDataK          : in  slv( 1 downto 0);
       rxData           : out TimingRxType;
       rxClk            : out sl;
       rxRst            : out sl;

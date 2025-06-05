@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2024-10-15
+-- Last update: 2025-06-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -61,6 +61,7 @@ entity XpmMonitorStream is
       staClk          : in  sl;
       seqCount        : in  Slv128Array(SEQCNT_LEN_G-1 downto 0);
       seqInvalid      : in  slv(SEQCNT_LEN_G-1 downto 0);
+      timeStamp       : in  slv(63 downto 0);
       -- Status
       busy            : out sl;
       count           : out slv(26 downto 0);
@@ -78,7 +79,7 @@ architecture rtl of XpmMonitorStream is
    signal sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);
 
    constant TDATA_SIZE_C      : integer := EMAC_AXIS_CONFIG_C.TDATA_BYTES_C*8;
-   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*282 + 18 + SEQCNT_LEN_G*16+4) + SEQCNT_LEN_G + XPM_PATTERN_STATS_BITS_C;
+   constant XPM_STATUS_BITS_C : integer := 8*(4 + 14*12 + XPM_PARTITIONS_C*282 + 18 + SEQCNT_LEN_G*16+4) + SEQCNT_LEN_G + XPM_PATTERN_STATS_BITS_C + 64;
 
    constant LAST_WORD_C       : integer := (XPM_STATUS_BITS_C-1) / TDATA_SIZE_C;
    
@@ -90,7 +91,8 @@ architecture rtl of XpmMonitorStream is
                   pllStat  : slv(3 downto 0);
                   monClkR  : Slv32Array(3 downto 0);
                   seqCount : Slv128Array(SEQCNT_LEN_G-1 downto 0);
-                  seqInvalid : slv(SEQCNT_LEN_G-1 downto 0)) return slv is
+                  seqInvalid : slv(SEQCNT_LEN_G-1 downto 0);
+                  timeStamp  : slv(63 downto 0)) return slv is
      variable v : slv(XPM_STATUS_BITS_C-1 downto 0) := (others=>'0');
      variable i : integer := 0;
    begin
@@ -122,6 +124,7 @@ architecture rtl of XpmMonitorStream is
      end loop;
      assignSlv(i, v, s.paddr); -- 4B
      assignSlv(i, v, seqInvalid); -- 1B
+     assignSlv(i, v, timeStamp); -- 8B
      return v; --
    end function toSlv;
    
@@ -250,7 +253,7 @@ begin
     end if;
 
     if r_dataL_3 = '1' then
-      v.data := toSlv(r.id, status, sL0Stats, pattSlvS, pllCount, pllStat, monClkRate, seqCount, seqInvalid);
+      v.data := toSlv(r.id, status, sL0Stats, pattSlvS, pllCount, pllStat, monClkRate, seqCount, seqInvalid, timeStamp);
       v.index := 0;
       v.busy  := '1';
     end if;

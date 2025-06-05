@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2022-12-30
+-- Last update: 2025-06-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -86,7 +86,7 @@ entity XpmInputSim is
       simFiducial     : out sl;
       simSync         : out sl;
       simAdvance      : in  sl;
-      simStream       : out TimingSerialType);
+      simStream       : out TimingSerialType );
 end XpmInputSim;
 
 architecture mapping of XpmInputSim is
@@ -109,6 +109,9 @@ architecture mapping of XpmInputSim is
       config        : TPGConfigType;
       timeStampWrEn : sl;
       pulseIdWrEn   : sl;
+      clock_step    : slv(4 downto 0);
+      clock_remainder: slv(4 downto 0);
+      clock_divisor : slv(4 downto 0);
       cuDelay       : slv(cuDelay'range);
       cuBeamCode    : slv(7 downto 0);
       cuFiducialErr : sl;
@@ -120,6 +123,9 @@ architecture mapping of XpmInputSim is
       config        => TPG_CONFIG_INIT_C,
       timeStampWrEn => '0',
       pulseIdWrEn   => '0',
+      clock_step    => toSlv(5,5),
+      clock_remainder=> toSlv(5,5),
+      clock_divisor => toSlv(13,5),
       cuDelay       => toSlv(200*800, cuDelay'length),
       cuBeamCode    => toSlv(140, 8),
       cuFiducialErr => '0',
@@ -129,14 +135,33 @@ architecture mapping of XpmInputSim is
    signal r   : RegType := REG_INIT_C;
    signal rin : RegType;
 
+   signal s_clock_step      : slv(4 downto 0);
+   signal s_clock_remainder : slv(4 downto 0);
+   signal s_clock_divisor   : slv(4 downto 0);
+   
    constant SIM_INDEX_C       : integer := 0;
-   constant MMCM0_INDEX_C     : integer := 1;
-   constant MMCM1_INDEX_C     : integer := 2;
-   constant MMCM2_INDEX_C     : integer := 3;
-   constant NUM_AXI_MASTERS_C : integer := 4;
+   constant TPGMINI_INDEX_C   : integer := 1;
+   constant MMCM0_INDEX_C     : integer := 2;
+   constant MMCM1_INDEX_C     : integer := 3;
+   constant MMCM2_INDEX_C     : integer := 4;
+   constant NUM_AXI_MASTERS_C : integer := 5;
 
    constant AXI_CROSSBAR_MASTERS_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXI_MASTERS_C-1 downto 0) :=
-      genAxiLiteConfig(NUM_AXI_MASTERS_C, AXIL_BASE_ADDR_G, 22, 20);
+     ( SIM_INDEX_C     => ( baseAddr     => AXIL_BASE_ADDR_G + X"00000000",
+                            addrBits     => 16,
+                            connectivity => X"FFFF"),
+       TPGMINI_INDEX_C => ( baseAddr     => AXIL_BASE_ADDR_G + X"00080000",
+                            addrBits     => 16,
+                            connectivity => X"FFFF"),
+       MMCM0_INDEX_C   => ( baseAddr     => AXIL_BASE_ADDR_G + X"00100000",
+                            addrBits     => 16,
+                            connectivity => X"FFFF"),
+       MMCM1_INDEX_C   => ( baseAddr     => AXIL_BASE_ADDR_G + X"00200000",
+                            addrBits     => 16,
+                            connectivity => X"FFFF"),
+       MMCM2_INDEX_C   => ( baseAddr     => AXIL_BASE_ADDR_G + X"00300000",
+                            addrBits     => 16,
+                            connectivity => X"FFFF") );
 
    signal axilWriteMasters : AxiLiteWriteMasterArray(NUM_AXI_MASTERS_C-1 downto 0);
    signal axilWriteSlaves  : AxiLiteWriteSlaveArray (NUM_AXI_MASTERS_C-1 downto 0);
@@ -179,7 +204,7 @@ begin
 
    isimClk  <= timingClk;
    isimRst  <= timingClkRst;
-
+  
    GEN_CU_RX_ENABLE : if CU_RX_ENABLE_INIT_G = true generate
       simClk     <= cuClkT(2);
       simClkRst  <= not cr.cuRxReady;
@@ -325,8 +350,22 @@ begin
          syncRst  => cuSync(1));
 
    SC_SIM : if CU_RX_ENABLE_INIT_G = false generate
-      -- simulated LCLS2 stream
-      U_UsSim : entity lcls_timing_core.TPGMini
+     -- simulated LCLS2 stream
+      U_ClockStep : entity surf.SynchronizerFifo
+         generic map (
+            DATA_WIDTH_G => 15 )
+        port map (
+           rst    => axilRst,
+           wr_clk => axilClk,
+           din ( 4 downto  0) => r.clock_step,
+           din ( 9 downto  5) => r.clock_remainder,
+           din (14 downto 10) => r.clock_divisor,
+           rd_clk => isimClk,
+           dout( 4 downto  0) => s_clock_step,
+           dout( 9 downto  5) => s_clock_remainder,
+           dout(14 downto 10) => s_clock_divisor );
+
+      U_UsSim : entity l2si.TPGMiniClock
          generic map (
             TPD_G       => TPD_G,
             NARRAYSBSA  => 0,
@@ -334,6 +373,10 @@ begin
          port map (
             statusO    => tpgStatus,
             configI    => tpgConfig,
+            --
+            clock_step       => s_clock_step,
+            clock_remainder  => s_clock_remainder,
+            clock_divisor    => s_clock_divisor,
             --
             txClk      => isimClk,
             txRst      => isimRst,
@@ -528,6 +571,10 @@ begin
          v.cuFiducialErr := '1';
       end if;
 
+      axiSlaveRegister (ep, x"20", 0, v.clock_step);
+      axiSlaveRegister (ep, x"20", 8, v.clock_remainder);
+      axiSlaveRegister (ep, x"20",16, v.clock_divisor);
+      
       axiSlaveDefault(ep, v.axiWriteSlave, v.axiReadSlave);
 
       axilWriteSlaves(SIM_INDEX_C) <= r.axiWriteSlave;

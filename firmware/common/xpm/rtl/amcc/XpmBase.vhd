@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-02-24
+-- Last update: 2025-06-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -78,9 +78,7 @@ entity XpmBase is
       CU_RX_ENABLE_INIT_G : boolean := false; -- Enable LCLS1 input via Xbar
       CU_ASYNC_G          : boolean := false; -- Latch Cu input to nearest 1MHz
                                               -- fiducial
-      L2_FROM_CU_G        : boolean := false; -- LCLS2 timing input via Xbar
-      UED_MODE_G          : boolean := false;
-      GEN_BP_G            : boolean := false);
+      UED_MODE_G          : boolean := false);
    port (
       -----------------------
       -- Application Ports --
@@ -203,13 +201,11 @@ architecture top_level of XpmBase is
    signal ref156MHzRst : sl;
 
    constant NUM_FP_LINKS_C : integer := 14;
-   constant NUM_BP_LINKS_C : integer := 6;
 
    signal xpmConfig  : XpmConfigType;
    signal xpmStatus  : XpmStatusType;
    signal pattern    : XpmPatternStatisticsType;
    signal patternCfg : XpmPatternConfigType;
-   signal bpStatus   : XpmBpLinkStatusArray(NUM_BP_LINKS_C downto 0);
    signal pllStatus  : XpmPllStatusArray (1 downto 0);
    signal pllLocked  : slv(1 downto 0);
    signal txClkRst   : slv(1 downto 0);
@@ -230,11 +226,6 @@ architecture top_level of XpmBase is
    signal dsRxRst      : slv (NUM_FP_LINKS_C-1 downto 0);
    signal dsRxErr      : slv (NUM_FP_LINKS_C-1 downto 0) := (others=>'0');
    signal dsTxOutClk   : slv (NUM_FP_LINKS_C-1 downto 0);
-
-   signal bpRxLinkUp   : slv (NUM_BP_LINKS_C-1 downto 0);
-   signal bpRxLinkFull : Slv16Array (NUM_BP_LINKS_C-1 downto 0);
-   signal bpTxData     : Slv16Array(0 downto 0);
-   signal bpTxDataK    : Slv2Array (0 downto 0);
 
    signal dbgChan   : slv(4 downto 0);
    signal dbgChanS  : slv(4 downto 0);
@@ -292,7 +283,6 @@ architecture top_level of XpmBase is
    signal dsClkBuf    : slv(1 downto 0);
    signal fpgaclk_ret : sl;
 
-   signal bpMonClk : sl;
    signal ipAddr   : slv(31 downto 0);
 
 --   signal cuRxFiducial, cuSync : sl;
@@ -340,7 +330,8 @@ architecture top_level of XpmBase is
    signal tmpReg : slv(31 downto 0) := x"DEADBEEF";
 
    signal common : slv(XPM_PARTITIONS_C-1 downto 0);
-
+   signal timeStamp : slv(63 downto 0);
+   
 begin
 
    amcRstN <= "11";
@@ -616,7 +607,6 @@ begin
       generic map (
          TPD_G           => TPD_G,
          NUM_DS_LINKS_G  => NUM_FP_LINKS_C,
-         NUM_BP_LINKS_G  => NUM_BP_LINKS_C,
          NUM_DDC_G       => NUM_DDC_C,
          NUM_SEQ_G       => NUM_SEQ_C,
          AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(APP_INDEX_C).baseAddr)
@@ -633,11 +623,6 @@ begin
          dsRxClk         => dsRxClk     (NUM_FP_LINKS_C-1 downto 0),
          dsRxRst         => dsRxRst     (NUM_FP_LINKS_C-1 downto 0),
          dsRxErr         => dsRxErr     (NUM_FP_LINKS_C-1 downto 0),
-         --  BP DS Ports
-         bpTxData        => bpTxData (0),
-         bpTxDataK       => bpTxDataK(0),
-         bpStatus        => bpStatus,
-         bpRxLinkPause   => bpRxLinkFull,
          ----------------------
          -- Top Level Interface
          ----------------------
@@ -669,60 +654,8 @@ begin
          timingFbId      => timingPhyId,
          timingFb        => timingPhy,
          seqCountRst     => seqCountRst,
-         seqCount        => seqCount );
-
-   GEN_BP : if GEN_BP_G generate
-      U_Backplane : entity l2si.XpmBp
-         generic map (
-            TPD_G          => TPD_G,
-            NUM_BP_LINKS_G => NUM_BP_LINKS_C)
-         port map (
-            ----------------------
-            -- Top Level Interface
-            ----------------------
-            ref125MHzClk => ref125MHzClk,
-            ref125MHzRst => ref125MHzRst,
-            rxFull       => bpRxLinkFull,
-            config       => xpmConfig.bpLink(NUM_BP_LINKS_C downto 1),
-            status       => bpStatus(NUM_BP_LINKS_C downto 1),
-            monClk       => bpMonClk,
-            --
-            timingClk    => recTimingClk,
-            timingRst    => recTimingRst,
---      timingBus       => recTimingBus,
-            timingBus    => TIMING_BUS_INIT_C,
-            ----------------
-            -- Core Ports --
-            ----------------
-            -- Backplane MPS Ports
-            bpClkIn      => bpClkIn,
-            bpClkOut     => bpClkOut,
-            bpBusRxP     => bpBusRxP(NUM_BP_LINKS_C downto 1),
-            bpBusRxN     => bpBusRxN(NUM_BP_LINKS_C downto 1));
-
-      GEN_BPRX : for i in NUM_BP_LINKS_C+1 to 14 generate
-         U_RX : IBUFDS
-            port map (
-               I  => bpBusRxP(i),
-               IB => bpBusRxN(i),
-               O  => open);
-      end generate;
-
-   end generate;
-
-   NOGEN_BP : if not GEN_BP_G generate
-      bpStatus(NUM_BP_LINKS_C downto 1) <= (others => XPM_BP_LINK_STATUS_INIT_C);
-      bpMonClk                          <= '0';
-      bpClkOut                          <= '0';
-
-      GEN_BPRX : for i in 1 to 14 generate
-         U_RX : IBUFDS
-            port map (
-               I  => bpBusRxP(i),
-               IB => bpBusRxN(i),
-               O  => open);
-      end generate;
-   end generate;
+         seqCount        => seqCount,
+         timeStamp       => timeStamp );
 
    U_MasterMux : entity surf.AxiStreamMux
      generic map ( NUM_SLAVES_G => 3 )
@@ -745,7 +678,6 @@ begin
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
          CU_ASYNC_G          => CU_ASYNC_G,
-         L2_FROM_CU_G        => L2_FROM_CU_G,
          UED_MODE_G          => UED_MODE_G )
      port map (
          ----------------------
@@ -800,8 +732,6 @@ begin
          cuRxEnable       => '0',
          cuRecClk         => cuRecClk,
          cuRecFiducial    => cuRecFiducial,
-         bpTxData         => bpTxData(0),
-         bpTxDataK        => bpTxDataK(0),
          cuSync           => cuSync,
          -- LCLS-II Timing Ports
          usRxEnable       => usRxEnable,
@@ -851,11 +781,10 @@ begin
       generic map(
          TPD_G               => TPD_G,
          NUM_DS_LINKS_G      => NUM_FP_LINKS_C,
-         NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
          STA_INTERVAL_C      => ite(UED_MODE_G, 500000, 910000),
-         DSCLK_119MHZ_G      => (L2_FROM_CU_G or UED_MODE_G),
+         DSCLK_119MHZ_G      => (UED_MODE_G),
          NUM_SEQ_G           => NUM_SEQ_C,
          NUM_DDC_G           => NUM_DDC_C )
       port map (
@@ -881,12 +810,13 @@ begin
          status          => xpmStatus,
          pattern         => pattern,
          patternCfg      => patternCfg,
-         monClk(0)       => bpMonClk,
+         monClk(0)       => cuRecClk,
          monClk(1)       => timingPhyClk,
          monClk(2)       => recTimingClk,
          monClk(3)       => iusRefClk,
          monLatch        => seqCountRst,
          seqCount        => seqCount,
+         timeStamp       => timeStamp,
          config          => xpmConfig,
          common          => common,
          usRxEnable      => usRxEnable,

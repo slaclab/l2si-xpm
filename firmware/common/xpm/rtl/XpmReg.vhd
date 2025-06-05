@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-02-24
+-- Last update: 2025-06-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -46,7 +46,6 @@ entity XpmReg is
    generic(
       TPD_G               : time    := 1 ns;
       NUM_DS_LINKS_G      : integer;
-      NUM_BP_LINKS_G      : integer;
       US_RX_ENABLE_INIT_G : boolean := true;
       CU_RX_ENABLE_INIT_G : boolean := false;
       STA_INTERVAL_C      : integer := 910000;
@@ -84,6 +83,7 @@ entity XpmReg is
       monLatch        : out sl;
       seqCount        : in  Slv128Array(NUM_DDC_G+NUM_SEQ_G-1 downto 0);
       seqInvalid      : in  slv(NUM_DDC_G+NUM_SEQ_G-1 downto 0) := (others=>'0');
+      timeStamp       : in  slv(63 downto 0);
       config          : out XpmConfigType;
       common          : out slv(XPM_PARTITIONS_C-1 downto 0);
       commonDelay     : out slv(7 downto 0);
@@ -264,34 +264,6 @@ begin
             clkIn       => monClk(i),
             locClk      => axilClk,
             refClk      => axilClk);
-   end generate;
-
-   GEN_BP : for i in 0 to NUM_BP_LINKS_G generate
-      U_LinkUp : entity surf.Synchronizer
-         generic map (
-            TPD_G => TPD_G)
-         port map (
-            clk     => axilClk,
-            dataIn  => status.bpLink(i).linkUp,
-            dataOut => s.bpLink(i).linkUp);
-
-      U_IbRecv : entity surf.SynchronizerVector
-         generic map (
-            TPD_G   => TPD_G,
-            WIDTH_G => 32)
-         port map (
-            clk     => axilClk,
-            dataIn  => status.bpLink(i).ibRecv,
-            dataOut => s.bpLink(i).ibRecv);
-
-      U_RxLate : entity surf.SynchronizerVector
-         generic map (
-            TPD_G   => TPD_G,
-            WIDTH_G => 16)
-         port map (
-            clk     => axilClk,
-            dataIn  => status.bpLink(i).rxLate,
-            dataOut => s.bpLink(i).rxLate);
    end generate;
 
    GEN_PART : for i in 0 to XPM_PARTITIONS_C-1 generate
@@ -628,7 +600,7 @@ begin
       axiSlaveRegisterR(axilEp, X"300",  0, toSlv(NUM_DDC_G,8));
       axiSlaveRegisterR(axilEp, X"300",  8, toSlv(NUM_SEQ_G,8));
       axiSlaveRegisterR(axilEp, X"300", 16, toSlv(NUM_DS_LINKS_G,8));
-      axiSlaveRegisterR(axilEp, X"300", 24, toSlv(NUM_BP_LINKS_G,4));
+      axiSlaveRegisterR(axilEp, X"300", 24, toSlv(0,4)); -- NUM_BP_LINKS
       axiSlaveRegisterR(axilEp, X"304",  0, toSlv(AXILCLK_FREQ_G,32));
       axiSlaveRegisterR(axilEp, X"308",  0, toSlv(STA_INTERVAL_C,32));
       
@@ -675,6 +647,7 @@ begin
       monLatch        => monLatch,
       seqCount        => seqCount,
       seqInvalid      => seqInvalid,
+      timeStamp       => timeStamp,
       -- Application Debug Interface (sysclk domain)
       obMonitorMaster => obMonitorMaster,
       obMonitorSlave  => obMonitorSlave );

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver (weaver@slac.stanford.edu)
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2025-01-21
+-- Last update: 2025-06-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -65,7 +65,6 @@ entity XpmCore is
       US_RX_ENABLE_INIT_G : boolean             := true;
       CU_RX_ENABLE_INIT_G : boolean             := false;
       CU_ASYNC_G          : boolean             := false;
-      L2_FROM_CU_G        : boolean             := false;
       UED_MODE_G          : boolean             := false );
    port (
       ----------------------
@@ -125,8 +124,6 @@ entity XpmCore is
       cuRxEnable       : in    sl                 := '0';
       cuRecClk         : out   sl;
       cuRecFiducial    : out   sl;
-      bpTxData         : in    slv(15 downto 0);
-      bpTxDataK        : in    slv(1 downto 0);
       cuSync           : out   sl;
       -- Upstream Timing Ports
       usRxEnable       : in    sl                 := '1';
@@ -463,72 +460,41 @@ begin
    --------------
    -- Timing Core
    --------------
-   GEN_L2_FROM_CU: if L2_FROM_CU_G generate
-     U_Timing : entity l2si.Xpm2TimingFromUsRx
-       generic map (
-         AXIL_BASE_ADDR_G    => TIMING_ADDR_C )
-       port map (
-         -- AXI-Lite Interface (axilClk domain)
-         axilClk         => axilClk,
-         axilRst         => axilRst,
-         axilReadMaster  => timingReadMaster,
-         axilReadSlave   => timingReadSlave,
-         axilWriteMaster => timingWriteMaster,
-         axilWriteSlave  => timingWriteSlave,
-         usRefClk        => cuRefClk,
-         usRefClkRst     => axilRst,
-         usRecClk        => cuRxClk,
-         usRecClkRst     => cuRxRst,
-         usRxEnable      => '1',
-         usRx            => cuRx,
-         usRxStatus      => cuRxStatus,
-         usRxControl     => cuRxControl,
-         timingClk       => irecTimingClk,
-         timingRst       => recTimingRst,
-         timingLkN       => recTimingLkN,
-         timingStream    => recStream);
-
-     cuRecFiducial <= '0';
-     cuSync        <= '0';
-   end generate;
-   
-   NO_GEN_L2_FROM_CU: if not L2_FROM_CU_G generate
-     U_Timing : entity l2si.Xpm2Timing
-       generic map (
-         AXIL_BASE_ADDR_G    => TIMING_ADDR_C,
-         USE_XTPG_G          => USE_XTPG_G,
-         US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
-         CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
-         CU_ASYNC_G          => CU_ASYNC_G )
-       port map (
-         -- AXI-Lite Interface (axilClk domain)
-         axilClk         => axilClk,
-         axilRst         => axilRst,
-         axilReadMaster  => timingReadMaster,
-         axilReadSlave   => timingReadSlave,
-         axilWriteMaster => timingWriteMaster,
-         axilWriteSlave  => timingWriteSlave,
-         usRefClk        => iusRefClk,
-         usRefClkRst     => axilRst,
-         usRecClk        => usRecClk,
-         usRecClkRst     => usRecClkRst,
-         usRxEnable      => usRxEnable,
-         usRx            => usRx,
-         usRxStatus      => usRxStatus,
-         usRxControl     => usRxControl,
-         cuRefClk        => cuRefClk,
-         cuRecClk        => cuRxClk,
-         cuRecClkRst     => cuRxRst,
-         cuRx            => cuRx,
-         cuRxStatus      => cuRxStatus,
-         cuRxControl     => cuRxControl,
-         cuRxFiducial    => cuRecFiducial,
-         cuSync          => cuSync,
-         timingClk       => irecTimingClk,
-         timingRst       => recTimingRst,
-         timingLkN       => recTimingLkN,
-         timingStream    => recStream);
-   end generate;
+   U_Timing : entity l2si.Xpm2Timing
+     generic map (
+       AXIL_BASE_ADDR_G    => TIMING_ADDR_C,
+       USE_XTPG_G          => USE_XTPG_G,
+       US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
+       CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
+       CU_ASYNC_G          => CU_ASYNC_G )
+     port map (
+       -- AXI-Lite Interface (axilClk domain)
+       axilClk         => axilClk,
+       axilRst         => axilRst,
+       axilReadMaster  => timingReadMaster,
+       axilReadSlave   => timingReadSlave,
+       axilWriteMaster => timingWriteMaster,
+       axilWriteSlave  => timingWriteSlave,
+       usRefClk        => iusRefClk,
+       usRefClkRst     => axilRst,
+       usRecClk        => usRecClk,
+       usRecClkRst     => usRecClkRst,
+       usRxEnable      => usRxEnable,
+       usRx            => usRx,
+       usRxStatus      => usRxStatus,
+       usRxControl     => usRxControl,
+       cuRefClk        => cuRefClk,
+       cuRecClk        => cuRxClk,
+       cuRecClkRst     => cuRxRst,
+       cuRx            => cuRx,
+       cuRxStatus      => cuRxStatus,
+       cuRxControl     => cuRxControl,
+       cuRxFiducial    => cuRecFiducial,
+       cuSync          => cuSync,
+       timingClk       => irecTimingClk,
+       timingRst       => recTimingRst,
+       timingLkN       => recTimingLkN,
+       timingStream    => recStream );
    
    -------------------------------------------------------------------------------------------------
    -- Clock Buffers
@@ -595,8 +561,6 @@ begin
                 gtRxP           => timingRxP,  -- LCLS-I input
                 gtRxN           => timingRxN,
                 timRefClkGt     => timingRefClkGt,
-                txData          => bpTxData,
-                txDataK         => bpTxDataK,
                 rxData          => cuRx,
                 rxClk           => cuRxClk,
                 rxRst           => cuRxRst,
@@ -611,14 +575,8 @@ begin
                 axilWriteMaster => cuGtWriteMaster,
                 axilWriteSlave  => cuGtWriteSlave);
 
---  xbarControl.txReset    <= xpmConfig.bpLink(0).txReset;
    xbarControl.rxreset    <= cuRxControl .reset;
    xbarControl.rxPllReset <= cuRxControl .pllReset;
-
-   --bpStatus(0).linkUp  <= xbarStatus.txReady;
-   --bpStatus(0).ibRecv  <= (others=>'0');
-   --bpStatus(0).rxErrs  <= (others=>'0');
-   --bpStatus(0).rxLate  <= (others=>'0');
 
    cuRxStatus.locked       <= xbarStatus.rxReady;
    cuRxStatus.resetDone    <= xbarStatus.rxReady;
