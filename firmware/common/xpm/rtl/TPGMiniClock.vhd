@@ -156,7 +156,7 @@ begin
       divisor  => config.baseDivisor,
       trigO    => baseEnable);
 
-  TriggerTS1 : entity lcls_timing_core.Divider
+  U_TriggerTS1 : entity lcls_timing_core.Divider
     generic map (
         TPD_G => TPD_G,
         Width => FixedRateWidth)
@@ -168,7 +168,7 @@ begin
         divisor  => toSlv(15444,FixedRateWidth),
         trigO    => triggerTS1);
       
-  Trigger360 : entity lcls_timing_core.Divider
+  U_Trigger360 : entity lcls_timing_core.Divider
     generic map (
         TPD_G => TPD_G,
         Width => FixedRateWidth)
