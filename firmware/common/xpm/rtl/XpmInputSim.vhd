@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2025-06-05
+-- Last update: 2025-06-06
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -200,7 +200,13 @@ begin
                                   x"0238C",                                    -- 102 Hz
                                   x"16378",                                    -- 10.2Hz
                                   x"DE2B0");                                   -- 1.02Hz
-
+  tpgConfig.ACRateDivisors <= (x"00",
+                               x"01",
+                               x"02",
+                               x"06",
+                               x"0C",
+                               x"3C",
+                               x"78");
 
    isimClk  <= timingClk;
    isimRst  <= timingClkRst;

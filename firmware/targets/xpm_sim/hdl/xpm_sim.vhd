@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2025-02-24
+-- Last update: 2025-06-06
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -239,6 +239,12 @@ begin
                                   toSlv(16,20),
                                   toSlv(32,20),
                                   toSlv(64,20));
+  tpgConfig.ACRateDivisors <= (x"01",
+                               x"02",
+                               x"06",
+                               x"0C",
+                               x"3C",
+                               x"78");
    xpmConfig.partition.l0Select.enabled <= '1';
    xpmConfig.partition.l0Select.rateSel <= x"0000";
    xpmConfig.partition.l0Select.destSel <= x"8000";
@@ -765,7 +771,6 @@ begin
    
    U_App : entity l2si.XpmApp
      generic map (
-       NUM_BP_LINKS_G  => 1,
        AXIL_BASEADDR_G => (others => '0'))
      port map (
        -----------------------
@@ -795,9 +800,6 @@ begin
        dsRxErr         => (others=>'0'),
        dsRxClk         => scClkA,
        dsRxRst         => scRstA,
-       --  BP DS Ports
-       bpStatus        => (others=>XPM_BP_LINK_STATUS_INIT_C),
-       bpRxLinkPause   => (others=>x"0000"),
        -- Timing Interface (timingClk domain)
        timingClk       => scClk,
        timingRst       => scRst,
@@ -842,6 +844,7 @@ begin
       staClk          => scClk,
       seqCount        => (others=>(others=>'0')),
       seqInvalid      => (others=>'0'),
+      timeStamp       => (others=>'0'),
       obMonitorMaster => monMaster,
       obMonitorSlave  => monSlave );
 
@@ -914,5 +917,26 @@ begin
       valid    => usRxStrobe );
 
   superFrameS <= toTimingSuperFrameType(superFrameSlvS);
-  
+
+  U_ClkSim : entity l2si.TPGMiniClock
+    generic map (
+      TPD_G       => 1 ns,
+      NARRAYSBSA  => 0,
+      STREAM_INTF => true,
+      AC_PERIOD   => 26 )
+    port map (
+      statusO    => open,
+      configI    => tpgConfig,
+      --
+      clock_step       => toSlv(5,5),
+      clock_remainder  => toSlv(5,5),
+      clock_divisor    => toSlv(13,5),
+      --
+      txClk      => scClk,
+      txRst      => scRst,
+      txRdy      => '1',
+      streams    => open,
+      streamIds  => open,
+      fiducial   => open);
+    
 end top_level_app;
