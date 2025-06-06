@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2025-06-05
+-- Last update: 2025-06-06
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -244,57 +244,40 @@ begin
    
    cuRxFiducial <= cuFiducial;
 
-   GEN_XTPG : if (USE_XTPG_G) generate
-      cuSync <= (usRxStrobe and usRxMessage.fixedRates(1)) when usRxEnable = '1' else
-                simSync;
-      itimingRst <= usRecClkRst when usRxEnable = '1' else
-                    simRst;
-      itimingClk <= usRecClk when usRxEnable = '1' else
-                    simClk;
-      itimingLkN <= usRecClkRst when usRxEnable = '1' else
-                    simLockedN;
-      txStreams(0) <= recStreams(0) when usRxEnable = '1' else
-                      simStream;
-      txStreams(1) <= TIMING_SERIAL_INIT_C;
-      txStreams(2) <= recStreams(2) when usRxEnable = '1' else
-                      TIMING_SERIAL_INIT_C;
-      txFiducial <= usRxStrobe when usRxEnable = '1' else
-                    simFiducial;
+   --  Receive timing from upstream
+   GEN_US : if (US_RX_ENABLE_INIT_G) generate
+     cuSync       <= usRxStrobe and usRxMessage.fixedRates(1);
+     itimingRst   <= usRecClkRst;
+     itimingClk   <= usRecClk;
+     itimingLkN   <= usRecClkRst;
+     txStreams(0) <= recStreams(0);
+     txStreams(1) <= TIMING_SERIAL_INIT_C;
+     txStreams(2) <= recStreams(2);
+     txFiducial   <= usRxStrobe;
+   end generate;
+   --  Generate timing internally
+   NO_GEN_US : if (not US_RX_ENABLE_INIT_G) generate
+     cuSync       <= simSync;
+     itimingRst   <= simRst;
+     itimingClk   <= simClk;
+     itimingLkN   <= simLockedN;
+     txStreams(0) <= simStream;
+     txStreams(1) <= TIMING_SERIAL_INIT_C;
+     txStreams(2) <= TIMING_SERIAL_INIT_C;
+     txFiducial   <= simFiducial;
    end generate;
 
-   GEN_NOXTPG : if (not USE_XTPG_G) generate
-      GEN_US_RX_ENABLE : if (US_RX_ENABLE_INIT_G) generate
-         cuSync       <= usRxStrobe and usRxMessage.fixedRates(1);
-         itimingRst   <= usRecClkRst;
-         itimingClk   <= usRecClk;
-         itimingLkN   <= usRecClkRst;
-         txStreams(0) <= recStreams(0);
-         txStreams(2) <= recStreams(2);
-         txFiducial   <= usRxStrobe;
-      end generate;
+   -- GEN_CU_RX_ENABLE : if (CU_RX_ENABLE_INIT_G) generate
+   --   txStreams(1) <= cuStream;
+   -- end generate;
 
-      GEN_US_RX_DISABLE : if (not US_RX_ENABLE_INIT_G) generate
-         cuSync       <= simSync;
-         itimingRst   <= simRst;
-         itimingClk   <= simClk;
-         itimingLkN   <= simLockedN;
-         txStreams(0) <= simStream;
-         txStreams(2) <= TIMING_SERIAL_INIT_C;
-         txFiducial   <= simFiducial;
-      end generate;
+   -- GEN_CU_RX_DISABLE : if (CU_RX_ENABLE_INIT_G = false and US_RX_ENABLE_INIT_G = true) generate
+   --   txStreams(1) <= recStreams(1);
+   -- end generate;
 
-      GEN_CU_RX_ENABLE : if (CU_RX_ENABLE_INIT_G) generate
-         txStreams(1) <= cuStream;
-      end generate;
-
-      GEN_CU_RX_DISABLE : if (CU_RX_ENABLE_INIT_G = false and US_RX_ENABLE_INIT_G = true) generate
-         txStreams(1) <= recStreams(1);
-      end generate;
-
-      GEN_NO_RX_ENABLE : if (CU_RX_ENABLE_INIT_G = false and US_RX_ENABLE_INIT_G = false) generate
-         txStreams(1) <= TIMING_SERIAL_INIT_C;
-      end generate;
-   end generate;
+   -- GEN_NO_RX_ENABLE : if (CU_RX_ENABLE_INIT_G = false and US_RX_ENABLE_INIT_G = false) generate
+   --   txStreams(1) <= TIMING_SERIAL_INIT_C;
+   -- end generate;
 
    --------------------------
    -- AXI-Lite: Crossbar Core

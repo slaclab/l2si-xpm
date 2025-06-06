@@ -1,4 +1,4 @@
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- Company    : SLAC National Accelerator Laboratory
 -------------------------------------------------------------------------------
 -- Description:
@@ -27,7 +27,8 @@ entity TPGMiniClock is
   generic (
     TPD_G : time := 1 ns;
     NARRAYSBSA   : integer := 2;
-    STREAM_INTF  : boolean := false
+    STREAM_INTF  : boolean := false;
+    AC_PERIOD    : integer := 2574
     );
   port (
     statusO : out TPGStatusType;
@@ -54,12 +55,22 @@ end TPGMiniClock;
 architecture TPGMiniClock of TPGMiniClock is
 
   type RegType is record
-    bsaComplete : slv(63 downto 0);
-    countUpdate : slv( 1 downto 0);
+    pulseId     : slv(63 downto 0);
+    count360    : slv(11 downto 0);
+    countAC     : Slv8Array(ACRATEDEPTH-1 downto 0);
+    timeSlot    : slv( 2 downto 0);
+    acRates     : slv( 5 downto 0);
+    acRatesL    : slv( 5 downto 0);
+    baseEnabled : slv( 4 downto 0);
   end record;
   constant REG_INIT_C : RegType := (
-    bsaComplete => (others=>'0'),
-    countUpdate => (others=>'0'));
+    pulseId     => (others=>'0'),
+    count360    => (others=>'0'),
+    countAC     => (others=>toSlv(1,8)),
+    timeSlot    => toSlv(1,3),
+    acRates     => (others=>'0'),
+    acRatesL    => (others=>'0'),
+    baseEnabled => (others=>'0') );
 
   signal r   : RegType := REG_INIT_C;
   signal rin : RegType;
@@ -69,13 +80,6 @@ architecture TPGMiniClock of TPGMiniClock is
   signal baseEnable  : sl;
   signal baseEnabled : slv(4 downto 0);
 
-  signal pulseIdn : slv(63 downto 0);
-
-  signal pulseIdWr : sl;
-
-  signal triggerTS1 : sl;
-  signal trigger360 : sl;
-
   constant ACRateWidth : integer := 8;
   constant ACRateDepth : integer := lcls_timing_core.TPGPkg.ACRATEDEPTH;
 
@@ -83,15 +87,6 @@ architecture TPGMiniClock of TPGMiniClock is
   constant FixedRateDepth : integer := lcls_timing_core.TPGPkg.FIXEDRATEDEPTH;
 
   signal syncReset : sl;
-
-  signal pllChanged : slv(31 downto 0) := (others => '0');
-  signal count186M  : slv(31 downto 0);
-  signal countSyncE : slv(31 downto 0);
-
-  -- Interval counters
-  signal countRst              : sl;
-  signal intervalCnt           : slv(31 downto 0);
-  signal countBRT, countBRTn   : slv(31 downto 0);
 
   -- Delay registers (for closing timing)
   signal status : TPGStatusType := TPG_STATUS_INIT_C;
@@ -103,11 +98,6 @@ architecture TPGMiniClock of TPGMiniClock is
   signal istreamIds : Slv4Array(0 downto 0);
   signal iadvance   : slv(0 downto 0);
   signal iiadvance  : slv(0 downto 0);
-
-  attribute use_dsp48                : string;
-  attribute use_dsp48 of intervalCnt : signal is "yes";
-  attribute use_dsp48 of pllChanged  : signal is "yes";
-  attribute use_dsp48 of countSyncE  : signal is "yes";
 
 begin
 
@@ -124,21 +114,7 @@ begin
   frame.mpsClass       <= (others => (others => '0'));
   frame.mpsValid       <= '0';
 
-  -- resources
-  status.nbeamseq    <= toSlv(0, status.nbeamseq'length);
-  status.nexptseq    <= toSlv(0, status.nexptseq'length);
-  status.narraysbsa  <= toSlv(NARRAYSBSA, status.narraysbsa'length);
-  status.seqaddrlen  <= toSlv(0, status.seqaddrlen'length);
-  status.nallowseq   <= toSlv(0, status.nallowseq'length);
-
   status.pulseId    <= frame.pulseId;
-  status.outOfSync  <= frame.syncStatus;
-  status.bcsFault   <= frame.bcsFault;
-  status.pllChanged <= pllChanged;
-  status.count186M  <= count186M;
-  status.countSyncE <= countSyncE;
-  status.countTrig  <= (others => (others => '0'));
-  status.countSeq   <= (others => (others => '0'));
 
   syncReset        <= '0';
   frame.resync     <= '0';
@@ -156,45 +132,6 @@ begin
       divisor  => config.baseDivisor,
       trigO    => baseEnable);
 
-  U_TriggerTS1 : entity lcls_timing_core.Divider
-    generic map (
-        TPD_G => TPD_G,
-        Width => FixedRateWidth)
-      port map (
-        sysClk   => txClk,
-        sysReset => txRst,
-        enable   => baseEnable,
-        clear    => '0',
-        divisor  => toSlv(15444,FixedRateWidth),
-        trigO    => triggerTS1);
-      
-  U_Trigger360 : entity lcls_timing_core.Divider
-    generic map (
-        TPD_G => TPD_G,
-        Width => FixedRateWidth)
-      port map (
-        sysClk   => txClk,
-        sysReset => txRst,
-        enable   => baseEnable,
-        clear    => '0',
-        divisor  => toSlv(2574,FixedRateWidth),
-        trigO    => trigger360);
-      
-  ACDivider_loop : for i in 0 to ACRateDepth-1 generate
-    U_ACDivider_1 : entity work.ACDivider
-      generic map (
-        TPD_G   => TPD_G,
-        Width => ACRateWidth)
-      port map (
-        sysClk   => txClk,
-        sysReset => acReset,
-        enable   => triggerTS1,
-        clear    => baseEnable,
-        repulse  => trigger360,
-        divisor  => config.ACRateDivisors(i),
-        trigO    => frame.acRates(i));
-  end generate ACDivider_loop;
-
   FixedDivider_loop : for i in 0 to FixedRateDepth-1 generate
     U_FixedDivider_1 : entity lcls_timing_core.Divider
       generic map (
@@ -209,43 +146,13 @@ begin
         trigO    => frame.fixedRates(i));
   end generate FixedDivider_loop;
 
-  status.seqRdData <= (others=>(others=>'0'));
-  status.seqState  <= (others=>SEQUENCER_STATE_INIT_C);
-
   frame.control     <= (others=>(others=>'0'));
   frame.beamRequest <= (others=>'0');
 
-  BsaLoop : for i in 0 to NARRAYSBSA-1 generate
-    U_BsaControl : entity lcls_timing_core.BsaControl
-      generic map (TPD_G => TPD_G, ASYNC_REGCLK_G => false)
-      port map (
-        sysclk     => txClk,
-        sysrst     => txRst,
-        bsadef     => config.bsadefv(i),
---        tmo        => frame.fixedRates(2),
-        nToAvgOut  => status.bsaStatus(i)(15 downto 0),
-        avgToWrOut => status.bsaStatus(i)(31 downto 16),
-        txclk      => txClk,
-        txrst      => txRst,
-        enable     => baseEnabled(4),
-        fixedRate  => frame.fixedRates,
-        acRate     => frame.acRates,
-        acTS       => frame.acTimeSlot,
-        beamSeq    => frame.beamRequest,
-        expSeq     => frame.control,
-        bsaInit    => frame.bsaInit(i),
-        bsaActive  => frame.bsaActive(i),
-        bsaAvgDone => frame.bsaAvgDone(i),
-        bsaDone    => frame.bsaDone(i));
-  end generate BsaLoop;
-
-  GEN_NULL_BSA: if NARRAYSBSA<64 generate
-    status.bsaStatus(63 downto NARRAYSBSA) <= (others => (others => '0'));
-    frame.bsaInit   (63 downto NARRAYSBSA) <= (others => '0');
-    frame.bsaActive (63 downto NARRAYSBSA) <= (others => '0');
-    frame.bsaAvgDone(63 downto NARRAYSBSA) <= (others => '0');
-    frame.bsaDone   (63 downto NARRAYSBSA) <= (others => '0');
-  end generate GEN_NULL_BSA;
+  frame.bsaInit     <= (others=>'0');
+  frame.bsaActive   <= (others=>'0');
+  frame.bsaAvgDone  <= (others=>'0');
+  frame.bsaDone     <= (others=>'0');
 
   U_TSerializer : entity lcls_timing_core.TimingSerializer
     generic map ( TPD_G => TPD_G, STREAMS_C => 1 )
@@ -268,96 +175,39 @@ begin
                stream     => istreams  (0),
                streamId   => istreamIds(0) );
 
-  status.irqFifoData  <= (others=>'0');
-  status.irqFifoFull  <= '0';
-  status.irqFifoEmpty <= '1';
-
-  pulseIdn <= config.pulseId when pulseIdWr = '1' else
-              frame.pulseId+1 when baseEnable = '1' else
-              frame.pulseId;
-
-  acTSn      <= "001";
-  acTSPhasen <= (others => '0');
-
-  countBRTn <= (others => '0') when countRst = '1' else
-               countBRT+1 when baseEnable = '1' else
-               countBRT;
-
-  process (txClk, txRst, txRdy, config, baseEnable)
-    variable outOfSyncd : sl;
-    variable txRdyd     : sl;
-    variable acTsn      : integer range 1 to 6;
-    variable acTSPhasen : integer range 0 to 2574;
-  begin  -- process
-    if rising_edge(txClk) then
-      frame.pulseId         <= pulseIdn                                              after TPD_G;
-      pulseIdWr             <= '0';
-      if baseEnable = '1' then
-        if trigger360 = '1' then
-          if triggerTS1 = '1' then
-            acTsn := 1;
-          else
-            acTsn := acTsn + 1;
-          end if;
-          acTSPhasen := 0;
-        else
-          acTSPhasen := acTSPhasen + 1;
-        end if;
-        frame.acTimeSlot      <= toSlv(acTSn     ,frame.acTimeSlot'length)      after TPD_G;
-        frame.acTimeSlotPhase <= toSlv(acTSPhasen,frame.acTimeSlotPhase'length) after TPD_G;
-      end if;
-      baseEnabled           <= baseEnabled(baseEnabled'left-1 downto 0) & baseEnable after TPD_G;
-      count186M             <= count186M+1;
-      if (frame.syncStatus = '1' and outOfSyncd = '0') then
-        countSyncE <= countSyncE+1;
-      end if;
-      if (txRdy /= txRdyd) then
-        pllChanged <= pllChanged+1;
-      end if;
-      outOfSyncd := frame.syncStatus;
-      txRdyd     := txRdy;
-      countBRT   <= countBRTn;
-      if allBits(intervalCnt, '0') then  -- need to execute this when
-                                         -- intervalReg is changed
-        countRst         <= '1';
-        status.countBRT  <= countBRT;
-        intervalCnt      <= config.interval;
-      else
-        countRst    <= '0';
-        intervalCnt <= intervalCnt-1;
-      end if;
-      -- synchronous reset
-      if txRst = '1' then
-        frame.acTimeSlot      <= "001";
-        frame.acTimeSlotPhase <= (others => '0');
-        baseEnabled           <= (others => '0');
-        count186M             <= (others => '0');
-        countSyncE            <= (others => '0');
-        outOfSyncd            := '1';
-        countRst              <= '1';
-        status.countBRT       <= (others => '0');
-      end if;
-      if config.intervalRst = '1' then
-        intervalCnt <= (others => '0');
-      end if;
-      pulseIdWr <= config.pulseIdWrEn;
-    end if;
-  end process;
-
-  comb: process(r, txRst, countRst, frame, baseEnable) is
+  comb: process(r, txRst, baseEnable, config) is
     variable v : RegType;
   begin
     v := r;
 
-    v.bsaComplete := (others=>'0');
-    v.countUpdate := v.countUpdate(0) & '0';
-
-    if baseEnable='1' then
-      v.bsaComplete(frame.bsaDone'range) := frame.bsaDone;
+    v.baseEnabled := r.baseEnabled(r.baseEnabled'left-1 downto 0) & baseEnable;
+    v.acRates     := (others=>'0');
+    
+    if baseEnable = '1' then
+      v.pulseId     := r.pulseId + 1;
+      v.count360    := r.count360 + 1;
     end if;
-
-    if countRst='1' then
-      v.countUpdate := "01";
+    
+    if config.pulseIdWrEn = '1' then
+      v.pulseId := config.pulseId;
+    end if;
+    
+    if r.count360=AC_PERIOD-1 then
+      v.count360 := (others=>'0');
+      v.timeSlot := r.timeSlot + 1;
+      if r.timeSlot=6 then
+        v.timeSlot := toSlv(1,3);
+        v.acRatesL := (others=>'0');
+        for i in 0 to ACRATEDEPTH-1 loop
+          if r.countAC(i) = config.ACRateDivisors(i) then
+            v.countAC (i) := toSlv(1,8);
+            v.acRatesL(i) := '1';
+          else
+            v.countAC (i) := r.countAC(i) + 1;
+          end if;
+        end loop;
+      end if;
+      v.acRates := v.acRatesL;
     end if;
 
     if txRst='1' then
@@ -366,8 +216,11 @@ begin
 
     rin <= v;
 
-    status.bsaComplete <= r.bsaComplete;
-    status.countUpdate <= r.countUpdate(1);
+    frame.pulseId     <= r.pulseId;
+    frame.acRates     <= r.acRates;
+    frame.acTimeSlot  <= r.timeSlot;
+    frame.acTimeSlotPhase <= r.count360;
+    baseEnabled       <= r.baseEnabled;
   end process;
 
   seq: process (txClk) is
