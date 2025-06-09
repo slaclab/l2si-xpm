@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2025-06-06
+-- Last update: 2025-06-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -918,25 +918,41 @@ begin
 
   superFrameS <= toTimingSuperFrameType(superFrameSlvS);
 
-  U_ClkSim : entity l2si.TPGMiniClock
+  U_TimSim : entity l2si.Xpm2Timing
     generic map (
-      TPD_G       => 1 ns,
-      NARRAYSBSA  => 0,
-      STREAM_INTF => true,
-      AC_PERIOD   => 26 )
+      AXIL_BASE_ADDR_G    => toSlv(0,32),
+      USE_XTPG_G          => false,
+      US_RX_ENABLE_INIT_G => false,
+      CU_RX_ENABLE_INIT_G => false,
+      CU_ASYNC_G          => false,
+      SIMULATION_G        => true )
     port map (
-      statusO    => open,
-      configI    => tpgConfig,
-      --
-      clock_step       => toSlv(5,5),
-      clock_remainder  => toSlv(5,5),
-      clock_divisor    => toSlv(13,5),
-      --
-      txClk      => scClk,
-      txRst      => scRst,
-      txRdy      => '1',
-      streams    => open,
-      streamIds  => open,
-      fiducial   => open);
-    
+       -- AXI-Lite Interface (axilClk domain)
+       axilClk         => regClk,
+       axilRst         => regRst,
+       axilReadMaster  => AXI_LITE_READ_MASTER_INIT_C,
+       axilReadSlave   => open,
+       axilWriteMaster => AXI_LITE_WRITE_MASTER_INIT_C,
+       axilWriteSlave  => open,
+       usRefClk        => scClk,
+       usRefClkRst     => scRst,
+       usRecClk        => scClk,
+       usRecClkRst     => scRst,
+       usRxEnable      => '0',
+       usRx            => TIMING_RX_INIT_C,
+       usRxStatus      => TIMING_PHY_STATUS_INIT_C,
+       usRxControl     => open,
+       cuRefClk        => scClk,
+       cuRecClk        => scClk,
+       cuRecClkRst     => scRst,
+       cuRx            => TIMING_RX_INIT_C,
+       cuRxStatus      => TIMING_PHY_STATUS_INIT_C,
+       cuRxControl     => open,
+       cuRxFiducial    => open,
+       cuSync          => open,
+       timingClk       => open,
+       timingRst       => open,
+       timingLkN       => open,
+       timingStream    => open );
+      
 end top_level_app;

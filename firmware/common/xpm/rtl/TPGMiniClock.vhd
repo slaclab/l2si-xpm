@@ -181,35 +181,34 @@ begin
     v := r;
 
     v.baseEnabled := r.baseEnabled(r.baseEnabled'left-1 downto 0) & baseEnable;
-    v.acRates     := (others=>'0');
-    
-    if baseEnable = '1' then
-      v.pulseId     := r.pulseId + 1;
-      v.count360    := r.count360 + 1;
-    end if;
     
     if config.pulseIdWrEn = '1' then
       v.pulseId := config.pulseId;
     end if;
     
-    if r.count360=AC_PERIOD-1 then
-      v.count360 := (others=>'0');
-      v.timeSlot := r.timeSlot + 1;
-      if r.timeSlot=6 then
-        v.timeSlot := toSlv(1,3);
-        v.acRatesL := (others=>'0');
-        for i in 0 to ACRATEDEPTH-1 loop
-          if r.countAC(i) = config.ACRateDivisors(i) then
-            v.countAC (i) := toSlv(1,8);
-            v.acRatesL(i) := '1';
-          else
-            v.countAC (i) := r.countAC(i) + 1;
-          end if;
-        end loop;
+    if baseEnable = '1' then
+      v.pulseId     := r.pulseId + 1;
+      v.count360    := r.count360 + 1;
+    
+      if r.count360=AC_PERIOD-1 then
+        v.count360 := (others=>'0');
+        v.timeSlot := r.timeSlot + 1;
+        if r.timeSlot=6 then
+          v.timeSlot := toSlv(1,3);
+          v.acRatesL := (others=>'0');
+          for i in 0 to ACRATEDEPTH-1 loop
+            if r.countAC(i) = config.ACRateDivisors(i) then
+              v.countAC (i) := toSlv(1,8);
+              v.acRatesL(i) := '1';
+            else
+              v.countAC (i) := r.countAC(i) + 1;
+            end if;
+          end loop;
+        end if;
+        v.acRates := v.acRatesL;
       end if;
-      v.acRates := v.acRatesL;
     end if;
-
+    
     if txRst='1' then
       v := REG_INIT_C;
     end if;

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2025-06-06
+-- Last update: 2025-06-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -200,8 +200,7 @@ begin
                                   x"0238C",                                    -- 102 Hz
                                   x"16378",                                    -- 10.2Hz
                                   x"DE2B0");                                   -- 1.02Hz
-  tpgConfig.ACRateDivisors <= (x"00",
-                               x"01",
+  tpgConfig.ACRateDivisors <= (x"01",
                                x"02",
                                x"06",
                                x"0C",
@@ -375,7 +374,8 @@ begin
          generic map (
             TPD_G       => TPD_G,
             NARRAYSBSA  => 0,
-            STREAM_INTF => true)
+            STREAM_INTF => true,
+            AC_PERIOD   => ite(SIMULATION_G, 26, 2574) )
          port map (
             statusO    => tpgStatus,
             configI    => tpgConfig,
