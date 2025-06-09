@@ -189,7 +189,8 @@ begin
     if baseEnable = '1' then
       v.pulseId     := r.pulseId + 1;
       v.count360    := r.count360 + 1;
-    
+
+      v.acRates     := (others=>'0');
       if r.count360=AC_PERIOD-1 then
         v.count360 := (others=>'0');
         v.timeSlot := r.timeSlot + 1;
