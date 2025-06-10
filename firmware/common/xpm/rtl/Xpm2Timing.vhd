@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2025-06-06
+-- Last update: 2025-06-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -177,66 +177,18 @@ architecture mapping of Xpm2Timing is
    signal rin : RegType;
 
    type CuRegType is record
-      cnt17   : slv(4 downto 0);
-      cnt1666 : slv(10 downto 0);
       cntFid  : slv(18 downto 0);
       cntFidL : slv(18 downto 0);
    end record;
 
    constant CUREG_INIT_C : CuRegType := (
-      cnt17   => (others => '0'),
-      cnt1666 => (others => '0'),
       cntFid  => (others => '0'),
       cntFidL => (others => '0'));
 
    signal c   : CuRegType := CUREG_INIT_C;
    signal cin : CuRegType;
 
-   constant DEBUG_C : boolean := false;
-
-   component ila_0
-      port (
-         clk    : in sl;
-         probe0 : in slv(255 downto 0));
-   end component;
 begin
-
-   GEN_DEBUG : if DEBUG_C generate
-      U_ILA_CUREC : ila_0
-         port map (
-            clk                   => cuRecClk,
-            probe0(0)             => cuRecClkRst,
-            probe0(1)             => cuFiducial,
-            probe0(2)             => cuRxValid,
-            probe0(10 downto 3)   => cuRxT.epicsTime (7 downto 0),
-            probe0(20 downto 11)  => cuRxT.eventCodes(9 downto 0),
-            probe0(21)            => cuFiducial,
-            probe0(26 downto 22)  => c.cnt17,
-            probe0(37 downto 27)  => c.cnt1666,
-            probe0(56 downto 38)  => c.cntFid,
-            probe0(255 downto 57) => (others => '0'));
-      U_ILA_TIM : ila_0
-         port map (
-            clk                    => itimingClk,
-            probe0(0)              => itimingRst,
-            probe0(1)              => txFiducial,
-            probe0(2)              => cuValid,
-            probe0(10 downto 3)    => cuRxTS.epicsTime (7 downto 0),
-            probe0(20 downto 11)   => cuRxTS.eventCodes(9 downto 0),
-            probe0(21)             => cuRxTSVd,
-            probe0(24 downto 22)   => txAdvance,
-            probe0(42 downto 25)   => cuDelay,
-            probe0(60 downto 43)   => r.count,
-            probe0(61)             => r.cuValid,
-            probe0(62)             => txStreams(0).ready,
-            probe0(63)             => txStreams(0).last,
-            probe0(79 downto 64)   => txStreams(0).data,
-            probe0(80)             => txStreams(1).ready,
-            probe0(81)             => txStreams(1).last,
-            probe0(97 downto 82)   => txStreams(1).data,
-            probe0(103 downto 98)  => cuRxTS.eventCodes(45 downto 40),
-            probe0(255 downto 104) => (others => '0'));
-   end generate;
 
    timingClk <= itimingClk;
    timingRst <= itimingRst;
@@ -526,17 +478,7 @@ begin
    begin
       v := c;
 
-      v.cnt17   := c.cnt17+1;
-      v.cnt1666 := c.cnt1666+1;
       v.cntFid  := c.cntFid+1;
-
-      if c.cnt17 = toSlv(16, 5) then
-         v.cnt17 := (others => '0');
-      end if;
-
-      if c.cnt1666 = toSlv(1665, 11) then
-         v.cnt1666 := (others => '0');
-      end if;
 
       if cuFiducial = '1' then
          v.cntFid  := (others => '0');

@@ -31,23 +31,18 @@ entity TPGMiniClock is
     AC_PERIOD    : integer := 2574
     );
   port (
-    statusO : out TPGStatusType;
-    configI : in  TPGConfigType;
-
-    clock_step       : in  slv(4 downto 0);
-    clock_remainder  : in  slv(4 downto 0);
-    clock_divisor    : in  slv(4 downto 0);
-
-    txClk      : in  sl;
-    txRst      : in  sl;
-    txRdy      : in  sl;
-    txData     : out slv(15 downto 0);
-    txDataK    : out slv(1 downto 0);
+    txClk           : in  sl;
+    txRst           : in  sl;
+    txRdy           : in  sl;
+    config          : in  TPGConfigType;
+    status          : out TPGStatusType;
+    txData          : out slv(15 downto 0);
+    txDataK         : out slv(1 downto 0);
     -- alternate output (STREAM_INTF=true)
-    streams    : out TimingSerialArray(0 downto 0);
-    streamIds  : out Slv4Array        (0 downto 0);
-    advance    : in  slv              (0 downto 0) := (others=>'0');
-    fiducial   : out sl );
+    streams         : out TimingSerialArray(0 downto 0);
+    streamIds       : out Slv4Array        (0 downto 0);
+    advance         : in  slv              (0 downto 0) := (others=>'0');
+    fiducial        : out sl );
 end TPGMiniClock;
 
 
@@ -88,10 +83,6 @@ architecture TPGMiniClock of TPGMiniClock is
 
   signal syncReset : sl;
 
-  -- Delay registers (for closing timing)
-  signal status : TPGStatusType := TPG_STATUS_INIT_C;
-  signal config : TPGConfigType;
-
   constant TPG_ID : integer := 0;
 
   signal istreams   : TimingSerialArray(0 downto 0);
@@ -113,8 +104,6 @@ begin
   frame.mpsLimit       <= (others => '0');
   frame.mpsClass       <= (others => (others => '0'));
   frame.mpsValid       <= '0';
-
-  status.pulseId    <= frame.pulseId;
 
   syncReset        <= '0';
   frame.resync     <= '0';
@@ -146,7 +135,6 @@ begin
         trigO    => frame.fixedRates(i));
   end generate FixedDivider_loop;
 
-  frame.control     <= (others=>(others=>'0'));
   frame.beamRequest <= (others=>'0');
 
   frame.bsaInit     <= (others=>'0');
@@ -177,6 +165,8 @@ begin
 
   comb: process(r, txRst, baseEnable, config) is
     variable v : RegType;
+    variable itimeslot, ctimeslot : integer;
+    variable ecode : integer;
   begin
     v := r;
 
@@ -216,11 +206,37 @@ begin
 
     rin <= v;
 
+    baseEnabled       <= r.baseEnabled;
     frame.pulseId     <= r.pulseId;
     frame.acRates     <= r.acRates;
     frame.acTimeSlot  <= r.timeSlot;
     frame.acTimeSlotPhase <= r.count360;
-    baseEnabled       <= r.baseEnabled;
+
+    -- Assert the LCLS1 event codes
+    frame.control     <= (others=>(others=>'0'));
+    itimeslot := conv_integer(r.timeSlot);
+    for i in 0 to 5 loop
+      if r.acRates(i)='1' then
+        ecode := 10*itimeslot + 6-i;
+        frame.control(ecode/16)(ecode mod 16) <= '1';
+      end if;
+    end loop;
+    if r.acRates(5) = '1' then
+      case itimeslot is
+        when 1 | 4 =>
+          frame.control(0)(10) <= '1';
+          frame.control(2)( 8) <= '1';
+        when 2 | 5 =>
+          frame.control(1)( 4) <= '1';
+          frame.control(3)( 2) <= '1';
+        when 3 | 6 =>
+          frame.control(1)(14) <= '1';
+          frame.control(3)(12) <= '1';
+        when others =>
+          null;
+      end case;       
+    end if;
+    
   end process;
 
   seq: process (txClk) is
@@ -234,20 +250,16 @@ begin
     generic map (
       TPD_G =>   TPD_G)
     port map (
-      step      => clock_step,
-      remainder => clock_remainder,
-      divisor   => clock_divisor,
-      
-      rst    => txRst,
-      clkA   => txClk,
-      wrEnA  => config.timeStampWrEn,
-      wrData => config.timeStamp,
-      rdData => status.timeStamp,
-      clkB   => txClk,
-      wrEnB  => baseEnable,
-      dataO  => frame.timeStamp);
-
-  statusO <= status;
-  config  <= configI;
+      rst       => txRst,
+      clkA      => txClk,
+      wrEnA     => config.timeStampWrEn,
+      wrData    => config.timeStamp,
+      rdData    => status.timeStamp,
+      clkB      => txClk,
+      wrEnB     => baseEnable,
+      step      => config.interval( 4 downto  0),
+      remainder => config.interval( 9 downto  5),
+      divisor   => config.interval(14 downto 10),
+      dataO     => frame.timeStamp);
 
 end TPGMiniClock;
