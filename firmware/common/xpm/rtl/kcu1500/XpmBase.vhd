@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-06-04
+-- Last update: 2025-06-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -260,6 +260,8 @@ architecture top_level of XpmBase is
    signal linkIdValid     : sl;
    signal linkId, linkIdS : slv(31 downto 0) := (others=>'0');
 
+   signal timeStamp : slv(63 downto 0);
+   
 begin
 
    axilClk <= regClk;
@@ -504,7 +506,8 @@ begin
          timingFbId      => timingFbId,
          timingFb        => timingFb,
          seqCountRst     => seqCountRst,
-         seqCount        => seqCount );
+         seqCount        => seqCount,
+         timeStamp       => timeStamp );
 
    --  Map all messages to VC=1
    U_MasterMux : entity surf.AxiStreamMux
@@ -591,6 +594,7 @@ begin
          monClk(3)       => timingPhyClk,
          monLatch        => seqCountRst,
          seqCount        => seqCount,
+         timeStamp       => timeStamp,
          config          => xpmConfig,
          common          => common,
          usRxEnable      => open,

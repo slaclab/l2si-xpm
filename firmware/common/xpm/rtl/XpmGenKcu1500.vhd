@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-06-05
+-- Last update: 2025-06-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -100,7 +100,7 @@ begin
          mAxiWriteMaster => tpgWriteMaster,
          mAxiWriteSlave  => tpgWriteSlave);
 
-   TPGMiniReg_Inst : entity lcls_timing_core.TPGMiniReg
+   TPGMiniReg_Inst : entity l2si.TPGMiniReg
       generic map (
          TPD_G       => TPD_G )
       port map (
@@ -118,18 +118,15 @@ begin
    U_TPGMiniCore : entity l2si.TPGMiniClock
      generic map (
        TPD_G        => TPD_G,
-       STREAM_INTF  => true )
+       NARRAYSBSA   => 0,
+       STREAM_INTF  => true,
+       AC_PERIOD    => 2574 )
      port map (
-       statusO         => tpgStatus,
-       configI         => tpgConfig,
-
-       clock_step      => tpgConfig.interval(20 downto 16),
-       clock_remainder => tpgConfig.interval(12 downto  8),
-       clock_divisor   => tpgConfig.interval( 4 downto  0),
-
        txClk           => timingPhyClk,
        txRst           => timingPhyRst,
        txRdy           => '1',
+       config          => tpgConfig,
+       status          => tpgStatus,
        -- alternate output (STREAM_INTF=true)
        streams         => txStreams  (0 downto 0),
        streamIds       => txStreamIds(0 downto 0),

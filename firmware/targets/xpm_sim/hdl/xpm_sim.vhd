@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2025-06-08
+-- Last update: 2025-06-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -226,6 +226,9 @@ architecture top_level_app of xpm_sim is
    signal usRxStrobe : sl;
 
    signal seqRestart, seqDisable : slv(0 downto 0);
+
+   signal regWriteMaster : AxiLiteWriteMasterType;
+   signal regWriteSlave  : AxiLiteWriteSlaveType;
    
 begin
 
@@ -918,6 +921,36 @@ begin
 
   superFrameS <= toTimingSuperFrameType(superFrameSlvS);
 
+  U_RegMaster : entity l2si.AxiLiteWriteMasterSim
+    generic map (
+      CMDS => ( 0 => (addr => x"00880058", value => X"00000000"), -- pulseId
+                1 => (addr => x"0088005C", value => X"00000001"), -- pulseId
+                2 => (addr => x"00880070", value => toSlv(1,32)), -- pulseIdWr
+                3 => (addr => x"00880060", value => X"00000000"), -- timeStamp
+                4 => (addr => x"00880064", value => X"00000002"), -- timeStamp
+                5 => (addr => x"00880074", value => toSlv(1,32)), -- timeStampWr
+                6 => (addr => x"00880018", value => toSlv(910000,32)), -- fixedRate0
+                7 => (addr => x"0088001C", value => toSlv(91000,32)), -- fixedRate1
+                8 => (addr => x"00880020", value => toSlv(9100,32)), -- fixedRate2
+                9 => (addr => x"00880024", value => toSlv(910,32)), -- fixedRate3
+                10 => (addr => x"00880028", value => toSlv(91,32)), -- fixedRate4
+                11 => (addr => x"0088002C", value => toSlv(13,32)), -- fixedRate5
+                12 => (addr => x"00880030", value => toSlv(1,32)), -- fixedRate6
+                13 => (addr => x"00880040", value => toSlv(1,32)),
+                14 => (addr => x"00880080", value => toSlv(120,32)),
+                15 => (addr => x"00880084", value => toSlv( 60,32)),
+                16 => (addr => x"00880088", value => toSlv( 12,32)),
+                17 => (addr => x"0088008C", value => toSlv(  6,32)),
+                18 => (addr => x"00880090", value => toSlv(  2,32)),
+                19 => (addr => x"00880094", value => toSlv(  1,32)),
+                20 => (addr => x"00880098", value => toSlv(1,32))) ) -- rateReload
+    port map (
+      clk        => regClk,
+      rst        => regRst,
+      master     => regWriteMaster,
+      slave      => regWriteSlave,
+      done       => open );
+  
   U_TimSim : entity l2si.Xpm2Timing
     generic map (
       AXIL_BASE_ADDR_G    => toSlv(0,32),
@@ -932,8 +965,8 @@ begin
        axilRst         => regRst,
        axilReadMaster  => AXI_LITE_READ_MASTER_INIT_C,
        axilReadSlave   => open,
-       axilWriteMaster => AXI_LITE_WRITE_MASTER_INIT_C,
-       axilWriteSlave  => open,
+       axilWriteMaster => regWriteMaster,
+       axilWriteSlave  => regWriteSlave,
        usRefClk        => scClk,
        usRefClkRst     => scRst,
        usRecClk        => scClk,
