@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-06-10
+-- Last update: 2025-06-13
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -602,7 +602,7 @@ begin
          dbgChan         => dbgChan);
 
    GEN_XPMGEN : if XPM_MODE_G = "XpmGen" generate
-     U_XpmGen : entity l2si.XpmGenKcu1500
+     U_XpmGen : entity l2si.XpmSimKcu1500
        port map (
          axilClk               => regClk,
          axilRst               => regRst,
@@ -614,6 +614,10 @@ begin
          timingPhyClk          => timingPhyClk,
          timingPhyRst          => timingPhyRst,
          recStream             => recStream );
+     -- axilReadSlaves (TIM_INDEX_C) <= AXI_LITE_READ_SLAVE_INIT_C;
+     -- axilWriteSlaves(TIM_INDEX_C) <= AXI_LITE_WRITE_SLAVE_INIT_C;
+     -- recStream <= XPM_STREAM_INIT_C;
+     
      timingFbClk    <= timingPhyClk;
      timingFbStatus <= TIMING_PHY_STATUS_INIT_C;
      dsLinkConfig   <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 0);
