@@ -177,18 +177,10 @@ create_clock -period 2.691 -name timingRef [get_ports usClkP]
 create_clock -period 5.382 -name dsClk0 [get_ports {dsClkP[0]}]
 create_clock -period 5.382 -name dsClk1 [get_ports {dsClkP[1]}]
 
-create_generated_clock -name bpClk625MHz [get_pins U_Base/U_Backplane/U_Clk/U_ClkManagerMps/MmcmGen.U_Mmcm/CLKOUT0]
-create_generated_clock -name bpClk312MHz [get_pins U_Base/U_Backplane/U_Clk/U_ClkManagerMps/MmcmGen.U_Mmcm/CLKOUT1]
-create_generated_clock -name bpClk125MHz [get_pins U_Base/U_Backplane/U_Clk/U_ClkManagerMps/MmcmGen.U_Mmcm/CLKOUT2]
-
 set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks timingRef] -group [get_clocks -include_generated_clocks cuRef] -group [get_clocks -include_generated_clocks fabClk] -group [get_clocks -include_generated_clocks ethRef] -group [get_clocks -include_generated_clocks dsClk0] -group [get_clocks -include_generated_clocks dsClk1]
 
-set_clock_groups -asynchronous -group [get_clocks fabClk] -group [get_clocks bpClk125MHz]
-set_clock_groups -asynchronous -group [get_clocks fabClk] -group [get_clocks bpClk312MHz]
-set_clock_groups -asynchronous -group [get_clocks fabClk] -group [get_clocks bpClk625MHz]
-
 #create_generated_clock -name timingPhyClk [get_pins U_Base/U_Core/TimingGtCoreWrapper_1/LOCREF_G.TIMING_TXCLK_BUFG_GT/I]
-create_generated_clock -name iusRefClk [get_pins U_Base/U_Core/TIMING_REFCLK_IBUFDS_GTE3/ODIV2]
+create_generated_clock -name iusRefClk [get_pins U_Base/TIMREFCLK_IBUFDS_GTE3/ODIV2]
 create_generated_clock -name dsRecClk [get_pins -hier -filter {NAME =~ U_Base/U_Core/TimingGtCoreWrapper_1/LOCREF_G.U_TimingGthCore/*/RXOUTCLK}]
 
 set_clock_groups -asynchronous -group [get_clocks dsRecClk] -group [get_clocks iusRefClk] -group [get_clocks timingPhyClk_1]
@@ -200,13 +192,9 @@ create_generated_clock -name cuRecClk [get_pins {U_Base/U_Core/U_BpTx/U_BpTx/LOC
 
 #create_generated_clock -name cuStableRef [get_pins U_Base/U_BpTx/TIMREFCLK_IBUFDS_GTE3/ODIV2]
 
-create_generated_clock -name simClk70L  [get_pins U_Base/U_Core/GEN_L2_FROM_CU.U_Timing/U_InputSim/U_MMCM0/U_MMCM/CLKOUT0]
-create_generated_clock -name simClk130L [get_pins U_Base/U_Core/GEN_L2_FROM_CU.U_Timing/U_InputSim/U_MMCM1/U_MMCM/CLKOUT0]
-create_generated_clock -name simClk186L [get_pins U_Base/U_Core/GEN_L2_FROM_CU.U_Timing/U_InputSim/U_MMCM2/U_MMCM/CLKOUT0]
-
-create_generated_clock -name simClk70 [get_pins U_Base/U_Core/NO_GEN_L2_FROM_CU.U_Timing/U_InputSim/U_MMCM0/U_MMCM/CLKOUT0]
-create_generated_clock -name simClk130 [get_pins U_Base/U_Core/NO_GEN_L2_FROM_CU.U_Timing/U_InputSim/U_MMCM1/U_MMCM/CLKOUT0]
-create_generated_clock -name simClk186 [get_pins U_Base/U_Core/NO_GEN_L2_FROM_CU.U_Timing/U_InputSim/U_MMCM2/U_MMCM/CLKOUT0]
+create_generated_clock -name simClk70 [get_pins U_Base/U_Core/U_Timing/U_InputSim/U_MMCM0/U_MMCM/CLKOUT0]
+create_generated_clock -name simClk130 [get_pins U_Base/U_Core/U_Timing/U_InputSim/U_MMCM1/U_MMCM/CLKOUT0]
+create_generated_clock -name simClk186 [get_pins U_Base/U_Core/U_Timing/U_InputSim/U_MMCM2/U_MMCM/CLKOUT0]
 
 set_clock_groups -asynchronous -group [get_clocks cuRecClk] -group [get_clocks simClk186] -group [get_clocks simClk130] -group [get_clocks simClk70]
 

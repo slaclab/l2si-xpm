@@ -26,7 +26,6 @@ use lcls_timing_core.TPGPkg.all;
 entity TPGMiniClock is
   generic (
     TPD_G : time := 1 ns;
-    NARRAYSBSA   : integer := 2;
     STREAM_INTF  : boolean := false;
     AC_PERIOD    : integer := 2574
     );
@@ -257,9 +256,9 @@ begin
       rdData    => status.timeStamp,
       clkB      => txClk,
       wrEnB     => baseEnable,
-      step      => config.interval( 4 downto  0),
-      remainder => config.interval( 9 downto  5),
-      divisor   => config.interval(14 downto 10),
+      step      => config.clock_step     (4 downto 0),
+      remainder => config.clock_remainder(4 downto 0),
+      divisor   => config.clock_divisor  (4 downto 0),
       dataO     => frame.timeStamp);
 
 end TPGMiniClock;

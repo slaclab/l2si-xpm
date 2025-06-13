@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-10
--- Last update: 2025-06-10
+-- Last update: 2025-06-13
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -229,6 +229,9 @@ architecture top_level_app of xpm_sim is
 
    signal regWriteMaster : AxiLiteWriteMasterType;
    signal regWriteSlave  : AxiLiteWriteSlaveType;
+
+   signal genWriteMaster : AxiLiteWriteMasterType := AXI_LITE_WRITE_MASTER_INIT_C;
+   signal genWriteSlave  : AxiLiteWriteSlaveType;
    
 begin
 
@@ -987,5 +990,17 @@ begin
        timingRst       => open,
        timingLkN       => open,
        timingStream    => open );
-      
+
+  U_GEN : entity l2si.XpmGenKcu1500
+    port map (
+      axilClk         => regClk,
+      axilRst         => regRst,
+       axilReadMaster  => AXI_LITE_READ_MASTER_INIT_C,
+       axilReadSlave   => open,
+       axilWriteMaster => genWriteMaster,
+       axilWriteSlave  => genWriteSlave,
+       timingPhyClk    => scClk,
+       timingPhyRst    => scRst,
+       recStream       => open );
+  
 end top_level_app;

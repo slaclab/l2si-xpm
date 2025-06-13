@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2025-06-09
+-- Last update: 2025-06-12
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -188,6 +188,11 @@ architecture mapping of Xpm2Timing is
    signal c   : CuRegType := CUREG_INIT_C;
    signal cin : CuRegType;
 
+   component ila_0
+     port ( clk : sl;
+            probe0 : slv(255 downto 0) );
+   end component;
+   
 begin
 
    timingClk <= itimingClk;
@@ -302,6 +307,16 @@ begin
          axilWriteMaster    => axilWriteMasters(CU_INDEX_C),
          axilWriteSlave     => axilWriteSlaves(CU_INDEX_C));
 
+   U_ILA : ila_0
+     port map ( clk     => usRecClk,
+                probe0(15 downto 0) => usRx.data,
+                probe0(17 downto 16) => usRx.dataK,
+                probe0(19 downto 18) => usRx.decErr,
+                probe0(21 downto 20) => usRx.dspErr,
+                probe0(85 downto 22) => usRxMessage.timeStamp,
+                probe0(101 downto 86) => recStreams(0).data,
+                probe0(255 downto 102) => (others=>'0') );
+   
    U_UsRx : entity lcls_timing_core.TimingRx
       generic map (
          CLKSEL_MODE_G => "LCLSII")

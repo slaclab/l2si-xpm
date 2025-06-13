@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2025-06-09
+-- Last update: 2025-06-12
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -364,7 +364,6 @@ begin
     U_UsSim : entity l2si.TPGMiniClock
       generic map (
         TPD_G       => TPD_G,
-        NARRAYSBSA  => 0,
         STREAM_INTF => true,
         AC_PERIOD   => ite(SIMULATION_G, 26, 2574) )
       port map (
