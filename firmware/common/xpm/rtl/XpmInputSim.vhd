@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2025-06-12
+-- Last update: 2025-06-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -93,7 +93,6 @@ architecture mapping of XpmInputSim is
 
   signal cuClkT     : slv(2 downto 0);
   signal cuRstT     : slv(2 downto 0);
-  signal cuSync     : slv(1 downto 0);
   signal mmcmRst    : sl;
   signal cuRxReadyN : sl;
   signal cuBeamCode : slv(7 downto 0);
@@ -153,9 +152,9 @@ architecture mapping of XpmInputSim is
                            connectivity => X"FFFF") );
 
   signal axilWriteMasters : AxiLiteWriteMasterArray(NUM_AXI_MASTERS_C-1 downto 0);
-  signal axilWriteSlaves  : AxiLiteWriteSlaveArray (NUM_AXI_MASTERS_C-1 downto 0);
+  signal axilWriteSlaves  : AxiLiteWriteSlaveArray (NUM_AXI_MASTERS_C-1 downto 0) := (others => AXI_LITE_WRITE_SLAVE_INIT_C);
   signal axilReadMasters  : AxiLiteReadMasterArray (NUM_AXI_MASTERS_C-1 downto 0);
-  signal axilReadSlaves   : AxiLiteReadSlaveArray (NUM_AXI_MASTERS_C-1 downto 0);
+  signal axilReadSlaves   : AxiLiteReadSlaveArray (NUM_AXI_MASTERS_C-1 downto 0) := (others => AXI_LITE_READ_SLAVE_INIT_C);
 
   type CuRegType is record
     fiducialErr  : sl;
@@ -182,20 +181,6 @@ begin
   isimClk  <= timingClk;
   isimRst  <= timingClkRst;
   
-  GEN_CU_RX_ENABLE : if CU_RX_ENABLE_INIT_G = true generate
-    simClk     <= cuClkT(2);
-    simClkRst  <= not cr.cuRxReady;
-    simLockedN <= cuRstT(2);
-    simSync    <= mmcmRst;
-  end generate;
-
-  GEN_CU_RX_DISABLE : if CU_RX_ENABLE_INIT_G = false generate
-    simClk     <= usRefClk;
-    simClkRst  <= usRefClkRst;
-    simLockedN <= usRefClkRst;
-    simSync    <= '0';
-  end generate;
-
   --------------------------
   -- AXI-Lite: Crossbar Core
   --------------------------  
@@ -216,115 +201,6 @@ begin
       mAxiWriteSlaves     => axilWriteSlaves,
       mAxiReadMasters     => axilReadMasters,
       mAxiReadSlaves      => axilReadSlaves);
-
-  --
-  --  How to insure each of these lock at a fixed phase with respect to 71kHz
-  --  strobe?
-  --
-  --  Measure phase offset at 71kHz and shift to a known value.
-  --
-  GEN_SYNC: if not CU_ASYNC_G generate
-    phaseReset <= cuFiducial;
-  end generate GEN_SYNC;
-  GEN_ASYNC: if CU_ASYNC_G generate
-    phaseReset <= cuFiducial and not cr.cuRxReady;
-  end generate GEN_ASYNC;
-  
-  BaseEnableDivider : entity lcls_timing_core.Divider
-    generic map (
-      TPD_G => TPD_G,
-      Width => 11)
-    port map (
-      sysClk   => cuRecClk,
-      sysReset => phaseReset,
-      enable   => cr.cuRxReady,
-      clear    => '0',
-      divisor  => toSlv(1666, 11),
-      trigO    => mmcmRst);
-
-  cuRxReadyN <= not cr.cuRxReady;
-
-  U_MMCM0 : entity l2si.MmcmPhaseLock
-    generic map (
-      TPD_G             => TPD_G,
-      CLKIN_PERIOD_G    => 8.4,      -- ClkIn  = 119MHz
-      CLKOUT_DIVIDE_F_G => 17.0,     -- ClkOut =  70MHz
-      CLKFBOUT_MULT_F_G => 10.0,     -- VCO    = 1190MHz
-      NUM_LOCKS_G       => 1,
-      SIMULATION_G      => SIMULATION_G)
-    port map (
-      clkIn           => cuRecClk,
-      rstIn           => cuRxReadyN,
-      clkSync         => cuClkT(0),
-      syncIn          => mmcmRst,
-      clkOut          => cuClkT(0),
-      rstOut          => cuRstT(0),
-      axilClk         => axilClk,
-      axilRst         => axilRst,
-      axilWriteMaster => axilWriteMasters(MMCM0_INDEX_C),
-      axilWriteSlave  => axilWriteSlaves (MMCM0_INDEX_C),
-      axilReadMaster  => axilReadMasters (MMCM0_INDEX_C),
-      axilReadSlave   => axilReadSlaves (MMCM0_INDEX_C));
-
-  U_MMCM1 : entity l2si.MmcmPhaseLock
-    generic map (
-      TPD_G             => TPD_G,
-      CLKIN_PERIOD_G    => 14.286,   -- ClkIn  =  70MHz
-      CLKOUT_DIVIDE_F_G => 7.0,      -- ClkOut = 130MHz
-      CLKFBOUT_MULT_F_G => 13.0,     -- VCO    = 910MHz
-      NUM_LOCKS_G       => 1,
-      SIMULATION_G      => SIMULATION_G)
-    port map (
-      clkIn           => cuClkT(0),
-      rstIn           => cuRstT(0),
-      clkSync         => cuClkT(1),
-      syncIn          => mmcmRst,
-      clkOut          => cuClkT(1),
-      rstOut          => cuRstT(1),
-      axilClk         => axilClk,
-      axilRst         => axilRst,
-      axilWriteMaster => axilWriteMasters(MMCM1_INDEX_C),
-      axilWriteSlave  => axilWriteSlaves (MMCM1_INDEX_C),
-      axilReadMaster  => axilReadMasters (MMCM1_INDEX_C),
-      axilReadSlave   => axilReadSlaves (MMCM1_INDEX_C));
-
-  U_MMCM2 : entity l2si.MmcmPhaseLock
-    generic map (
-      TPD_G             => TPD_G,
-      CLKIN_PERIOD_G    => 7.692,    -- ClkIn  = 130MHz
-      CLKOUT_DIVIDE_F_G => 7.0,      -- ClkOut = 185.7MHz
-      CLKFBOUT_MULT_F_G => 10.0,     -- VCO    = 1300MHz
-      NUM_LOCKS_G       => 1,
-      SIMULATION_G      => SIMULATION_G)
-    port map (
-      clkIn           => cuClkT(1),
-      rstIn           => cuRstT(1),
-      clkSync         => cuClkT(2),
-      syncIn          => mmcmRst,
-      clkOut          => cuClkT(2),
-      rstOut          => cuRstT(2),
-      axilClk         => axilClk,
-      axilRst         => axilRst,
-      axilWriteMaster => axilWriteMasters(MMCM2_INDEX_C),
-      axilWriteSlave  => axilWriteSlaves (MMCM2_INDEX_C),
-      axilReadMaster  => axilReadMasters (MMCM2_INDEX_C),
-      axilReadSlave   => axilReadSlaves (MMCM2_INDEX_C));
-
-  U_CuSync0 : entity surf.RstSync
-    generic map (
-      TPD_G => TPD_G)
-    port map (
-      clk      => cuClkT(0),
-      asyncRst => cuFiducial,
-      syncRst  => cuSync(0));
-
-  U_CuSync1 : entity surf.RstSync
-    generic map (
-      TPD_G => TPD_G)
-    port map (
-      clk      => cuClkT(1),
-      asyncRst => cuSync(0),
-      syncRst  => cuSync(1));
 
   U_AxiLiteAsync : entity surf.AxiLiteAsync
     generic map (
@@ -360,6 +236,12 @@ begin
       config            => tpgConfig );
   
   SC_SIM : if CU_RX_ENABLE_INIT_G = false generate
+
+    simClk     <= usRefClk;
+    simClkRst  <= usRefClkRst;
+    simLockedN <= usRefClkRst;
+    simSync    <= '0';
+
     -- simulated LCLS2 stream
     U_UsSim : entity l2si.TPGMiniClock
       generic map (
@@ -379,6 +261,105 @@ begin
   end generate;
 
   SC_GEN : if CU_RX_ENABLE_INIT_G = true generate
+
+    simClk     <= cuClkT(2);
+    simClkRst  <= not cr.cuRxReady;
+    simLockedN <= cuRstT(2);
+    simSync    <= mmcmRst;
+
+    --
+    --  How to insure each of these lock at a fixed phase with respect to 71kHz
+    --  strobe?
+    --
+    --  Measure phase offset at 71kHz and shift to a known value.
+    --
+    GEN_SYNC: if not CU_ASYNC_G generate
+      phaseReset <= cuFiducial;
+    end generate GEN_SYNC;
+    GEN_ASYNC: if CU_ASYNC_G generate
+      phaseReset <= cuFiducial and not cr.cuRxReady;
+    end generate GEN_ASYNC;
+    
+    BaseEnableDivider : entity lcls_timing_core.Divider
+      generic map (
+        TPD_G => TPD_G,
+        Width => 11)
+      port map (
+        sysClk   => cuRecClk,
+        sysReset => phaseReset,
+        enable   => cr.cuRxReady,
+        clear    => '0',
+        divisor  => toSlv(1666, 11),
+        trigO    => mmcmRst);
+
+    cuRxReadyN <= not cr.cuRxReady;
+
+    U_MMCM0 : entity l2si.MmcmPhaseLock
+      generic map (
+        TPD_G             => TPD_G,
+        CLKIN_PERIOD_G    => 8.4,      -- ClkIn  = 119MHz
+        CLKOUT_DIVIDE_F_G => 17.0,     -- ClkOut =  70MHz
+        CLKFBOUT_MULT_F_G => 10.0,     -- VCO    = 1190MHz
+        NUM_LOCKS_G       => 1,
+        SIMULATION_G      => SIMULATION_G)
+      port map (
+        clkIn           => cuRecClk,
+        rstIn           => cuRxReadyN,
+        clkSync         => cuClkT(0),
+        syncIn          => mmcmRst,
+        clkOut          => cuClkT(0),
+        rstOut          => cuRstT(0),
+        axilClk         => axilClk,
+        axilRst         => axilRst,
+        axilWriteMaster => axilWriteMasters(MMCM0_INDEX_C),
+        axilWriteSlave  => axilWriteSlaves (MMCM0_INDEX_C),
+        axilReadMaster  => axilReadMasters (MMCM0_INDEX_C),
+        axilReadSlave   => axilReadSlaves  (MMCM0_INDEX_C));
+
+    U_MMCM1 : entity l2si.MmcmPhaseLock
+      generic map (
+        TPD_G             => TPD_G,
+        CLKIN_PERIOD_G    => 14.286,   -- ClkIn  =  70MHz
+        CLKOUT_DIVIDE_F_G => 7.0,      -- ClkOut = 130MHz
+        CLKFBOUT_MULT_F_G => 13.0,     -- VCO    = 910MHz
+        NUM_LOCKS_G       => 1,
+        SIMULATION_G      => SIMULATION_G)
+      port map (
+        clkIn           => cuClkT(0),
+        rstIn           => cuRstT(0),
+        clkSync         => cuClkT(1),
+        syncIn          => mmcmRst,
+        clkOut          => cuClkT(1),
+        rstOut          => cuRstT(1),
+        axilClk         => axilClk,
+        axilRst         => axilRst,
+        axilWriteMaster => axilWriteMasters(MMCM1_INDEX_C),
+        axilWriteSlave  => axilWriteSlaves (MMCM1_INDEX_C),
+        axilReadMaster  => axilReadMasters (MMCM1_INDEX_C),
+        axilReadSlave   => axilReadSlaves  (MMCM1_INDEX_C));
+
+    U_MMCM2 : entity l2si.MmcmPhaseLock
+      generic map (
+        TPD_G             => TPD_G,
+        CLKIN_PERIOD_G    => 7.692,    -- ClkIn  = 130MHz
+        CLKOUT_DIVIDE_F_G => 7.0,      -- ClkOut = 185.7MHz
+        CLKFBOUT_MULT_F_G => 10.0,     -- VCO    = 1300MHz
+        NUM_LOCKS_G       => 1,
+        SIMULATION_G      => SIMULATION_G)
+      port map (
+        clkIn           => cuClkT(1),
+        rstIn           => cuRstT(1),
+        clkSync         => cuClkT(2),
+        syncIn          => mmcmRst,
+        clkOut          => cuClkT(2),
+        rstOut          => cuRstT(2),
+        axilClk         => axilClk,
+        axilRst         => axilRst,
+        axilWriteMaster => axilWriteMasters(MMCM2_INDEX_C),
+        axilWriteSlave  => axilWriteSlaves (MMCM2_INDEX_C),
+        axilReadMaster  => axilReadMasters (MMCM2_INDEX_C),
+        axilReadSlave   => axilReadSlaves  (MMCM2_INDEX_C));
+
     -- translated LCLS2 stream
     U_XTPG : entity l2si.XpmStreamFromCu
       generic map (
