@@ -89,7 +89,6 @@ architecture rtl of XpmAppMaster is
       cuTiming   : CuTimingType;
       cuTimingV  : sl;
       l0Reset    : sl;
-      dlyOfCnt   : slv(7 downto 0);
    end record;
    constant REG_INIT_C : RegType := (
       result     => toSlv(XPM_TRANSITION_DATA_INIT_C),
@@ -104,8 +103,7 @@ architecture rtl of XpmAppMaster is
       timingBus  => TIMING_BUS_INIT_C,
       cuTiming   => CU_TIMING_INIT_C,
       cuTimingV  => '0',
-      l0Reset    => '1',
-      dlyOfCnt   => (others=>'0') );
+      l0Reset    => '1' );
 
    signal r   : RegType := REG_INIT_C;
    signal rin : RegType;
@@ -183,6 +181,7 @@ begin
    resultValid     <= r.resultValid;
    timeStamp       <= r.timingBus.message.timeStamp;
    lrejectMsg      <= msgInhibit;
+   status.l1Select.numAcc <= resize(delayOverflowCnts,status.l1Select.numAcc'length);
 
    depth_clks_20 <= resize(config.pipeline.depth_clks, 20);
    U_TimingDelay : entity lcls_timing_core.TimingSerialDelay
@@ -389,7 +388,7 @@ begin
                    timingBus_strobe, timingBus_valid, msgConfig,
                    l0Tag, l0Accept, l0Reject, msgInhibit,
                    grejectMsg, msgGroups,
-                   l0ResetIn, delayOverflowS, delayOverflowCnts) is
+                   l0ResetIn, delayOverflowS) is
       variable v     : RegType;
       variable pword : XpmEventDataType      := XPM_EVENT_DATA_INIT_C;
       variable msg   : XpmTransitionDataType := XPM_TRANSITION_DATA_INIT_C;
@@ -474,10 +473,6 @@ begin
 
       v.l0Reset := l0ResetIn or delayOverflowS;
 
-      if update = '1' then
-        v.dlyOfCnt := delayOverflowCnts;
-      end if;
-      
       if timingRst = '1' then
          v := REG_INIT_C;
       end if;
@@ -485,8 +480,7 @@ begin
       rin <= v;
 
       l0Reset                <= r.l0Reset;
-      status.l1Select.numAcc <= resize(r.dlyOfCnt,status.l1Select.numAcc'length);
-      
+
    end process;
 
    seq : process (timingClk) is
