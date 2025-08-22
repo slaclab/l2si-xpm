@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-07-23
+-- Last update: 2025-08-22
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -76,7 +76,7 @@ end XpmMonitorStream;
 architecture rtl of XpmMonitorStream is
 
 --   type Slv280Array is array (natural range <>) of slv(279 downto 0);
-   signal sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);
+   signal sL0Stats : Slv208Array(XPM_PARTITIONS_C-1 downto 0);
 
    constant TDATA_SIZE_C      : integer := EMAC_AXIS_CONFIG_C.TDATA_BYTES_C*8;
    constant XPM_STATUS_BITS_C : integer :=  -- 
@@ -91,7 +91,7 @@ architecture rtl of XpmMonitorStream is
    
    function toSlv(packetId : slv(15 downto 0);
                   s        : XpmStatusType;
-                  sL0Stats : Slv200Array(XPM_PARTITIONS_C-1 downto 0);
+                  sL0Stats : Slv208Array(XPM_PARTITIONS_C-1 downto 0);
                   sPatt    : slv(XPM_PATTERN_STATS_BITS_C-1 downto 0);
                   pllCount : SlVectorArray(3 downto 0, 2 downto 0);
                   pllStat  : slv(3 downto 0);
@@ -114,8 +114,7 @@ architecture rtl of XpmMonitorStream is
          assignSlv(i, v, s.partition(j).inhibit.evcounts(k)); -- 32*32b -- regclk
          assignSlv(i, v, s.partition(j).inhibit.tmcounts(k)); -- 32*32b -- regclk
        end loop;
-       assignSlv(i, v, sL0Stats(j) ); -- 200b
-       assignSlv(i, v, x"ee"); -- 1B
+       assignSlv(i, v, sL0Stats(j) ); -- 208b
      end loop; -- 8*282B
      assignSlv(i, v, sPatt); -- 150B
      for j in 0 to 3 loop
@@ -181,7 +180,7 @@ begin
   
   GEN_L0 : for i in 0 to XPM_PARTITIONS_C-1 generate
     SYNC_L0 : entity surf.SynchronizerFifo
-      generic map ( DATA_WIDTH_G => 200 )
+      generic map ( DATA_WIDTH_G => 208 )
       port map ( rst                 => regRst,
                  wr_clk              => staClk,
                  din( 39 downto   0) => status.partition(i).l0Select.enabled,
@@ -189,6 +188,7 @@ begin
                  din(119 downto  80) => status.partition(i).l0Select.num,
                  din(159 downto 120) => status.partition(i).l0Select.numInh,
                  din(199 downto 160) => status.partition(i).l0Select.numAcc,
+                 din(207 downto 200) => status.partition(i).l1Select.numAcc(7 downto 0),
                  rd_clk              => axilClk,
                  dout                => sL0Stats(i) );
   end generate GEN_L0;
