@@ -230,8 +230,6 @@ begin
        wrRst      => timingRst,
        dataIn     => delayOverflowOr,
        rdClk      => timingClk,
-       rollOverEn => '0',
-       cntRst     => update,
        dataOut    => delayOverflowS,
        cntOut     => delayOverflowCnts );
      
