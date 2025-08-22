@@ -120,6 +120,7 @@ architecture rtl of XpmAppMaster is
    --  feedback data from sensor links
    --  L0 inhibit decision
    signal l0Reset       : sl;
+   signal l0ResetIn     : sl;
    signal l0Inhibit     : sl;
    --  L0 trigger output
    signal l0Accept      : sl;
