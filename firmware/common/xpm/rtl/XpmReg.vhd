@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-06-05
+-- Last update: 2025-08-22
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -327,6 +327,18 @@ begin
             rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.numAcc,
             dout   => s.partition(i).l0Select.numAcc);
+
+      U_Sync64_nof : entity surf.SynchronizerFifo
+         generic map (
+            TPD_G        => TPD_G,
+            DATA_WIDTH_G => XPM_LCTR_DEPTH_C)
+         port map (
+            wr_clk => staClk,
+            wr_en  => q.staUpdate,
+            rd_clk => axilClk,
+            rd_en  => r.axilRdEn(i),
+            din    => status.partition(i).l1Select.numAcc,
+            dout   => s.partition(i).l1Select.numAcc);
    end generate;
 
    GEN_LOL : for i in 0 to XPM_NUM_AMCS_C-1 generate
