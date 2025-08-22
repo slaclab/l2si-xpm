@@ -88,6 +88,8 @@ architecture rtl of XpmAppMaster is
       timingBus  : TimingBusType;
       cuTiming   : CuTimingType;
       cuTimingV  : sl;
+      l0Reset    : sl;
+      dlyOfCnt   : slv(7 downto 0);
    end record;
    constant REG_INIT_C : RegType := (
       result     => toSlv(XPM_TRANSITION_DATA_INIT_C),
@@ -101,7 +103,9 @@ architecture rtl of XpmAppMaster is
       partStrobe => "00",
       timingBus  => TIMING_BUS_INIT_C,
       cuTiming   => CU_TIMING_INIT_C,
-      cuTimingV  => '0');
+      cuTimingV  => '0',
+      l0Reset    => '1',
+      dlyOfCnt   => (others=>'0') );
 
    signal r   : RegType := REG_INIT_C;
    signal rin : RegType;
@@ -133,6 +137,9 @@ architecture rtl of XpmAppMaster is
    signal timingBus_strobe : sl;
    signal timingBus_valid  : sl;
    signal delayOverflow    : sl;
+   signal delayOverflowOr  : sl;
+   signal delayOverflowS   : sl;
+   signal delayOverflowCnts : slv(7 downto 0);
 
    signal cuRx_frame         : slv(CU_TIMING_BITS_C-1 downto 0);
    signal cuRx_strobe        : sl;
@@ -174,7 +181,6 @@ begin
    result          <= r.result;
    resultValid     <= r.resultValid;
    timeStamp       <= r.timingBus.message.timeStamp;
-   status.l1Select <= XPM_L1_SELECT_STATUS_INIT_C;
    lrejectMsg      <= msgInhibit;
 
    depth_clks_20 <= resize(config.pipeline.depth_clks, 20);
@@ -212,6 +218,22 @@ begin
          valid_o    => cuRx_valid,
          overflow_o => cuRx_delayOverflow);
 
+   delayOverflowOr <= delayOverflow or cuRx_delayOverflow;
+
+   U_DelayOverlow : entity surf.SynchronizerOneShotCnt
+     generic map (
+       COMMON_CLK_G => true,
+       CNT_WIDTH_G  => delayOverflowCnts'length )
+     port map (
+       wrClk      => timingClk,
+       wrRst      => timingRst,
+       dataIn     => delayOverflowOr,
+       rdClk      => timingClk,
+       rollOverEn => '0',
+       cntRst     => update,
+       dataOut    => delayOverflowS,
+       cntOut     => delayOverflowCnts );
+     
    pauseOrOverflow <= pause or overflow;
    U_Inhibit : entity l2si_core.XpmInhibit
       generic map (
@@ -348,7 +370,7 @@ begin
       port map (
          clk      => timingClk,
          asyncRst => config.l0Select.reset,
-         syncRst  => l0Reset);
+         syncRst  => l0ResetIn);
 
    U_SyncGroups : entity surf.SynchronizerVector
      generic map (
@@ -366,7 +388,8 @@ begin
    comb : process (r, timingRst, frame, cuRx_frame, cuRx_valid,
                    timingBus_strobe, timingBus_valid, msgConfig,
                    l0Tag, l0Accept, l0Reject, msgInhibit,
-                   grejectMsg, msgGroups) is
+                   grejectMsg, msgGroups,
+                   l0ResetIn, delayOverflowS, delayOverflowCnts) is
       variable v     : RegType;
       variable pword : XpmEventDataType      := XPM_EVENT_DATA_INIT_C;
       variable msg   : XpmTransitionDataType := XPM_TRANSITION_DATA_INIT_C;
@@ -449,11 +472,21 @@ begin
       v.timingBus.strobe := timingBus_strobe;
       v.timingBus.valid  := timingBus_valid;
 
+      v.l0Reset := l0ResetIn or delayOverflowS;
+
+      if update = '1' then
+        v.dlyOfCnt := delayOverflowCnts;
+      end if;
+      
       if timingRst = '1' then
          v := REG_INIT_C;
       end if;
 
       rin <= v;
+
+      l0Reset                <= r.l0Reset;
+      status.l1Select.numAcc <= resize(r.dlyOfCnt,status.l1Select.numAcc'length);
+      
    end process;
 
    seq : process (timingClk) is
