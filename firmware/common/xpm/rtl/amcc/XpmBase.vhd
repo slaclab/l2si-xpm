@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-06-05
+-- Last update: 2025-08-25
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -827,8 +827,9 @@ begin
     
       txClkRst(i) <= not pllLocked(i) or recTimingRst;
 
-      U_Rcvr : entity l2si.XpmGthUltrascaleWrapper
+      U_Rcvr : entity l2si.XpmGtUltrascaleWrapper
          generic map (
+            HWTYPE_G   => "GTH",
             GTGCLKRX   => false,
             NLINKS_G   => AMC_DS_LINKS_C(i),
             USE_IBUFDS => true,

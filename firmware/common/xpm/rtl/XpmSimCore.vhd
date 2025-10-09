@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-06-13
+-- Last update: 2025-08-25
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -44,7 +44,7 @@ use l2si_core.XpmPkg.all;
 
 library l2si;
 
-entity XpmSimKcu1500 is
+entity XpmSimCore is
    generic (
       TPD_G               : time    := 1 ns );
    port (
@@ -58,9 +58,9 @@ entity XpmSimKcu1500 is
      signal timingPhyClk          : in  sl;
      signal timingPhyRst          : in  sl;
      signal recStream             : out XpmStreamType );
-end XpmSimKcu1500;
+end XpmSimCore;
 
-architecture rtl of XpmSimKcu1500 is
+architecture rtl of XpmSimCore is
 
    signal tpgConfig : TPGConfigType;
    signal tpgStatus : TPGStatusType;

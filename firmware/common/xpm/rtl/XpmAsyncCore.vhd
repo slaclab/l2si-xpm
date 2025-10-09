@@ -1,11 +1,11 @@
 -------------------------------------------------------------------------------
 -- Title      : 
 -------------------------------------------------------------------------------
--- File       : XpmAsyncKcu1500.vhd
+-- File       : XpmAsyncCore.vhd
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-28
+-- Last update: 2025-10-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -47,9 +47,10 @@ use l2si_core.XpmExtensionPkg.all;
 
 library l2si;
 
-entity XpmAsyncKcu1500 is
+entity XpmAsyncCore is
    generic (
      TPD_G               : time    := 1 ns;
+     HW_TYPE_G           : string  := "GTH";
      AXIL_BASE_G         : slv(31 downto 0) );
    port (
      axilClk               : in  sl;
@@ -65,6 +66,7 @@ entity XpmAsyncKcu1500 is
      usTxN                 : out   sl;
      usRefClk              : in    sl;
      usRefClkGt            : in    sl;
+     usRefClkGtDiv2        : in    sl;
      
      timingFbClk           : out sl;
      timingFbRst           : in  sl;
@@ -74,9 +76,9 @@ entity XpmAsyncKcu1500 is
      recClk                : in  sl;
      recClkRst             : in  sl;
      recStream             : out XpmStreamType );
-end XpmAsyncKcu1500;
+end XpmAsyncCore;
 
-architecture rtl of XpmAsyncKcu1500 is
+architecture rtl of XpmAsyncCore is
 
    constant GTH_INDEX_C  : integer := 0;
    constant TIM_INDEX_C  : integer := 1;
@@ -184,45 +186,43 @@ begin
       mAxiReadMasters     => axilReadMasters,
       mAxiReadSlaves      => axilReadSlaves);
 
-   TimingGtCoreWrapper_1 : entity lcls_timing_core.TimingGtCoreWrapper
-      generic map (ADDR_BITS_G      => 14,
-                   AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(GTH_INDEX_C).baseAddr,
-                   GTH_DRP_OFFSET_G => x"00004000",
-                   EXTREF_G         => true)
-      port map (
-         axilClk         => axilClk,
-         axilRst         => axilRst,
-         axilReadMaster  => axilReadMasters (GTH_INDEX_C),
-         axilReadSlave   => axilReadSlaves  (GTH_INDEX_C),
-         axilWriteMaster => axilWriteMasters(GTH_INDEX_C),
-         axilWriteSlave  => axilWriteSlaves (GTH_INDEX_C),
-         stableClk       => axilClk,
-         stableRst       => axilRst,
-         gtRefClk        => usRefClkGt,
-         gtRefClkDiv2    => '0',
-         gtRxP           => usRxP,
-         gtRxN           => usRxN,
-         gtTxP           => usTxP,
-         gtTxN           => usTxN,
-         rxControl       => usRxControl,
-         rxStatus        => usRxStatus,
-         rxUsrClkActive  => '1',
-         rxCdrStable     => usRxStable,
-         rxUsrClk        => usRecClk,
-         rxData          => usRx.data,
-         rxDataK         => usRx.dataK,
-         rxDispErr       => usRx.dspErr,
-         rxDecErr        => usRx.decErr,
-         rxOutClk        => usRecClk,
-         txControl       => usTxControl,
-         txStatus        => timingFbStatus,
-         txUsrClk        => timingFbClkB,
-         txUsrClkActive  => '1',
-         txData          => timingFb.data,
-         txDataK         => timingFb.dataK,
-         txOutClk        => timingFbClkB,
-         loopback        => "000");
-
+  TimingGtCoreWrapper_1 : entity l2si.TimingGtCoreWrapper
+    generic map (TPD_G            => TPD_G,
+                 AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(GTH_INDEX_C).baseAddr,
+                 EXTREF_G         => true)
+    port map (
+      axilClk         => axilClk,
+      axilRst         => axilRst,
+      axilReadMaster  => axilReadMasters (GTH_INDEX_C),
+      axilReadSlave   => axilReadSlaves  (GTH_INDEX_C),
+      axilWriteMaster => axilWriteMasters(GTH_INDEX_C),
+      axilWriteSlave  => axilWriteSlaves (GTH_INDEX_C),
+      stableClk       => axilClk,
+      stableRst       => axilRst,
+      gtRefClk        => usRefClkGt,
+      gtRefClkDiv2    => usRefClkGtDiv2,
+      gtRxP           => usRxP,
+      gtRxN           => usRxN,
+      gtTxP           => usTxP,
+      gtTxN           => usTxN,
+      rxControl       => usRxControl,
+      rxStatus        => usRxStatus,
+      rxUsrClkActive  => '1',
+      rxCdrStable     => usRxStable,
+      rxUsrClk        => usRecClk,
+      rxData          => usRx.data,
+      rxDataK         => usRx.dataK,
+      rxDispErr       => usRx.dspErr,
+      rxDecErr        => usRx.decErr,
+      rxOutClk        => usRecClk,
+      txControl       => usTxControl,
+      txStatus        => timingFbStatus,
+      txUsrClk        => timingFbClkB,
+      txUsrClkActive  => '1',
+      txData          => timingFb.data,
+      txDataK         => timingFb.dataK,
+      txOutClk        => timingFbClkB,
+      loopback        => "000");
   
   U_UsRx : entity lcls_timing_core.TimingCore
     generic map (

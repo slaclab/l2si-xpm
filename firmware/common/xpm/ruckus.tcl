@@ -8,6 +8,11 @@ loadSource -lib l2si -dir "$::DIR_PATH/rtl/"
 if { $::env(PRJ_PART) == "XCKU040-FFVA1156-2-E" } {
     loadSource -lib l2si -dir "$::DIR_PATH/rtl/amcc"
 } else {
-    loadSource -lib l2si -dir "$::DIR_PATH/rtl/kcu1500"
-    loadIpCore -path "$::DIR_PATH/coregen/axi_debug_bridge.xci"
+    if { $::env(PRJ_PART) == "xcku115-folvb2104-2-e" } {
+	loadSource -lib l2si -dir "$::DIR_PATH/rtl/kcu1500"
+	loadIpCore -path "$::DIR_PATH/coregen/axi_debug_bridge.xci"
+    } else {
+	loadSource -lib l2si -dir "$::DIR_PATH/rtl/c1100"
+#    loadIpCore -path "$::DIR_PATH/coregen/axi_debug_bridge.xci"
+    }
 }

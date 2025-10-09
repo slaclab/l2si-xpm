@@ -185,9 +185,6 @@ create_generated_clock -name dsRecClk [get_pins -hier -filter {NAME =~ U_Base/U_
 
 set_clock_groups -asynchronous -group [get_clocks dsRecClk] -group [get_clocks iusRefClk] -group [get_clocks timingPhyClk_1]
 
-#create_generated_clock -name cuRecClk [get_pins {U_Base/U_BpTx/U_GthCore/inst/gen_gtwizard_gthe3_top.gt_xpm_timing_gtwizard_gthe3_inst/gen_gtwizard_gthe3.gen_channel_container[0].gen_enabled_channel.gthe3_channel_wrapper_inst/channel_inst/gthe3_channel_gen.gen_gthe3_channel_inst[0].GTHE3_CHANNEL_PRIM_INST/RXOUTCLK}]
-#create_generated_clock -name cuStableRef [get_pins U_Base/U_BpTx/TIMREFCLK_IBUFDS_GTE3/ODIV2]
-
 create_generated_clock -name cuRecClk [get_pins {U_Base/U_Core/U_BpTx/U_BpTx/LOCREF_G.U_TimingGthCore/inst/gen_gtwizard_gthe3_top.TimingGth_fixedlat_gtwizard_gthe3_inst/gen_gtwizard_gthe3.gen_channel_container[0].gen_enabled_channel.gthe3_channel_wrapper_inst/channel_inst/gthe3_channel_gen.gen_gthe3_channel_inst[0].GTHE3_CHANNEL_PRIM_INST/RXOUTCLK}]
 
 #create_generated_clock -name cuStableRef [get_pins U_Base/U_BpTx/TIMREFCLK_IBUFDS_GTE3/ODIV2]

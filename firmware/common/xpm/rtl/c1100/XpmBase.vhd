@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-10-08
+-- Last update: 2025-10-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -167,7 +167,7 @@ architecture top_level of XpmBase is
    signal dsRxClk      : slv (NUM_FP_LINKS_C-1 downto 0);
    signal dsRxRst      : slv (NUM_FP_LINKS_C-1 downto 0);
    signal dsRxErr      : slv (NUM_FP_LINKS_C-1 downto 0);
-   signal dsTxOutClk   : slv (NUM_FP_LINKS_C-1 downto 0);
+--   signal dsTxOutClk   : slv (NUM_FP_LINKS_C-1 downto 0);
 
    signal dbgChan   : slv(4 downto 0);
    signal dbgChanS  : slv(4 downto 0);
@@ -281,7 +281,7 @@ begin
    idsRxN(1)(3 downto 0) <= qsfp1RxN;
 
    U_BUFG  : BUFG_GT
-     port map (  I       => dsTxOutClk(AMC_DS_FIRST_C(0)),
+     port map (  I       => dsClkBuf(0),
                  CE      => '1',
                  CEMASK  => '1',
                  CLR     => '0',
@@ -290,7 +290,7 @@ begin
                  O       => timingPhyClk );
    
    U_BUFG2  : BUFG_GT
-     port map (  I       => dsTxOutClk(AMC_DS_FIRST_C(1)),
+     port map (  I       => dsClkBuf(1),
                  CE      => '1',
                  CEMASK  => '1',
                  CLR     => '0',
@@ -299,7 +299,7 @@ begin
                  O       => timingPhyClk2 );
    
 
-   IBUFDS_GTE3_REFCLK01 : IBUFDS_GTE3
+   IBUFDS_GTE4_REFCLK01 : IBUFDS_GTE4
       generic map (
         REFCLK_EN_TX_PATH  => '0',
         REFCLK_HROW_CK_SEL => "00",    -- 2'b01: ODIV2 = Divide-by-2 version of O
@@ -339,13 +339,13 @@ begin
          RST_IN_POLARITY_G => '1',
          NUM_CLOCKS_G      => 1,
          -- MMCM attributes
-         CLKIN_PERIOD_G    => 6.4,      -- 156.25 MHz
-         CLKFBOUT_MULT_G   => 8,        -- 1.25GHz = 8 x 156.25 MHz
+         CLKIN_PERIOD_G    => 4.0,      -- 250 MHz
+         CLKFBOUT_MULT_G   => 5,        -- 1.25GHz = 5 x 250 MHz
          CLKOUT0_DIVIDE_G  => 12)       -- 104MHz = 1.25GHz/12
       port map(
          -- Clock Input
-         clkIn     => phyClk01,
-         rstIn     => phyRst01,
+         clkIn     => dmaClk,
+         rstIn     => dmaRst,
          -- Clock Outputs
          clkOut(0) => regClk,
          -- Reset Outputs
@@ -356,7 +356,7 @@ begin
          I  => uregRst,
          O  => regRst );
       
-    IBUFDS_GTE3_REFCLK11 : IBUFDS_GTE3
+    IBUFDS_GTE4_REFCLK11 : IBUFDS_GTE4
       generic map (
         REFCLK_EN_TX_PATH  => '0',
         REFCLK_HROW_CK_SEL => "00",    -- 2'b01: ODIV2 = Divide-by-2 version of O
@@ -614,6 +614,9 @@ begin
          timingPhyClk          => timingPhyClk,
          timingPhyRst          => timingPhyRst,
          recStream             => recStream );
+     -- axilReadSlaves (TIM_INDEX_C) <= AXI_LITE_READ_SLAVE_INIT_C;
+     -- axilWriteSlaves(TIM_INDEX_C) <= AXI_LITE_WRITE_SLAVE_INIT_C;
+     -- recStream <= XPM_STREAM_INIT_C;
      
      timingFbClk    <= timingPhyClk;
      timingFbStatus <= TIMING_PHY_STATUS_INIT_C;
@@ -625,7 +628,7 @@ begin
      U_XpmAsync : entity l2si.XpmAsyncCore
        generic map (
          TPD_G       => TPD_G,
-         HW_TYPE_G   => "GTH",
+         HW_TYPE_G   => "GTY+",
          AXIL_BASE_G => AXI_XBAR_CONFIG_C(ASYN_INDEX_C).baseAddr )
        port map (
          axilClk               => regClk,
@@ -640,6 +643,7 @@ begin
          usTxN                 => idsTxN(0)(0),
          usRefClk              => timingPhyClk,
          usRefClkGt            => dsClkBuf(0),
+         usRefClkGtDiv2        => '0',
          timingFbClk           => timingFbClk,
          timingFbRst           => timingFbRst,
          timingFb              => timingFb,
@@ -655,7 +659,7 @@ begin
    GEN_AMC_MGT : for i in 0 to 1 generate
       U_Rcvr : entity l2si.XpmGtUltrascaleWrapper
          generic map (
-            HWTYPE_G   => "GTH", 
+            HWTYPE_G   => "GTY+", 
             GTGCLKRX   => false,
             NLINKS_G   => AMC_DS_LINKS_C(i),
             USE_IBUFDS => true)
@@ -665,10 +669,10 @@ begin
             gtTxN     => idsTxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
             gtRxP     => idsRxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
             gtRxN     => idsRxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
-            devClkP   => dsClockP (i),
-            devClkN   => dsClockN (i),
+            devClkP   => dsClockP (0),  -- only MGTREFCLK0 is programmable!
+            devClkN   => dsClockN (0),
             devClkOut => dsClkBuf (i),
-            devClkBuf => dsTxOutClk(AMC_DS_FIRST_C(i)),
+            devClkBuf => open, -- dsTxOutClk(AMC_DS_FIRST_C(i)),
             txData    => dsTxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
             txDataK   => dsTxDataK (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
             rxData    => dsRxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),

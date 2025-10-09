@@ -315,7 +315,8 @@ begin
    --  in the frame, since it will be done on transmission.
    --
    comb : process (timingRst, r, config, timingDataIn, timingAdvance,
-                   ddcData, seqData, seqNotify, seqNotifyValid, axisSlave) is
+                   ddcData, seqReset, seqData, seqNotify, seqNotifyValid,
+                   axisSlave) is
       variable v : RegType;
       variable iword : integer;
       variable ibit  : integer;
