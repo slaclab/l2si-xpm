@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-09-08
+-- Last update: 2025-10-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -65,6 +65,8 @@ entity XpmGtUltrascaleWrapper is
       txClk            : out sl;
       txClkIn          : in  sl;
       txClkRst         : in  sl;
+      rxUsrClkActive   : in  sl := '1';
+      txUsrClkActive   : in  sl := '1';
       config           : in  XpmLinkConfigArray(NLINKS_G-1 downto 0);
       status           : out XpmLinkStatusArray(NLINKS_G-1 downto 0);
             
@@ -217,6 +219,80 @@ architecture rtl of XpmGtUltrascaleWrapper is
       rxpmareset_in : IN STD_LOGIC_VECTOR(0 DOWNTO 0)
       );
   END COMPONENT;
+
+  component TimingGty_fixedlat
+    port (
+      gtwiz_userclk_tx_reset_in          : in  std_logic_vector(0 downto 0);
+      gtwiz_userclk_tx_active_in         : in  std_logic_vector(0 downto 0);
+      gtwiz_userclk_rx_active_in         : in  std_logic_vector(0 downto 0);
+      gtwiz_buffbypass_tx_reset_in       : in  std_logic_vector(0 downto 0);
+      gtwiz_buffbypass_tx_start_user_in  : in  std_logic_vector(0 downto 0);
+      gtwiz_buffbypass_tx_done_out       : out std_logic_vector(0 downto 0);
+      gtwiz_buffbypass_tx_error_out      : out std_logic_vector(0 downto 0);
+      gtwiz_buffbypass_rx_reset_in       : in  std_logic_vector(0 downto 0);
+      gtwiz_buffbypass_rx_start_user_in  : in  std_logic_vector(0 downto 0);
+      gtwiz_buffbypass_rx_done_out       : out std_logic_vector(0 downto 0);
+      gtwiz_buffbypass_rx_error_out      : out std_logic_vector(0 downto 0);
+      gtwiz_reset_clk_freerun_in         : in  std_logic_vector(0 downto 0);
+      gtwiz_reset_all_in                 : in  std_logic_vector(0 downto 0);
+      gtwiz_reset_tx_pll_and_datapath_in : in  std_logic_vector(0 downto 0);
+      gtwiz_reset_tx_datapath_in         : in  std_logic_vector(0 downto 0);
+      gtwiz_reset_rx_pll_and_datapath_in : in  std_logic_vector(0 downto 0);
+      gtwiz_reset_rx_datapath_in         : in  std_logic_vector(0 downto 0);
+      gtwiz_reset_rx_cdr_stable_out      : out std_logic_vector(0 downto 0);
+      gtwiz_reset_tx_done_out            : out std_logic_vector(0 downto 0);
+      gtwiz_reset_rx_done_out            : out std_logic_vector(0 downto 0);
+      gtwiz_userdata_tx_in               : in  std_logic_vector(15 downto 0);
+      gtwiz_userdata_rx_out              : out std_logic_vector(15 downto 0);
+      cpllrefclksel_in                   : in  std_logic_vector(2 downto 0);
+      drpaddr_in                         : in  std_logic_vector(9 downto 0);
+      drpclk_in                          : in  std_logic_vector(0 downto 0);
+      drpdi_in                           : in  std_logic_vector(15 downto 0);
+      drpen_in                           : in  std_logic_vector(0 downto 0);
+      drpwe_in                           : in  std_logic_vector(0 downto 0);
+      gtgrefclk_in                       : in  std_logic_vector(0 downto 0);
+      gtrefclk0_in                       : in  std_logic_vector(0 downto 0);
+      gtyrxn_in                          : in  std_logic_vector(0 downto 0);
+      gtyrxp_in                          : in  std_logic_vector(0 downto 0);
+      loopback_in                        : in  std_logic_vector(2 downto 0);
+      rx8b10ben_in                       : in  std_logic_vector(0 downto 0);
+      rxcommadeten_in                    : in  std_logic_vector(0 downto 0);
+      rxmcommaalignen_in                 : in  std_logic_vector(0 downto 0);
+      rxpcommaalignen_in                 : in  std_logic_vector(0 downto 0);
+      rxpolarity_in                      : in  std_logic_vector(0 downto 0);
+      rxusrclk_in                        : in  std_logic_vector(0 downto 0);
+      rxusrclk2_in                       : in  std_logic_vector(0 downto 0);
+      tx8b10ben_in                       : in  std_logic_vector(0 downto 0);
+      txctrl0_in                         : in  std_logic_vector(15 downto 0);
+      txctrl1_in                         : in  std_logic_vector(15 downto 0);
+      txctrl2_in                         : in  std_logic_vector(7 downto 0);
+      txinhibit_in                       : in  std_logic_vector(0 downto 0);
+      txpolarity_in                      : in  std_logic_vector(0 downto 0);
+      txusrclk_in                        : in  std_logic_vector(0 downto 0);
+      txusrclk2_in                       : in  std_logic_vector(0 downto 0);
+      drpdo_out                          : out std_logic_vector(15 downto 0);
+      drprdy_out                         : out std_logic_vector(0 downto 0);
+      gtpowergood_out                    : out std_logic_vector(0 downto 0);
+      gtytxn_out                         : out std_logic_vector(0 downto 0);
+      gtytxp_out                         : out std_logic_vector(0 downto 0);
+      rxbyteisaligned_out                : out std_logic_vector(0 downto 0);
+      rxbyterealign_out                  : out std_logic_vector(0 downto 0);
+      rxcommadet_out                     : out std_logic_vector(0 downto 0);
+      rxctrl0_out                        : out std_logic_vector(15 downto 0);
+      rxctrl1_out                        : out std_logic_vector(15 downto 0);
+      rxctrl2_out                        : out std_logic_vector(7 downto 0);
+      rxctrl3_out                        : out std_logic_vector(7 downto 0);
+      rxdlysresetdone_out                : out std_logic_vector(0 downto 0);
+      rxoutclk_out                       : out std_logic_vector(0 downto 0);
+      rxphaligndone_out                  : out std_logic_vector(0 downto 0);
+      rxpmaresetdone_out                 : out std_logic_vector(0 downto 0);
+      rxresetdone_out                    : out std_logic_vector(0 downto 0);
+      rxsyncdone_out                     : out std_logic_vector(0 downto 0);
+      txoutclk_out                       : out std_logic_vector(0 downto 0);
+      txpmaresetdone_out                 : out std_logic_vector(0 downto 0);
+      txresetdone_out                    : out std_logic_vector(0 downto 0)
+      );
+  end component;
 
   type RegType is record
     clkcnt  : slv(5 downto 0);
@@ -380,17 +456,7 @@ begin
           O     => gtRefClk);
     end generate;
     GEN_GTY : if HWTYPE_G = "GTY+" generate
-      DEVCLK_IBUFDS_GTE4 : IBUFDS_GTE4
-        generic map (
-          REFCLK_EN_TX_PATH  => '0',
-          REFCLK_HROW_CK_SEL => "00",    -- 2'b01: ODIV2 = Divide-by-2 version of O
-          REFCLK_ICNTL_RX    => "00")
-        port map (
-          I     => devClkP,
-          IB    => devClkN,
-          CEB   => '0',
-          ODIV2 => gRefClk,
-          O     => gtRefClk);
+      
     end generate;
   end generate;
 
@@ -576,76 +642,75 @@ begin
     end generate;
     
     GEN_GTY : if HWTYPE_G = "GTY+" generate
-      U_GtyCore : gty_dslink
-        PORT MAP (
-          gtwiz_userclk_tx_reset_in            => "0",
-          gtwiz_userclk_tx_active_in           => "1",
-          gtwiz_userclk_rx_active_in           => "1",
-          gtwiz_buffbypass_tx_reset_in     (0) => txbypassrst(i),
-          gtwiz_buffbypass_tx_start_user_in    => "0",
-          gtwiz_buffbypass_tx_done_out     (0) => txbypassdone(i),
-          gtwiz_buffbypass_tx_error_out    (0) => txbypasserr(i),
-          gtwiz_buffbypass_rx_reset_in     (0) => rxbypassrst(i),
-          gtwiz_buffbypass_rx_start_user_in    => "0",
-          gtwiz_buffbypass_rx_done_out     (0) => rxbypassdone(i),
-          gtwiz_buffbypass_rx_error_out        => open,  -- Might need this
-          gtwiz_reset_clk_freerun_in(0)        => stableClk,
-          gtwiz_reset_all_in                   => "0",
-          gtwiz_reset_tx_pll_and_datapath_in(0)=> txpllreset(i),
-          gtwiz_reset_tx_datapath_in        (0)=> txUsrRst(i),
-          gtwiz_reset_rx_pll_and_datapath_in(0)=> rxpllreset(i),
-          gtwiz_reset_rx_datapath_in        (0)=> rxReset(i),
-          gtwiz_reset_rx_cdr_stable_out        => open,
-          gtwiz_reset_tx_done_out           (0)=> txReady(i),
-          gtwiz_reset_rx_done_out           (0)=> rxResetDone(i),
-          gtwiz_userdata_tx_in                 => txDataS(i)(15 downto 0),
-          gtwiz_userdata_rx_out                => rxData(i),
-          -- CPLL
-          drpclk_in                         (0)=> stableClk,
-          gtyrxn_in                         (0)=> gtRxN(i),
-          gtyrxp_in                         (0)=> gtRxP(i),
-          gtrefclk0_in                      (0)=> gtRefClk,
-          loopback_in                          => loopback(i),
-          rx8b10ben_in                         => (others=>'1'),
-          rxcommadeten_in                      => (others=>'1'),
-          rxmcommaalignen_in                   => (others=>'1'),
-          rxpcommaalignen_in                   => (others=>'1'),
-          rxusrclk_in                       (0)=> rxUsrClk(i),
-          rxusrclk2_in                      (0)=> rxUsrClk(i),
-          tx8b10ben_in                         => (others=>'1'),
-          txctrl0_in                           => (others=>'0'),
-          txctrl1_in                           => (others=>'0'),
-          txctrl2_in                           => txCtrl2In(i),
-          txrate_in                            => "000",
-          txratemode_in                     (0)=> '0',
-          txusrclk_in                       (0)=> txUsrClk(i),
-          txusrclk2_in                      (0)=> txUsrClk(i),
-          gtytxn_out                        (0)=> gtTxN(i),
-          gtytxp_out                        (0)=> gtTxP(i),
-          rxbyteisaligned_out                  => open,
-          rxbyterealign_out                    => open,
-          rxcommadet_out                       => open,
-          rxctrl0_out                          => rxCtrl0Out(i),
-          rxctrl1_out                          => rxCtrl1Out(i),
-          rxctrl2_out                          => open,
-          rxctrl3_out                          => rxCtrl3Out(i),
-          rxoutclk_out                      (0)=> rxOutClk(i),
-          rxpmaresetdone_out                (0)=> rxpmarstdone(i),
-          txoutclk_out                      (0)=> txOutClkO(i),
-          txpmaresetdone_out                (0)=> txpmarstdone(i),
-          drpdo_out                            => drpdo(i),
-          drprdy_out                        (0)=> drprdy(i),
-          drpaddr_in                           => drpaddr(i),
-          drpdi_in                             => drpdi(i),
-          drpen_in                          (0)=> drpen(i),
-          drpwe_in                          (0)=> drpwe(i),
-          rxcdrlock_out                     (0)=> rxcdrlock(i),
-          gtpowergood_out                   (0)=> status(i).gtpowergood,
-          eyescanreset_in                   (0)=> config(i).eyescanrst,
-          rxpmareset_in                     (0)=> rxpmarst(i) 
-          );
-    end generate;
-    
+      U_TimingGtyCore : TimingGty_fixedlat
+         port map (
+            gtwiz_userclk_tx_reset_in(0)          => txbypassrst(i),
+            gtwiz_userclk_tx_active_in(0)         => txUsrClkActive,
+            gtwiz_userclk_rx_active_in(0)         => rxUsrClkActive,
+            gtwiz_buffbypass_tx_reset_in(0)       => txbypassrst(i),
+            gtwiz_buffbypass_tx_start_user_in(0)  => '0',
+            gtwiz_buffbypass_tx_done_out(0)       => txbypassdone(i),
+            gtwiz_buffbypass_tx_error_out(0)      => txbypasserr(i),
+            gtwiz_buffbypass_rx_reset_in(0)       => rxbypassrst(i),
+            gtwiz_buffbypass_rx_start_user_in(0)  => '0',
+            gtwiz_buffbypass_rx_done_out(0)       => rxbypassdone(i),
+            gtwiz_buffbypass_rx_error_out         => open,
+            gtwiz_reset_clk_freerun_in(0)         => stableClk,
+            gtwiz_reset_all_in(0)                 => '0',
+            gtwiz_reset_tx_pll_and_datapath_in(0) => txpllreset(i),
+            gtwiz_reset_tx_datapath_in(0)         => txUsrRst(i),
+            gtwiz_reset_rx_pll_and_datapath_in(0) => rxpllreset(i),
+            gtwiz_reset_rx_datapath_in(0)         => rxReset(i),
+            gtwiz_reset_rx_cdr_stable_out         => open,
+            gtwiz_reset_tx_done_out(0)            => txReady(i),
+            gtwiz_reset_rx_done_out(0)            => rxResetDone(i),
+            gtwiz_userdata_tx_in                  => txDataS(i)(15 downto 0),
+            gtwiz_userdata_rx_out                 => rxData(i),
+            cpllrefclksel_in                      => "111",
+            drpaddr_in(9)                         => '0',
+            drpaddr_in(8 downto 0)                => drpaddr(i),
+            drpclk_in(0)                          => stableClk,
+            drpdi_in                              => drpdi(i),
+            drpen_in(0)                           => drpen(i),
+            drpwe_in(0)                           => drpwe(i),
+            gtgrefclk_in(0)                       => gtRefClk,
+            gtyrxn_in(0)                          => gtRxN(i),
+            gtyrxp_in(0)                          => gtRxP(i),
+            gtrefclk0_in(0)                       => '0', -- gtRefClk,
+            loopback_in                           => loopback(i),
+            rx8b10ben_in(0)                       => '1',
+            rxcommadeten_in(0)                    => '1',
+            rxmcommaalignen_in(0)                 => '1',
+            rxpcommaalignen_in(0)                 => '1',
+            rxpolarity_in(0)                      => '0',
+            rxusrclk_in(0)                        => rxUsrClk(i),
+            rxusrclk2_in(0)                       => rxUsrClk(i),
+            tx8b10ben_in(0)                       => '1',
+            txctrl0_in                            => X"0000",
+            txctrl1_in                            => X"0000",
+            txctrl2_in                            => txCtrl2In(i),
+            txinhibit_in(0)                       => '0',
+            txpolarity_in(0)                      => '0',
+            txusrclk_in(0)                        => txUsrClk(i),
+            txusrclk2_in(0)                       => txUsrClk(i),
+            drpdo_out                             => drpdo(i),
+            drprdy_out(0)                         => drprdy(i),
+            gtytxn_out(0)                         => gtTxN(i),
+            gtytxp_out(0)                         => gtTxP(i),
+            rxbyteisaligned_out                   => open,
+            rxbyterealign_out                     => open,
+            rxcommadet_out                        => open,
+            rxctrl0_out                           => rxCtrl0Out(i),
+            rxctrl1_out                           => rxCtrl1Out(i),
+            rxctrl2_out                           => open,
+            rxctrl3_out                           => rxCtrl3Out(i),
+            rxoutclk_out(0)                       => rxOutClk(i),
+            rxpmaresetdone_out(0)                 => rxpmarstdone(i),
+            txoutclk_out(0)                       => txOutClkO(i),
+            txpmaresetdone_out(0)                 => txpmarstdone(i));
+
+    end generate GEN_GTY;
+        
     txpllreset(i) <= config(i).txPllReset;
     rxpllreset(i) <= config(i).rxPllReset;
     rxpmarst(i)   <= config(i).rxpmarst;

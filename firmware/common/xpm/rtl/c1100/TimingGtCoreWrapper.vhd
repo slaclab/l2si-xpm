@@ -34,7 +34,7 @@ entity TimingGtCoreWrapper is
       SIMULATION_G      : boolean          := false;
       DISABLE_TIME_GT_G : boolean          := false;
       EXTREF_G          : boolean          := false;
-      AXI_CLK_FREQ_G    : real             := 156.25e6;
+      AXI_CLK_FREQ_G    : real             := 104.167e6;
       AXIL_BASE_ADDR_G  : slv(31 downto 0) );
    port (
       -- AXI-Lite Port
@@ -94,7 +94,8 @@ begin
                  AXI_CLK_FREQ_G    => AXI_CLK_FREQ_G,
                  AXIL_BASE_ADDR_G  => AXIL_BASE_ADDR_G,
                  GTY_DRP_OFFSET_G  => x"00004000",
-                 EXTREF_G          => EXTREF_G)
+                 LCLS1_ONLY_G      => false,
+                 EXTREF_G          => false)
     port map (
       axilClk         => axilClk,
       axilRst         => axilRst,
@@ -104,8 +105,10 @@ begin
       axilWriteSlave  => axilWriteSlave,
       stableClk       => stableClk,
       stableRst       => stableRst,
-      gtRefClk        => gtRefClk,
-      gtRefClkDiv2    => gtRefClk,
+      gtRefClk        => '0',
+      gtRefClkDiv2    => gtRefClkDiv2, -- 186 MHz
+      gtgRefClk       => gtRefClk,     -- 371 MHz
+      cpllRefClkSel   => "111",
       gtRxP           => gtRxP,
       gtRxN           => gtRxN,
       gtTxP           => gtTxP,

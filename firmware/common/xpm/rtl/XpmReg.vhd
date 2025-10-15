@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-08-22
+-- Last update: 2025-10-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -608,6 +608,11 @@ begin
             v.config.dsLink(i).groupMask := v.config.dsLink(i).groupMask and not groupLinkClear;
          end if;
       end loop;
+
+      axiSlaveRegisterR(axilEp, X"280",  0, monClkRate(0));
+      axiSlaveRegisterR(axilEp, X"284",  0, monClkRate(1));
+      axiSlaveRegisterR(axilEp, X"288",  0, monClkRate(2));
+      axiSlaveRegisterR(axilEp, X"28C",  0, monClkRate(3));
 
       axiSlaveRegisterR(axilEp, X"300",  0, toSlv(NUM_DDC_G,8));
       axiSlaveRegisterR(axilEp, X"300",  8, toSlv(NUM_SEQ_G,8));

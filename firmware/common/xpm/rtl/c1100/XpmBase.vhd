@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-10-09
+-- Last update: 2025-10-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -98,16 +98,17 @@ entity XpmBase is
      ------------------
      --  Hardware Ports
      ------------------
+     userClk               : in  sl;   -- 100 MHz
      -- QSFP[0] Ports,
-     qsfp0RefClkP          : in  slv(1 downto 0);
-     qsfp0RefClkN          : in  slv(1 downto 0);
+     qsfp0RefClkP          : in  sl;
+     qsfp0RefClkN          : in  sl;
      qsfp0RxP              : in  slv(3 downto 0);
      qsfp0RxN              : in  slv(3 downto 0);
      qsfp0TxP              : out slv(3 downto 0);
      qsfp0TxN              : out slv(3 downto 0);
      -- QSFP[1] Ports
-     qsfp1RefClkP          : in  slv(1 downto 0);
-     qsfp1RefClkN          : in  slv(1 downto 0);
+     qsfp1RefClkP          : in  sl;
+     qsfp1RefClkN          : in  sl;
      qsfp1RxP              : in  slv(3 downto 0);
      qsfp1RxN              : in  slv(3 downto 0);
      qsfp1TxP              : out slv(3 downto 0);
@@ -124,6 +125,7 @@ architecture top_level of XpmBase is
    constant NUM_DDC_C : integer := 0;
 
    -- AXI-Lite Interface (appClk domain)
+   signal userClkBuf     : sl;
    signal regClk         : sl;
    signal regRst         : sl;
    signal uregRst        : sl;
@@ -150,8 +152,8 @@ architecture top_level of XpmBase is
    signal pllStatus : XpmPllStatusArray (1 downto 0);
    signal pllLocked : slv(1 downto 0);
 
-   signal dsClockP : slv(1 downto 0);
-   signal dsClockN : slv(1 downto 0);
+   -- signal dsClockP : slv(1 downto 0);
+   -- signal dsClockN : slv(1 downto 0);
    signal idsRxP   : Slv4Array(1 downto 0);
    signal idsRxN   : Slv4Array(1 downto 0);
    signal idsTxP   : Slv4Array(1 downto 0);
@@ -213,7 +215,8 @@ architecture top_level of XpmBase is
    signal stepMaster, seqMaster, monMaster : AxiStreamMasterType;
    signal stepSlave , seqSlave , monSlave  : AxiStreamSlaveType;
 
-   signal dsClkBuf    : slv(1 downto 0);
+   signal clk371, rst371 : sl;
+   signal clk186, rst186 : sl;
 
    signal ipAddr   : slv(31 downto 0);
 
@@ -269,8 +272,8 @@ begin
    --
    --  The QSFP channels are not reordered
    --
-   dsClockP    <= qsfp1RefClkP(0) & qsfp0RefClkP(0);
-   dsClockN    <= qsfp1RefClkN(0) & qsfp0RefClkN(0);
+   -- dsClockP    <= qsfp1RefClkP(0) & qsfp0RefClkP(0);
+   -- dsClockN    <= qsfp1RefClkN(0) & qsfp0RefClkN(0);
    qsfp0TxP    <= idsTxP(0)(3 downto 0);
    qsfp0TxN    <= idsTxN(0)(3 downto 0);
    qsfp1TxP    <= idsTxP(1)(3 downto 0);
@@ -280,33 +283,52 @@ begin
    idsRxP(1)(3 downto 0) <= qsfp1RxP;
    idsRxN(1)(3 downto 0) <= qsfp1RxN;
 
-   U_BUFG  : BUFG_GT
-     port map (  I       => dsClkBuf(0),
-                 CE      => '1',
-                 CEMASK  => '1',
-                 CLR     => '0',
-                 CLRMASK => '1',
-                 DIV     => "000",
-                 O       => timingPhyClk );
-   
-   U_BUFG2  : BUFG_GT
-     port map (  I       => dsClkBuf(1),
-                 CE      => '1',
-                 CEMASK  => '1',
-                 CLR     => '0',
-                 CLRMASK => '1',
-                 DIV     => "000",
-                 O       => timingPhyClk2 );
-   
+   U_371MHz : entity surf.ClockManagerUltraScale
+     generic map(
+       TPD_G              => TPD_G,
+       TYPE_G             => "MMCM",
+       INPUT_BUFG_G       => false,
+       FB_BUFG_G          => true,
+       RST_IN_POLARITY_G  => '1',
+       NUM_CLOCKS_G       => 1,
+       -- MMCM attributes
+       BANDWIDTH_G        => "OPTIMIZED",
+       CLKIN_PERIOD_G     => 6.4,     -- 156.25 MHz
+       DIVCLK_DIVIDE_G    => 7,       -- 22.321 MHz = 156.25MHz/7
+       CLKFBOUT_MULT_F_G  => 52.000,  -- 1160.714 MHz = 22.321 MHz x 52
+       CLKOUT0_DIVIDE_F_G => 3.125)   -- 371.429 MHz = 1160.714 MHz/3.125
+     port map(
+       clkIn     => phyClk01,
+       rstIn     => phyRst01,
+       clkOut(0) => clk371,
+       rstOut(0) => rst371,
+       locked    => open);
 
+   U_Clk186 : BUFGCE_DIV
+     generic map (
+       BUFGCE_DIVIDE => 2 )
+     port map (
+       I   => clk371,
+       CE  => '1',
+       CLR => '0',
+       O   => clk186 );
+   
+   U_Rst186 : entity surf.RstSync
+     generic map (
+       TPD_G => TPD_G)
+     port map (
+       clk      => clk186,
+       asyncRst => rst371,
+       syncRst  => rst186 );
+   
    IBUFDS_GTE4_REFCLK01 : IBUFDS_GTE4
       generic map (
         REFCLK_EN_TX_PATH  => '0',
         REFCLK_HROW_CK_SEL => "00",    -- 2'b01: ODIV2 = Divide-by-2 version of O
         REFCLK_ICNTL_RX    => "00")
       port map (
-        I     => qsfp0RefClkP(1),
-        IB    => qsfp0RefClkN(1),
+        I     => qsfp0RefClkP,
+        IB    => qsfp0RefClkN,
         CEB   => '0',
         ODIV2 => gphyClk01,
         O     => open);
@@ -329,32 +351,39 @@ begin
    ---------------------------------------
    -- AXI-Lite and reference 25 MHz clocks
    ---------------------------------------
+   U_BUFG : BUFG
+      port map (
+         I => userClk,
+         O => userClkBuf);
+
    U_axilClk : entity surf.ClockManagerUltraScale
       generic map(
-         TPD_G             => TPD_G,
-         SIMULATION_G      => false,
-         TYPE_G            => "PLL",
-         INPUT_BUFG_G      => false,
-         FB_BUFG_G         => true,
-         RST_IN_POLARITY_G => '1',
-         NUM_CLOCKS_G      => 1,
+         TPD_G              => TPD_G,
+         SIMULATION_G       => ROGUE_SIM_EN_G,
+         TYPE_G             => "MMCM",
+         INPUT_BUFG_G       => false,
+         FB_BUFG_G          => true,
+         RST_IN_POLARITY_G  => '1',
+         NUM_CLOCKS_G       => 1,
          -- MMCM attributes
-         CLKIN_PERIOD_G    => 4.0,      -- 250 MHz
-         CLKFBOUT_MULT_G   => 5,        -- 1.25GHz = 5 x 250 MHz
-         CLKOUT0_DIVIDE_G  => 12)       -- 104MHz = 1.25GHz/12
+         BANDWIDTH_G        => "OPTIMIZED",
+         CLKIN_PERIOD_G     => 10.0,    -- 100MHz
+         DIVCLK_DIVIDE_G    => 1,       -- 
+         CLKFBOUT_MULT_F_G  => 12.5,    -- 1250MHz VCO
+         CLKOUT0_DIVIDE_F_G => 12.0)    -- 104MHz = 1.25GHz/12
       port map(
          -- Clock Input
-         clkIn     => dmaClk,
+         clkIn     => userClkBuf,
          rstIn     => dmaRst,
          -- Clock Outputs
          clkOut(0) => regClk,
          -- Reset Outputs
-         rstOut(0) => uregRst );
+         rstOut(0) => regRst);
 
-    U_REGRST : BUFG
-      port map (
-         I  => uregRst,
-         O  => regRst );
+    -- U_REGRST : BUFG
+    --   port map (
+    --      I  => uregRst,
+    --      O  => regRst );
       
     IBUFDS_GTE4_REFCLK11 : IBUFDS_GTE4
       generic map (
@@ -362,12 +391,14 @@ begin
         REFCLK_HROW_CK_SEL => "00",    -- 2'b01: ODIV2 = Divide-by-2 version of O
         REFCLK_ICNTL_RX    => "00")
       port map (
-        I     => qsfp1RefClkP(1),
-        IB    => qsfp1RefClkN(1),
+        I     => qsfp1RefClkP,
+        IB    => qsfp1RefClkN,
         CEB   => '0',
         ODIV2 => gphyClk11,
         O     => open);
 
+   timingPhyClk <= timingFbClk;
+   
    U_TimingPhyRst : entity surf.RstSync
      generic map (
        IN_POLARITY_G => '0' )
@@ -545,18 +576,21 @@ begin
 
    obDmaSlaves(0) <= AXI_STREAM_SLAVE_FORCE_C;
 
-   U_XVC : entity surf.DmaXvcWrapper
-     generic map ( DMA_AXIS_CONFIG_G => DMA_AXIS_CONFIG_G )
-     port map (
-       xvcClk156    => phyClk01,
-       xvcRst156    => phyRst01,
-       dmaClk       => dmaClk,
-       dmaRst       => dmaRst,
-       dmaObMaster  => obDmaMasters(1),
-       dmaObSlave   => obDmaSlaves (1),
-       dmaIbMaster  => ibDmaMasters(1),
-       dmaIbSlave   => ibDmaSlaves (1) );
-       
+   -- U_XVC : entity surf.DmaXvcWrapper
+   --   generic map ( DMA_AXIS_CONFIG_G => DMA_AXIS_CONFIG_G )
+   --   port map (
+   --     xvcClk156    => phyClk01,
+   --     xvcRst156    => phyRst01,
+   --     dmaClk       => dmaClk,
+   --     dmaRst       => dmaRst,
+   --     dmaObMaster  => obDmaMasters(1),
+   --     dmaObSlave   => obDmaSlaves (1),
+   --     dmaIbMaster  => ibDmaMasters(1),
+   --     dmaIbSlave   => ibDmaSlaves (1) );
+
+   obDmaSlaves(1).tReady <= obDmaMasters(1).tValid;
+   ibDmaMasters(1) <= AXI_STREAM_MASTER_INIT;
+   
    U_Reg : entity l2si.XpmReg
       generic map(
          TPD_G               => TPD_G,
@@ -641,9 +675,9 @@ begin
          usRxN                 => idsRxN(0)(0),
          usTxP                 => idsTxP(0)(0),
          usTxN                 => idsTxN(0)(0),
-         usRefClk              => timingPhyClk,
-         usRefClkGt            => dsClkBuf(0),
-         usRefClkGtDiv2        => '0',
+         usRefClk              => '0', -- timingPhyClk,
+         usRefClkGt            => clk371,
+         usRefClkGtDiv2        => clk186,
          timingFbClk           => timingFbClk,
          timingFbRst           => timingFbRst,
          timingFb              => timingFb,
@@ -662,17 +696,18 @@ begin
             HWTYPE_G   => "GTY+", 
             GTGCLKRX   => false,
             NLINKS_G   => AMC_DS_LINKS_C(i),
-            USE_IBUFDS => true)
+            USE_IBUFDS => false)
          port map (
             stableClk => regClk,
             gtTxP     => idsTxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
             gtTxN     => idsTxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
             gtRxP     => idsRxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
             gtRxN     => idsRxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
-            devClkP   => dsClockP (0),  -- only MGTREFCLK0 is programmable!
-            devClkN   => dsClockN (0),
-            devClkOut => dsClkBuf (i),
-            devClkBuf => open, -- dsTxOutClk(AMC_DS_FIRST_C(i)),
+            devClkP   => '0', -- dsClockP (i),
+            devClkN   => '0', -- dsClockN (i),
+            devClkIn  => clk371,  -- gtgrefclk
+            devClkOut => open,
+            devClkBuf => open,
             txData    => dsTxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
             txDataK   => dsTxDataK (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
             rxData    => dsRxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
