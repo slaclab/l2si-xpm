@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-10-15
+-- Last update: 2025-12-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -77,6 +77,8 @@ entity XpmReg is
       staClk          : in  sl;
       pllStatus       : in  XpmPllStatusArray(XPM_NUM_AMCS_C-1 downto 0);
       status          : in  XpmStatusType;
+      mmcmLocked      : in  sl := '1';
+      mmcmRst         : out sl;
       pattern         : in  XpmPatternStatisticsType;
       patternCfg      : out XpmPatternConfigType;
       monClk          : in  slv(3 downto 0) := (others => '0');
@@ -138,6 +140,9 @@ architecture rtl of XpmReg is
       pllCfg         : XpmPllConfigType;
       inhibitCfg     : XpmInhibitConfigType;
       patternCfg     : XpmPatternConfigType;
+      mmcmRst        : sl;
+      rxAllRst       : sl;
+      txAllRst       : sl;
       axilReadSlave  : AxiLiteReadSlaveType;
       axilWriteSlave : AxiLiteWriteSlaveType;
       axilRdEn       : slv(XPM_PARTITIONS_C-1 downto 0);
@@ -172,6 +177,9 @@ architecture rtl of XpmReg is
       pllCfg         => XPM_PLL_INIT_C,
       inhibitCfg     => XPM_INHIBIT_CONFIG_INIT_C,
       patternCfg     => XPM_PATTERN_CONFIG_INIT_C,
+      mmcmRst        => '1',
+      rxAllRst       => '1',
+      txAllRst       => '1',
       axilReadSlave  => AXI_LITE_READ_SLAVE_INIT_C,
       axilWriteSlave => AXI_LITE_WRITE_SLAVE_INIT_C,
       axilRdEn       => (others => '1'),
@@ -229,6 +237,9 @@ architecture rtl of XpmReg is
    signal monCount : slv(26 downto 0) := (others=>'0');
    signal monId    : slv(31 downto 0) := (others=>'0');
    signal monIndex : slv( 9 downto 0) := (others=>'0');
+
+   signal rxAllRst : sl;
+   signal txAllRst : sl;
    
 begin
 
@@ -364,7 +375,8 @@ begin
    comb : process (r, axilReadMaster, axilWriteMaster, status, s, axilRst,
                    pllCount, pllStat, groupLinkClear, stepDone, obDebugSlave,
                    monClkRate, monClkLock, monClkFast, monClkSlow,
-                   monCount, monIndex, monBusy, monId) is
+                   monCount, monIndex, monBusy, monId,
+                   mmcmLocked, rxAllRst, txAllRst) is
       variable v              : RegType;
       variable axilEp         : AxiLiteEndpointType;
       variable ip             : integer;
@@ -402,6 +414,21 @@ begin
          v.config.pll (ia)      := r.pllCfg;
       end if;
 
+      for i in r.config.dsLink'range loop
+         if mmcmLocked = '0' then
+            v.config.dsLink(i).rxPllReset := '1';
+            v.rxAllRst := '1';
+            v.config.dsLink(i).txPllReset := '1';
+            v.txAllRst := '1';
+         end if;
+         if rxAllRst = '1' then
+            v.config.dsLink(i).rxReset := '1';
+         end if;
+         if txAllRst = '1' then
+            v.config.dsLink(i).txReset := '1';
+         end if;
+      end loop;
+      
       --  strobing signals only set by group registers
       for i in 0 to XPM_PARTITIONS_C-1 loop
          v.config.partition(i).l0Select.reset := r.l0Select_reset;
@@ -491,6 +518,8 @@ begin
 
       axiSlaveRegister (axilEp, X"020",  0, v.partitionCfg.l0Select.rawPeriod);
       axiSlaveRegister (axilEp, X"024",  0, v.commonDelay);
+      axiSlaveRegister (axilEp, X"028",  0, v.mmcmRst);
+      axiSlaveRegisterR(axilEp, X"02C",  0, mmcmLocked);
 
       axiSlaveRegisterR(axilEp, X"048", 0, s.partition(ip).l1Select.numAcc);
       
@@ -726,4 +755,34 @@ begin
                     dataOut => stepDone(i) );
    end generate;
 
+   U_mmcmRst : entity surf.PwrUpRst
+     generic map (
+       TPD_G         => TPD_G,
+       SIM_SPEEDUP_G => false,
+       DURATION_G    => 156000000)
+     port map (
+       arst    => r.mmcmRst,
+       clk     => axilClk,
+       rstOut  => mmcmRst );
+
+   U_rxUserRst : entity surf.PwrUpRst
+     generic map (
+       TPD_G         => TPD_G,
+       SIM_SPEEDUP_G => false,
+       DURATION_G    => 156000000)
+     port map (
+       arst    => r.rxAllRst,
+       clk     => axilClk,
+       rstOut  => rxAllRst );
+
+   U_txUserRst : entity surf.PwrUpRst
+     generic map (
+       TPD_G         => TPD_G,
+       SIM_SPEEDUP_G => false,
+       DURATION_G    => 156000000)
+     port map (
+       arst    => axilRst,
+       clk     => axilClk,
+       rstOut  => txAllRst );
+   
 end rtl;

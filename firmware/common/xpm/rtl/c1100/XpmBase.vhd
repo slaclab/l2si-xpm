@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-10-15
+-- Last update: 2025-12-09
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -150,7 +150,6 @@ architecture top_level of XpmBase is
    signal patternCfg: XpmPatternConfigType;
 
    signal pllStatus : XpmPllStatusArray (1 downto 0);
-   signal pllLocked : slv(1 downto 0);
 
    -- signal dsClockP : slv(1 downto 0);
    -- signal dsClockN : slv(1 downto 0);
@@ -203,6 +202,7 @@ architecture top_level of XpmBase is
                        addrBits     => 19,
                        connectivity => X"FFFF") );
 
+   signal axilReadSlaveb   : AxiLiteReadSlaveType;
    signal axilReadMasters  : AxiLiteReadMasterArray (AXI_XBAR_CONFIG_C'range);
    signal axilReadSlaves   : AxiLiteReadSlaveArray  (AXI_XBAR_CONFIG_C'range) := (others=>AXI_LITE_READ_SLAVE_EMPTY_OK_C);
    signal axilWriteMasters : AxiLiteWriteMasterArray(AXI_XBAR_CONFIG_C'range);
@@ -234,11 +234,11 @@ architecture top_level of XpmBase is
    signal txAdvance   : slv              (2 downto 0) := (others=>'0');
    signal txFiducial  : sl;
 
-   constant AMC_DS_PORT0_C : IntegerArray(1 downto 0) := ( 0, ite(XPM_MODE_G="XpmAsync",1,0) );
-   constant AMC_DS_PORTN_C : IntegerArray(1 downto 0) := ( 3, 3 );
+   constant AMC_DS_PORT0_C : IntegerArray(1 downto 0) := (0, ite(XPM_MODE_G="XpmAsync",1,0) );
+   constant AMC_DS_PORTN_C : IntegerArray(1 downto 0) := (3,3);
    
-   constant AMC_DS_LINKS_C : IntegerArray(1 downto 0) := ( 4, ite(XPM_MODE_G="XpmAsync",3,4) );
-   constant AMC_DS_FIRST_C : IntegerArray(1 downto 0) := ( 4, ite(XPM_MODE_G="XpmAsync",1,0) );
+   constant AMC_DS_LINKS_C : IntegerArray(1 downto 0) := (4, ite(XPM_MODE_G="XpmAsync",3,4) );
+   constant AMC_DS_FIRST_C : IntegerArray(1 downto 0) := (4, ite(XPM_MODE_G="XpmAsync",1,0) );
    constant AMC_DS_LAST_C  : IntegerArray(1 downto 0) :=
      ( AMC_DS_LINKS_C(1)+AMC_DS_FIRST_C(1)-1,
        AMC_DS_LINKS_C(0)+AMC_DS_FIRST_C(0)-1 );
@@ -264,7 +264,15 @@ architecture top_level of XpmBase is
    signal linkId, linkIdS : slv(31 downto 0) := (others=>'0');
 
    signal timeStamp : slv(63 downto 0);
-   
+   signal mmcmLocked : sl;
+
+   constant NUM_DEBUG_CLOCKS_C : integer := 4;
+   signal dbgClkIn   : slv       (NUM_DEBUG_CLOCKS_C-1 downto 0);
+   signal dbgClkRate : Slv32Array(NUM_DEBUG_CLOCKS_C-1 downto 0);
+   signal dbgClkLock : slv       (NUM_DEBUG_CLOCKS_C-1 downto 0);
+   signal dbgClkSlow : slv       (NUM_DEBUG_CLOCKS_C-1 downto 0);
+   signal dbgClkFast : slv       (NUM_DEBUG_CLOCKS_C-1 downto 0);
+     
 begin
 
    axilClk <= regClk;
@@ -283,26 +291,26 @@ begin
    idsRxP(1)(3 downto 0) <= qsfp1RxP;
    idsRxN(1)(3 downto 0) <= qsfp1RxN;
 
-   U_371MHz : entity surf.ClockManagerUltraScale
-     generic map(
-       TPD_G              => TPD_G,
-       TYPE_G             => "MMCM",
-       INPUT_BUFG_G       => false,
-       FB_BUFG_G          => true,
-       RST_IN_POLARITY_G  => '1',
-       NUM_CLOCKS_G       => 1,
-       -- MMCM attributes
-       BANDWIDTH_G        => "OPTIMIZED",
-       CLKIN_PERIOD_G     => 6.4,     -- 156.25 MHz
-       DIVCLK_DIVIDE_G    => 7,       -- 22.321 MHz = 156.25MHz/7
-       CLKFBOUT_MULT_F_G  => 52.000,  -- 1160.714 MHz = 22.321 MHz x 52
-       CLKOUT0_DIVIDE_F_G => 3.125)   -- 371.429 MHz = 1160.714 MHz/3.125
-     port map(
-       clkIn     => phyClk01,
-       rstIn     => phyRst01,
-       clkOut(0) => clk371,
-       rstOut(0) => rst371,
-       locked    => open);
+   -- U_371MHz : entity surf.ClockManagerUltraScale
+   --   generic map(
+   --     TPD_G              => TPD_G,
+   --     TYPE_G             => "MMCM",
+   --     INPUT_BUFG_G       => false,
+   --     FB_BUFG_G          => true,
+   --     RST_IN_POLARITY_G  => '1',
+   --     NUM_CLOCKS_G       => 1,
+   --     -- MMCM attributes
+   --     BANDWIDTH_G        => "OPTIMIZED",
+   --     CLKIN_PERIOD_G     => 6.4,     -- 156.25 MHz
+   --     DIVCLK_DIVIDE_G    => 7,       -- 22.321 MHz = 156.25MHz/7
+   --     CLKFBOUT_MULT_F_G  => 52.000,  -- 1160.714 MHz = 22.321 MHz x 52
+   --     CLKOUT0_DIVIDE_F_G => 3.125)   -- 371.429 MHz = 1160.714 MHz/3.125
+   --   port map(
+   --     clkIn     => phyClk01,
+   --     rstIn     => phyRst01,
+   --     clkOut(0) => clk371,
+   --     rstOut(0) => rst371,
+   --     locked    => mmcmLocked);
 
    U_Clk186 : BUFGCE_DIV
      generic map (
@@ -351,15 +359,15 @@ begin
    ---------------------------------------
    -- AXI-Lite and reference 25 MHz clocks
    ---------------------------------------
-   U_BUFG : BUFG
-      port map (
-         I => userClk,
-         O => userClkBuf);
+   -- U_BUFG : BUFG
+   --    port map (
+   --       I => userClk,
+   --       O => userClkBuf);
 
    U_axilClk : entity surf.ClockManagerUltraScale
       generic map(
          TPD_G              => TPD_G,
-         SIMULATION_G       => ROGUE_SIM_EN_G,
+         SIMULATION_G       => false,
          TYPE_G             => "MMCM",
          INPUT_BUFG_G       => false,
          FB_BUFG_G          => true,
@@ -367,13 +375,13 @@ begin
          NUM_CLOCKS_G       => 1,
          -- MMCM attributes
          BANDWIDTH_G        => "OPTIMIZED",
-         CLKIN_PERIOD_G     => 10.0,    -- 100MHz
+         CLKIN_PERIOD_G     => 4.0,    -- 250MHz
          DIVCLK_DIVIDE_G    => 1,       -- 
-         CLKFBOUT_MULT_F_G  => 12.5,    -- 1250MHz VCO
+         CLKFBOUT_MULT_F_G  => 5.0,    -- 1250MHz VCO
          CLKOUT0_DIVIDE_F_G => 12.0)    -- 104MHz = 1.25GHz/12
       port map(
          -- Clock Input
-         clkIn     => userClkBuf,
+         clkIn     => dmaClk,
          rstIn     => dmaRst,
          -- Clock Outputs
          clkOut(0) => regClk,
@@ -384,7 +392,32 @@ begin
     --   port map (
     --      I  => uregRst,
     --      O  => regRst );
-      
+
+   U_GTGCLK : entity surf.ClockManagerUltraScale
+      generic map(
+         TPD_G              => TPD_G,
+         SIMULATION_G       => false,
+         TYPE_G             => "MMCM",
+         INPUT_BUFG_G       => false,
+         FB_BUFG_G          => true,
+         RST_IN_POLARITY_G  => '1',
+         NUM_CLOCKS_G       => 1,
+         -- MMCM attributes
+         BANDWIDTH_G        => "OPTIMIZED",
+         CLKIN_PERIOD_G     => 4.0,    -- 250MHz
+         DIVCLK_DIVIDE_G    => 5,       -- 
+         CLKFBOUT_MULT_F_G  => 26.0,    -- 1300MHz VCO
+         CLKOUT0_DIVIDE_F_G => 3.5)     -- 371MHz = 1.3GHz/3.5
+      port map(
+         -- Clock Input
+         clkIn     => dmaClk,
+         rstIn     => dmaRst,
+         -- Clock Outputs
+         clkOut(0) => clk371,
+         -- Reset Outputs
+         rstOut(0) => rst371,
+         locked    => mmcmLocked );
+   
     IBUFDS_GTE4_REFCLK11 : IBUFDS_GTE4
       generic map (
         REFCLK_EN_TX_PATH  => '0',
@@ -397,7 +430,16 @@ begin
         ODIV2 => gphyClk11,
         O     => open);
 
-   timingPhyClk <= timingFbClk;
+   U_BUFG4  : BUFG_GT
+     port map (  I       => gphyClk11,
+                 CE      => '1',
+                 CEMASK  => '1',
+                 CLR     => '0',
+                 CLRMASK => '1',
+                 DIV     => "000",
+                 O       => phyClk11 );
+   
+--   timingPhyClk <= timingFbClk;
    
    U_TimingPhyRst : entity surf.RstSync
      generic map (
@@ -428,7 +470,7 @@ begin
          sAxiWriteMasters(0) => axilWriteMaster,
          sAxiWriteSlaves(0)  => axilWriteSlave,
          sAxiReadMasters(0)  => axilReadMaster,
-         sAxiReadSlaves (0)  => axilReadSlave,
+         sAxiReadSlaves (0)  => axilReadSlaveb,
          mAxiWriteMasters    => axilWriteMasters,
          mAxiWriteSlaves     => axilWriteSlaves,
          mAxiReadMasters     => axilReadMasters,
@@ -589,7 +631,7 @@ begin
    --     dmaIbSlave   => ibDmaSlaves (1) );
 
    obDmaSlaves(1).tReady <= obDmaMasters(1).tValid;
-   ibDmaMasters(1) <= AXI_STREAM_MASTER_INIT;
+   ibDmaMasters(1) <= axiStreamMasterInit(DMA_AXIS_CONFIG_G);
    
    U_Reg : entity l2si.XpmReg
       generic map(
@@ -620,10 +662,12 @@ begin
          staClk          => timingPhyClk,
          pllStatus       => pllStatus,
          status          => xpmStatus,
+         mmcmLocked      => mmcmLocked,
+         mmcmRst         => open,
          pattern         => pattern,
          patternCfg      => patternCfg,
          monClk(0)       => phyClk01,
-         monClk(1)       => dmaClk,
+         monClk(1)       => phyClk11,
          monClk(2)       => timingFbClk,
          monClk(3)       => timingPhyClk,
          monLatch        => seqCountRst,
@@ -651,8 +695,9 @@ begin
      -- axilReadSlaves (TIM_INDEX_C) <= AXI_LITE_READ_SLAVE_INIT_C;
      -- axilWriteSlaves(TIM_INDEX_C) <= AXI_LITE_WRITE_SLAVE_INIT_C;
      -- recStream <= XPM_STREAM_INIT_C;
-     
-     timingFbClk    <= timingPhyClk;
+
+     timingPhyClk   <= clk186;
+     timingFbClk    <= clk186;
      timingFbStatus <= TIMING_PHY_STATUS_INIT_C;
      dsLinkConfig   <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 0);
    end generate;
@@ -690,40 +735,89 @@ begin
      dsRxRst(0)   <= timingPhyRst;
    end generate GEN_XPMASYNC;
    
+   -- GEN_XPMSYNC : if XPM_MODE_G = "XpmSync" generate
+   --   U_XpmAsync : entity l2si.XpmSyncCore
+   --     generic map (
+   --       TPD_G       => TPD_G,
+   --       HW_TYPE_G   => "GTY+",
+   --       AXIL_BASE_G => AXI_XBAR_CONFIG_C(ASYN_INDEX_C).baseAddr )
+   --     port map (
+   --       axilClk               => regClk,
+   --       axilRst               => regRst,
+   --       axilReadMaster        => axilReadMasters (ASYN_INDEX_C),
+   --       axilReadSlave         => axilReadSlaves  (ASYN_INDEX_C),
+   --       axilWriteMaster       => axilWriteMasters(ASYN_INDEX_C),
+   --       axilWriteSlave        => axilWriteSlaves (ASYN_INDEX_C),
+   --       usRxP                 => idsRxP(0)(0),
+   --       usRxN                 => idsRxN(0)(0),
+   --       usTxP                 => idsTxP(0)(0),
+   --       usTxN                 => idsTxN(0)(0),
+   --       usRefClk              => '0', -- timingPhyClk,
+   --       usRefClkGt            => clk371,
+   --       usRefClkGtDiv2        => clk186,
+   --       timingFbClk           => timingFbClk,
+   --       timingFbRst           => timingFbRst,
+   --       timingFb              => timingFb,
+   --       timingFbStatus        => timingFbStatus,
+   --       recClk                => timingPhyClk,
+   --       recClkRst             => timingPhyRst,
+   --       recStream             => recStream );
+   --   dsLinkConfig <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 1) & dsLinkConfig0;
+   --   dsRxClk(0)   <= timingPhyClk;
+   --   dsRxRst(0)   <= timingPhyRst;
+   -- end generate GEN_XPMSYNC;
+   
    GEN_AMC_MGT : for i in 0 to 1 generate
-      U_Rcvr : entity l2si.XpmGtUltrascaleWrapper
+     GEN_AMC : if AMC_DS_LINKS_C(i)>0 generate
+       U_Rcvr : entity l2si.XpmGtUltrascaleWrapper
          generic map (
-            HWTYPE_G   => "GTY+", 
-            GTGCLKRX   => false,
-            NLINKS_G   => AMC_DS_LINKS_C(i),
-            USE_IBUFDS => false)
+           HWTYPE_G   => "GTY+", 
+           GTGCLKRX   => false,
+           NLINKS_G   => AMC_DS_LINKS_C(i),
+           USE_IBUFDS => false,
+           DEBUG_G    => true)
          port map (
-            stableClk => regClk,
-            gtTxP     => idsTxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
-            gtTxN     => idsTxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
-            gtRxP     => idsRxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
-            gtRxN     => idsRxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
-            devClkP   => '0', -- dsClockP (i),
-            devClkN   => '0', -- dsClockN (i),
-            devClkIn  => clk371,  -- gtgrefclk
-            devClkOut => open,
-            devClkBuf => open,
-            txData    => dsTxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            txDataK   => dsTxDataK (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            rxData    => dsRxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            rxDataK   => dsRxDataK (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            rxClk     => dsRxClk   (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            rxRst     => dsRxRst   (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            rxErr     => dsRxErr   (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
---                 txOutClk        => dsTxOutClk(7*i+6 downto 7*i),
-            txClk     => open,
-            txClkIn   => timingPhyClk,
-            txClkRst  => timingPhyRst,
-            config    => dsLinkConfig(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            status    => dsLinkStatus(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-            axilRst         => regRst,
-            axilReadMaster  => AXI_LITE_READ_MASTER_INIT_C,
-            axilWriteMaster => AXI_LITE_WRITE_MASTER_INIT_C );
+           stableClk => regClk,
+           gtTxP     => idsTxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
+           gtTxN     => idsTxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
+           gtRxP     => idsRxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
+           gtRxN     => idsRxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
+           devClkP   => '0', -- dsClockP (i),
+           devClkN   => '0', -- dsClockN (i),
+           devClkIn  => clk371,  -- gtgrefclk
+           devClkOut => open,
+           devClkBuf => open,
+           txData    => dsTxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+           txDataK   => dsTxDataK (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+           rxData    => dsRxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+           rxDataK   => dsRxDataK (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+           rxClk     => dsRxClk   (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+           rxRst     => dsRxRst   (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+           rxErr     => dsRxErr   (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+           txClk     => open,
+           txClkIn   => timingPhyClk,
+           txClkRst  => timingPhyRst,
+           config    => dsLinkConfig(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+           status    => dsLinkStatus(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
+           axilRst         => regRst,
+           axilReadMaster  => AXI_LITE_READ_MASTER_INIT_C,
+           axilWriteMaster => AXI_LITE_WRITE_MASTER_INIT_C );
+     end generate;
+     
+     GEN_DUMMY: if AMC_DS_LINKS_C(i)<4 generate
+       -- Unused QSFP Port
+       U_QSFP : entity surf.Gtye4ChannelDummy
+         generic map (
+           TPD_G   => TPD_G,
+           WIDTH_G => 4-AMC_DS_LINKS_C(i))
+         port map (
+           refClk => regClk,
+           gtRxP  => idsRxP (i)(3 downto AMC_DS_PORTN_C(i)+1),
+           gtRxN  => idsRxN (i)(3 downto AMC_DS_PORTN_C(i)+1),
+           gtTxP  => idsTxP (i)(3 downto AMC_DS_PORTN_C(i)+1),
+           gtTxN  => idsTxN (i)(3 downto AMC_DS_PORTN_C(i)+1));
+     end generate;
+      
    end generate;
 
    U_SyncPaddrTx : entity surf.SynchronizerVector
@@ -763,5 +857,50 @@ begin
        writeRegister(0) => tmpReg,
        readRegister (0) => tmpRegR );
 
+   GEN_DEBUGCLK : for i in 0 to NUM_DEBUG_CLOCKS_C-1 generate
+      U_SYNC : entity surf.SyncClockFreq
+         generic map (
+            TPD_G             => TPD_G,
+            REF_CLK_FREQ_G    => 104.1667E+6,
+            REFRESH_RATE_G    => 1.0,
+            COMMON_CLK_G      => true,
+            CLK_LOWER_LIMIT_G => 95.0E+6,
+            CLK_UPPER_LIMIT_G => 186.0E+6)
+         port map (
+            freqOut     => dbgClkRate(i),
+            freqUpdated => open,
+            locked      => dbgClkLock(i),
+            tooFast     => dbgClkFast(i),
+            tooSlow     => dbgClkSlow(i),
+            clkIn       => dbgClkIn(i),
+            locClk      => regClk,
+            refClk      => regClk);
+   end generate;
+
+   dbgClkIn(0) <= timingFbClk;
+   dbgClkIn(1) <= timingPhyClk; -- 186 MHz
+   dbgClkIn(2) <= phyClk01;  -- qsfp0RefClk
+   dbgClkIn(3) <= phyClk11;  -- qsfp1RefClk
+   
+   U_ILA : ila_0
+     port map (
+       clk     => regClk,
+       probe0( 31 downto   0) => dbgClkRate(0),
+       probe0( 63 downto  32) => dbgClkRate(1),
+       probe0( 95 downto  64) => dbgClkRate(2),
+       probe0(127 downto  96) => dbgClkRate(3),
+       probe0(128)            => dmaRst,
+       probe0(129)            => regRst,
+       probe0(130)            => phyRst01,
+       probe0(131)            => timingPhyRst,
+       probe0(132)            => timingFbRst,
+       probe0(133)            => axilReadMaster.arvalid,
+       probe0(165 downto 134) => axilReadMaster.araddr,
+       probe0(166)            => axilReadSlaveb.rvalid,
+       probe0(198 downto 167) => axilReadSlaveb.rdata,
+       probe0(255 downto 199) => (others=>'0') );
+
+   axilReadSlave <= axilReadSlaveb;
+   
 end top_level;
 
