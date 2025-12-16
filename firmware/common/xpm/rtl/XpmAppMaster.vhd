@@ -293,6 +293,14 @@ begin
          pop_tag   => l1AcceptTag,
          pop_frame => l1AcceptFrame);
 
+   U_PathTime : entity l2si.XpmPathTimer
+      port map (
+         clk       => timingClk,
+         rst       => l0Reset,
+         start     => l0Accept,
+         stop      => pauseOrOverflow(MAX_DS_LINKS_C-1 downto 0),
+         status    => status.pathTime);
+     
    --U_L1Select : entity l2si_core.XpmL1Select
    --  port map ( clk            => timingClk,
    --             rst            => timingRst,

@@ -166,16 +166,24 @@ package XpmPkg is
       minIntv  => (others=>'1'),
       maxIntv  => (others=>'0'));
    type XpmL0StatisticsArray is array(natural range<>) of XpmL0StatisticsType;
+
+   type XpmPathTimerType is record
+      pathTime : Slv16Array(MAX_DS_LINKS_C-1 downto 0);
+   end record;
+   constant XPM_PATH_TIMER_INIT_C : XpmPathTimerType := (
+      pathTime => (others=>(others=>'0')));
    
    type XpmPartitionStatusType is record
       inhibit  : XpmInhibitStatusType;
       l0Select : XpmL0SelectStatusType;
       l1Select : XpmL1SelectStatusType;
+      pathTime : XpmPathTimerType;
    end record;
    constant XPM_PARTITION_STATUS_INIT_C : XpmPartitionStatusType := (
       inhibit  => XPM_INHIBIT_STATUS_INIT_C,
       l0Select => XPM_L0_SELECT_STATUS_INIT_C,
-      l1Select => XPM_L1_SELECT_STATUS_INIT_C );
+      l1Select => XPM_L1_SELECT_STATUS_INIT_C,
+      pathTime => XPM_PATH_TIMER_INIT_C);
    type XpmPartitionStatusArray is array(natural range<>) of XpmPartitionStatusType;
 
    type XpmPatternStatisticsType is record

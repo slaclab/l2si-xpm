@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-08-22
+-- Last update: 2025-12-29
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -229,6 +229,10 @@ architecture rtl of XpmReg is
    signal monCount : slv(26 downto 0) := (others=>'0');
    signal monId    : slv(31 downto 0) := (others=>'0');
    signal monIndex : slv( 9 downto 0) := (others=>'0');
+
+   signal pstatus  : XpmPartitionStatusType;
+   signal ptime    : XpmPathTimerType;
+   signal pathTime : slv(15 downto 0);
    
 begin
 
@@ -361,10 +365,22 @@ begin
          wrClk        => axilClk,
          rdClk        => axilClk);
 
+   pstatus <= status.partition(conv_integer(r.partition));
+   ptime   <= pstatus.pathTime.pathTime(conv_integer(r.link(3 downto 0)));
+   
+   U_PathTime : entity surf.SynchronizerVector
+      generic map (
+         TPD_G   => TPD_G,
+         WIDTH_G => 16)
+      port map (
+         clk     => axilClk,
+         dataIn  => ptime,
+         dataOut => pathTime);
+       
    comb : process (r, axilReadMaster, axilWriteMaster, status, s, axilRst,
                    pllCount, pllStat, groupLinkClear, stepDone, obDebugSlave,
                    monClkRate, monClkLock, monClkFast, monClkSlow,
-                   monCount, monIndex, monBusy, monId) is
+                   monCount, monIndex, monBusy, monId, pathTime) is
       variable v              : RegType;
       variable axilEp         : AxiLiteEndpointType;
       variable ip             : integer;
@@ -515,6 +531,8 @@ begin
       --axiSlaveRegister (axilEp, X"054",  4, v.partitionCfg.l1Select.trigword);
       --axiSlaveRegister (axilEp, X"054", 16, v.partitionCfg.l1Select.trigwr);
 
+      axiSlaveRegisterR(axilEp, X"060", 0, pathTime);
+                        
       axiSlaveRegister (axilEp, X"068", 0, v.l0Select_reset);
       
       axiSlaveRegister (axilEp, X"06C", 0, v.partitionCfg.pipeline.depth_clks);
@@ -530,7 +548,7 @@ begin
       end loop;
 
       axiSlaveRegister (axilEp, X"090",  0, v.patternCfg.rateSel);
-      
+
       axiSlaveRegister (axilEp, X"1A0",  0, v.monStreamPeriod);
       axiSlaveRegister (axilEp, X"1A0", 31, v.monStreamEnable);
       axiSlaveRegisterR(axilEp, X"1A4",  0, monCount);
