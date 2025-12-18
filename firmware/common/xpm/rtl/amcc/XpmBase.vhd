@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-06-05
+-- Last update: 2025-12-29
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -237,12 +237,14 @@ architecture top_level of XpmBase is
    constant RING_INDEX_C : integer := 1;
    constant TEST_INDEX_C : integer := 2;
    constant MMCM_INDEX_C : integer := 3;
-   constant APP_INDEX_C  : integer := 4;
-   constant PHAS_INDEX_C : integer := 5;
-   constant AMC_GTH_INDEX_C: integer := 6; 
-   constant AMC_GTH1_INDEX_C: integer := 7; 
+   constant SEQ_INDEX_C  : integer := 4;
+   constant DDC_INDEX_C  : integer := 5;
+   constant APP_INDEX_C  : integer := 6;
+   constant PHAS_INDEX_C : integer := 7;
+   constant AMC_GTH_INDEX_C: integer := 8; 
+   constant AMC_GTH1_INDEX_C: integer := 9; 
    
-   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(7 downto 0) := (
+   constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(9 downto 0) := (
      REG_INDEX_C   => (baseAddr     => X"80000000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
@@ -255,8 +257,14 @@ architecture top_level of XpmBase is
      MMCM_INDEX_C  => (baseAddr     => X"80030000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
-     APP_INDEX_C   => (baseAddr     => X"80040000",
+     SEQ_INDEX_C   => (baseAddr     => X"80040000",
                        addrBits     => 17,
+                       connectivity => X"FFFF"),
+     DDC_INDEX_C   => (baseAddr     => X"80060000",
+                       addrBits     => 16,
+                       connectivity => X"FFFF"),
+     APP_INDEX_C   => (baseAddr     => X"80070000",
+                       addrBits     => 16,
                        connectivity => X"FFFF"),
      PHAS_INDEX_C  => (baseAddr     => X"80080000",
                        addrBits     => 19,
@@ -605,11 +613,14 @@ begin
 
    U_Application : entity l2si.XpmApp
       generic map (
-         TPD_G           => TPD_G,
-         NUM_DS_LINKS_G  => NUM_FP_LINKS_C,
-         NUM_DDC_G       => NUM_DDC_C,
-         NUM_SEQ_G       => NUM_SEQ_C,
-         AXIL_BASEADDR_G => AXI_XBAR_CONFIG_C(APP_INDEX_C).baseAddr)
+         TPD_G               => TPD_G,
+         NUM_DS_LINKS_G      => NUM_FP_LINKS_C,
+         NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
+         NUM_DDC_G           => NUM_DDC_C,
+         NUM_SEQ_G           => NUM_SEQ_C,
+         AXIL_SEQ_BASEADDR_G => AXI_XBAR_CONFIG_C(SEQ_INDEX_C).baseAddr,
+         AXIL_DDC_BASEADDR_G => AXI_XBAR_CONFIG_C(DDC_INDEX_C).baseAddr,
+         AXIL_APP_BASEADDR_G => AXI_XBAR_CONFIG_C(APP_INDEX_C).baseAddr)
       port map (
          -----------------------
          -- Application Ports --
@@ -634,10 +645,10 @@ begin
          pattern         => pattern,
          common          => common,
          config          => xpmConfig,
-         axilReadMaster  => axilReadMasters (APP_INDEX_C),
-         axilReadSlave   => axilReadSlaves  (APP_INDEX_C),
-         axilWriteMaster => axilWriteMasters(APP_INDEX_C),
-         axilWriteSlave  => axilWriteSlaves (APP_INDEX_C),
+         axilReadMasters => axilReadMasters (APP_INDEX_C downto SEQ_INDEX_C),
+         axilReadSlaves  => axilReadSlaves  (APP_INDEX_C downto SEQ_INDEX_C),
+         axilWriteMasters=> axilWriteMasters(APP_INDEX_C downto SEQ_INDEX_C),
+         axilWriteSlaves => axilWriteSlaves (APP_INDEX_C downto SEQ_INDEX_C),
          groupLinkClear  => groupLinkClear,
          seqRestart      => seqRestart,
          seqDisable      => seqDisable,

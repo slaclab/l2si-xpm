@@ -38,18 +38,19 @@ use l2si.XpmAppPkg.all;
 
 entity XpmSequence is
    generic (
-      TPD_G           : time             := 1 ns;
-      NUM_SEQ_G       : natural          := 1;
-      NUM_DDC_G       : integer          := 0;
-      AXIL_BASEADDR_G : slv(31 downto 0) := (others => '0'));
+      TPD_G            : time             := 1 ns;
+      NUM_SEQ_G        : natural          := 1;
+      NUM_DDC_G        : integer          := 0;
+      AXIL_BASEADDR0_G : slv(31 downto 0) := (others => '0');
+      AXIL_BASEADDR1_G : slv(31 downto 0) := (others => '0'));
    port (
       -- AXI-Lite Interface (on axiClk domain)
       axilClk         : in  sl;
       axilRst         : in  sl;
-      axilReadMaster  : in  AxiLiteReadMasterType;
-      axilReadSlave   : out AxiLiteReadSlaveType;
-      axilWriteMaster : in  AxiLiteWriteMasterType;
-      axilWriteSlave  : out AxiLiteWriteSlaveType;
+      axilReadMasters : in  AxiLiteReadMasterArray (1 downto 0);
+      axilReadSlaves  : out AxiLiteReadSlaveArray  (1 downto 0);
+      axilWriteMasters: in  AxiLiteWriteMasterArray(1 downto 0);
+      axilWriteSlaves : out AxiLiteWriteSlaveArray (1 downto 0);
       obAppMaster     : out AxiStreamMasterType;
       obAppSlave      : in  AxiStreamSlaveType;
       seqRestart      : in  slv(NUM_SEQ_G-1 downto 0);
@@ -70,18 +71,11 @@ architecture mapping of XpmSequence is
    constant SEQ_INDEX_C       : natural := 0;
    constant DDC_INDEX_C       : natural := 1;
    constant NUM_AXI_MASTERS_C : natural := 2;
-   
-   constant AXI_CROSSBAR_MASTERS_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXI_MASTERS_C-1 downto 0) :=
-     genAxiLiteConfig(NUM_AXI_MASTERS_C, AXIL_BASEADDR_G, 18, 17);
-   signal axilWriteMasters    : AxiLiteWriteMasterArray(NUM_AXI_MASTERS_C-1 downto 0);
-   signal axilWriteSlaves     : AxiLiteWriteSlaveArray (NUM_AXI_MASTERS_C-1 downto 0);
-   signal axilReadMasters     : AxiLiteReadMasterArray (NUM_AXI_MASTERS_C-1 downto 0);
-   signal axilReadSlaves      : AxiLiteReadSlaveArray  (NUM_AXI_MASTERS_C-1 downto 0);
 
    --  Handle NUM_DDC_G = 0
    constant NUM_DDC_C : natural := ite(NUM_DDC_G>0,NUM_DDC_G,1);
    constant DDC_CROSSBAR_MASTERS_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_DDC_C-1 downto 0) :=
-     genAxiLiteConfig(NUM_DDC_C, AXI_CROSSBAR_MASTERS_CONFIG_C(DDC_INDEX_C).baseAddr, 17, 12);
+     genAxiLiteConfig(NUM_DDC_C, AXIL_BASEADDR1_G, 16, 12);
    signal ddcAxilWriteMasters : AxiLiteWriteMasterArray(NUM_DDC_C-1 downto 0);
    signal ddcAxilWriteSlaves  : AxiLiteWriteSlaveArray (NUM_DDC_C-1 downto 0);
    signal ddcAxilReadMasters  : AxiLiteReadMasterArray (NUM_DDC_C-1 downto 0);
@@ -149,25 +143,6 @@ begin
 
    seqInvalid         <= r.seqInvalid;
    
-   U_AXIL_XBAR : entity surf.AxiLiteCrossbar
-     generic map (
-       MASTERS_CONFIG_G   => AXI_CROSSBAR_MASTERS_CONFIG_C,
-       NUM_SLAVE_SLOTS_G  => 1,
-       NUM_MASTER_SLOTS_G => NUM_AXI_MASTERS_C )
-     port map (
-      axiClk    => axilClk,
-      axiClkRst => axilRst,
-      -- Slave Slots (Connect to AxiLite Masters)
-      sAxiWriteMasters(0) => axilWriteMaster,
-      sAxiWriteSlaves (0) => axilWriteSlave,
-      sAxiReadMasters (0) => axilReadMaster,
-      sAxiReadSlaves  (0) => axilReadSlave,
-      -- Master Slots (Connect to AXI Slaves)
-      mAxiWriteMasters => axilWriteMasters,
-      mAxiWriteSlaves  => axilWriteSlaves,
-      mAxiReadMasters  => axilReadMasters,
-      mAxiReadSlaves   => axilReadSlaves );
-       
    U_FIFO : entity surf.AxiStreamFifoV2
       generic map (
          TPD_G               => TPD_G,
@@ -188,7 +163,7 @@ begin
       generic map (
          TPD_G           => TPD_G,
          NUM_SEQ_G       => NUM_SEQ_G,
-         AXIL_BASEADDR_G => AXI_CROSSBAR_MASTERS_CONFIG_C(SEQ_INDEX_C).baseAddr)
+         AXIL_BASEADDR_G => AXIL_BASEADDR0_G)
       port map (
          axiClk         => axilClk,
          axiRst         => axilRst,
@@ -315,7 +290,8 @@ begin
    --  in the frame, since it will be done on transmission.
    --
    comb : process (timingRst, r, config, timingDataIn, timingAdvance,
-                   ddcData, seqData, seqNotify, seqNotifyValid, axisSlave) is
+                   ddcData, seqReset, seqData, seqNotify, seqNotifyValid,
+                   axisSlave) is
       variable v : RegType;
       variable iword : integer;
       variable ibit  : integer;

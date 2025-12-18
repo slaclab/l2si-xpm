@@ -20,6 +20,7 @@ use ieee.std_logic_unsigned.all;
 
 library surf;
 use surf.StdRtlPkg.all;
+use surf.AxiLitePkg.all;
 
 library lcls_timing_core;
 use lcls_timing_core.TimingPkg.all;
@@ -44,10 +45,14 @@ entity XpmAppMaster is
       -----------------------
       -- XpmAppMaster Ports --
       -----------------------
-      regclk     : in  sl;
-      update     : in  sl;
-      config     : in  XpmPartitionConfigType;
-      status     : out XpmPartitionStatusType;
+      regclk          : in  sl;
+      update          : in  sl;
+      config          : in  XpmPartitionConfigType;
+      status          : out XpmPartitionStatusType;
+      axilReadMaster  : in  AxiLiteReadMasterType;
+      axilReadSlave   : out AxiLiteReadSlaveType;
+      axilWriteMaster : in  AxiLiteWriteMasterType;
+      axilWriteSlave  : out AxiLiteWriteSlaveType;
       -- Timing Interface (timingClk domain)
       timingClk  : in  sl;
       timingRst  : in  sl;
@@ -294,12 +299,21 @@ begin
          pop_frame => l1AcceptFrame);
 
    U_PathTime : entity l2si.XpmPathTimer
+      generic map (
+         TPD_G     => TPD_G,
+         NCHAN_G   => NUM_DS_LINKS_G )
       port map (
-         clk       => timingClk,
-         rst       => l0Reset,
-         start     => l0Accept,
-         stop      => pauseOrOverflow(MAX_DS_LINKS_C-1 downto 0),
-         status    => status.pathTime);
+         clk             => timingClk,
+         rst             => l0Reset,
+         start           => l0Accept,
+         stop            => pauseOrOverflow(NUM_DS_LINKS_G-1 downto 0),
+         --
+         axilClk         => regclk,
+         axilRst         => '0',
+         axilReadMaster  => axilReadMaster,
+         axilReadSlave   => axilReadSlave,
+         axilWriteMaster => axilWriteMaster,
+         axilWriteSlave  => axilWriteSlave );
      
    --U_L1Select : entity l2si_core.XpmL1Select
    --  port map ( clk            => timingClk,

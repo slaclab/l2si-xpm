@@ -168,7 +168,7 @@ package XpmPkg is
    type XpmL0StatisticsArray is array(natural range<>) of XpmL0StatisticsType;
 
    type XpmPathTimerType is record
-      pathTime : Slv16Array(MAX_DS_LINKS_C-1 downto 0);
+      pathTime : Slv16Array(XPM_MAX_DS_LINKS_C-1 downto 0);
    end record;
    constant XPM_PATH_TIMER_INIT_C : XpmPathTimerType := (
       pathTime => (others=>(others=>'0')));

@@ -45,7 +45,9 @@ entity XpmApp is
       NUM_DS_LINKS_G  : integer          := 7;
       NUM_SEQ_G       : integer          := 1;
       NUM_DDC_G       : integer          := 0;
-      AXIL_BASEADDR_G : slv(31 downto 0) := (others => '0'));
+      AXIL_SEQ_BASEADDR_G : slv(31 downto 0) := (others => '0');
+      AXIL_DDC_BASEADDR_G : slv(31 downto 0) := (others => '0');
+      AXIL_APP_BASEADDR_G : slv(31 downto 0) := (others => '0'));
    port (
       -----------------------
       -- XpmApp Ports --
@@ -59,10 +61,10 @@ entity XpmApp is
       status          : out XpmStatusType;
       patternCfg      : in  XpmPatternConfigType;
       pattern         : out XpmPatternStatisticsType;
-      axilReadMaster  : in  AxiLiteReadMasterType;
-      axilReadSlave   : out AxiLiteReadSlaveType;
-      axilWriteMaster : in  AxiLiteWriteMasterType;
-      axilWriteSlave  : out AxiLiteWriteSlaveType;
+      axilReadMasters : in  AxiLiteReadMasterArray(2 downto 0);
+      axilReadSlaves  : out AxiLiteReadSlaveArray(2 downto 0);
+      axilWriteMasters: in  AxiLiteWriteMasterArray(2 downto 0);
+      axilWriteSlaves : out AxiLiteWriteSlaveArray(2 downto 0);
       obAppMaster     : out AxiStreamMasterType;
       obAppSlave      : in  AxiStreamSlaveType;
       groupLinkClear  : out slv (XPM_PARTITIONS_C-1 downto 0);
@@ -93,6 +95,13 @@ entity XpmApp is
 end XpmApp;
 
 architecture top_level_app of XpmApp is
+
+   constant APP_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(7 downto 0) := genAxiLiteConfig(XPM_PARTITIONS_C, AXIL_APP_BASEADDR_G, 16, 12);
+  
+   signal appReadMasters  : AxiLiteReadMasterArray (APP_XBAR_CONFIG_C'range);
+   signal appReadSlaves   : AxiLiteReadSlaveArray  (APP_XBAR_CONFIG_C'range) := (others=>AXI_LITE_READ_SLAVE_EMPTY_OK_C);
+   signal appWriteMasters : AxiLiteWriteMasterArray(APP_XBAR_CONFIG_C'range);
+   signal appWriteSlaves  : AxiLiteWriteSlaveArray (APP_XBAR_CONFIG_C'range) := (others=>AXI_LITE_WRITE_SLAVE_EMPTY_OK_C);
 
    type LinkPauseArray is array (natural range<>) of slv(26 downto 0);
 
@@ -218,7 +227,24 @@ architecture top_level_app of XpmApp is
 
 begin
 
-   linkstatp : process (dsLinkStatus, dsRxRcvs, isXpm, dsId) is
+   U_APP_AXIL_XBAR : entity surf.AxiLiteCrossbar
+      generic map (
+         MASTERS_CONFIG_G   => APP_XBAR_CONFIG_C,
+         NUM_SLAVE_SLOTS_G  => 1,
+         NUM_MASTER_SLOTS_G => APP_XBAR_CONFIG_C'length )
+      port map (
+         axiClk              => regClk,
+         axiClkRst           => regRst,
+         sAxiWriteMasters(0) => axilWriteMasters(2),
+         sAxiWriteSlaves (0) => axilWriteSlaves (2),
+         sAxiReadMasters (0) => axilReadMasters (2),
+         sAxiReadSlaves  (0) => axilReadSlaves  (2),
+         mAxiWriteMasters    => appWriteMasters,
+         mAxiWriteSlaves     => appWriteSlaves,
+         mAxiReadMasters     => appReadMasters,
+         mAxiReadSlaves      => appReadSlaves );
+   
+   linkstatp : process (bpStatus, dsLinkStatus, dsRxRcvs, isXpm, dsId) is
       variable linkStat : XpmLinkStatusType;
    begin
       for i in status.dsLink'range loop
@@ -375,17 +401,18 @@ begin
    --
    U_Seq : entity l2si.XpmSequence
       generic map (
-         TPD_G           => TPD_G,
-         NUM_SEQ_G       => NUM_SEQ_G,
-         NUM_DDC_G       => NUM_DDC_G,
-         AXIL_BASEADDR_G => AXIL_BASEADDR_G)
+         TPD_G            => TPD_G,
+         NUM_SEQ_G        => NUM_SEQ_G,
+         NUM_DDC_G        => NUM_DDC_G,
+         AXIL_BASEADDR0_G => AXIL_SEQ_BASEADDR_G,
+         AXIL_BASEADDR1_G => AXIL_DDC_BASEADDR_G)
       port map (
          axilClk         => regclk,
          axilRst         => regrst,
-         axilReadMaster  => axilReadMaster,
-         axilReadSlave   => axilReadSlave,
-         axilWriteMaster => axilWriteMaster,
-         axilWriteSlave  => axilWriteSlave,
+         axilReadMasters => axilReadMasters (1 downto 0),
+         axilReadSlaves  => axilReadSlaves  (1 downto 0),
+         axilWriteMasters=> axilWriteMasters(1 downto 0),
+         axilWriteSlaves => axilWriteSlaves (1 downto 0),
          seqRestart      => seqRestart,
          seqDisable      => seqDisable,
          obAppMaster     => obAppMaster,
@@ -462,8 +489,12 @@ begin
             NUM_DS_LINKS_G => NUM_DS_LINKS_G,
             DEBUG_G        => false )
          port map (
-            regclk     => regclk,
-            update     => update (i),
+            regclk          => regclk,
+            update          => update (i),
+            axilReadMaster  => appReadMasters (i),
+            axilReadSlave   => appReadSlaves  (i),
+            axilWriteMaster => appWriteMasters(i),
+            axilWriteSlave  => appWriteSlaves (i),
             config     => configS.partition(i),
             status     => status.partition(i),
             timingClk  => timingClk,

@@ -230,10 +230,6 @@ architecture rtl of XpmReg is
    signal monId    : slv(31 downto 0) := (others=>'0');
    signal monIndex : slv( 9 downto 0) := (others=>'0');
 
-   signal pstatus  : XpmPartitionStatusType;
-   signal ptime    : XpmPathTimerType;
-   signal pathTime : slv(15 downto 0);
-   
 begin
 
    staRst         <= axilRst;
@@ -365,22 +361,10 @@ begin
          wrClk        => axilClk,
          rdClk        => axilClk);
 
-   pstatus <= status.partition(conv_integer(r.partition));
-   ptime   <= pstatus.pathTime.pathTime(conv_integer(r.link(3 downto 0)));
-   
-   U_PathTime : entity surf.SynchronizerVector
-      generic map (
-         TPD_G   => TPD_G,
-         WIDTH_G => 16)
-      port map (
-         clk     => axilClk,
-         dataIn  => ptime,
-         dataOut => pathTime);
-       
    comb : process (r, axilReadMaster, axilWriteMaster, status, s, axilRst,
                    pllCount, pllStat, groupLinkClear, stepDone, obDebugSlave,
                    monClkRate, monClkLock, monClkFast, monClkSlow,
-                   monCount, monIndex, monBusy, monId, pathTime) is
+                   monCount, monIndex, monBusy, monId) is
       variable v              : RegType;
       variable axilEp         : AxiLiteEndpointType;
       variable ip             : integer;
@@ -531,8 +515,6 @@ begin
       --axiSlaveRegister (axilEp, X"054",  4, v.partitionCfg.l1Select.trigword);
       --axiSlaveRegister (axilEp, X"054", 16, v.partitionCfg.l1Select.trigwr);
 
-      axiSlaveRegisterR(axilEp, X"060", 0, pathTime);
-                        
       axiSlaveRegister (axilEp, X"068", 0, v.l0Select_reset);
       
       axiSlaveRegister (axilEp, X"06C", 0, v.partitionCfg.pipeline.depth_clks);

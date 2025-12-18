@@ -17,53 +17,90 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
-
+use ieee.std_logic_unsigned.all;
 
 library surf;
 use surf.StdRtlPkg.all;
+use surf.AxiLitePkg.all;
 
 library l2si;
 use l2si.XpmPkg.all;
 
 entity XpmPathTimer is
    generic (
-      TPD_G : time := 1 ns);
+     TPD_G   : time := 1 ns;
+     NCHAN_G : integer := 1);
    port (
-      clk        : in  sl;
-      rst        : in  sl;
-      start      : in  sl;
-      stop       : in  slv(MAX_DS_LINKS_C-1 downto 0);
-      status     : out XpmPathTimerType);
+      clk             : in  sl;
+      rst             : in  sl;
+      start           : in  sl;
+      stop            : in  slv(NCHAN_G-1 downto 0);
+      --
+      axilClk         : in  sl;
+      axilRst         : in  sl;
+      axilReadMaster  : in  AxiLiteReadMasterType;
+      axilReadSlave   : out AxiLiteReadSlaveType;
+      axilWriteMaster : in  AxiLiteWriteMasterType;
+      axilWriteSlave  : out AxiLiteWriteSlaveType);
 end XpmPathTimer;
 
 architecture rtl of XpmPathTimer is
 
    type RegType is record
       count  : slv(15 downto 0);
-      latch  : slv(MAX_DS_LINKS_C-1 downto 0);
-      status : XpmPathTimerStatusType;
+      latch  : slv(NCHAN_G-1 downto 0);
+      times  : Slv16Array(NCHAN_G-1 downto 0);
+      rslave : AxiLiteReadSlaveType;
+      wslave : AxiLiteWriteSlaveType;
    end record;
    constant REG_INIT_C : RegType := (
       count  => (others=>'0'),
       latch  => (others=>'0'),
-      status => XPM_PATH_TIMER_INIT_C);
+      times  => (others=>(others=>'0')),
+      rslave => AXI_LITE_READ_SLAVE_INIT_C,
+      wslave => AXI_LITE_WRITE_SLAVE_INIT_C);
 
    signal r    : RegType := REG_INIT_C;
    signal r_in : RegType;
 
+   signal syncReadMaster  : AxiLiteReadMasterType;
+   signal syncReadSlave   : AxiLiteReadSlaveType;
+   signal syncWriteMaster : AxiLiteWriteMasterType;
+   signal syncWriteSlave  : AxiLiteWriteSlaveType;
+   
 begin
 
-   comb_p : process( r, rst, start, stop ) is
-      variable v : RegType;
+  U_AXIL_XBAR : entity surf.AxiLiteAsync
+    generic map (
+      TPD_G     => TPD_G )
+    port map (
+      -- Slave Port
+      sAxiClk         => axilClk,
+      sAxiClkRst      => axilRst,
+      sAxiReadMaster  => axilReadMaster,
+      sAxiReadSlave   => axilReadSlave,
+      sAxiWriteMaster => axilWriteMaster,
+      sAxiWriteSlave  => axilWriteSlave,
+      -- Master Port
+      mAxiClk         => clk,
+      mAxiClkRst      => rst,
+      mAxiReadMaster  => syncReadMaster,
+      mAxiReadSlave   => syncReadSlave,
+      mAxiWriteMaster => syncWriteMaster,
+      mAxiWriteSlave  => syncWriteSlave );
+      
+   comb_p : process( r, rst, start, stop, syncReadMaster, syncWriteMaster ) is
+     variable v : RegType;
+     variable ep : AxiLiteEndPointType;
    begin
       v := r;
 
       v.count := r.count+1;
 
-      for i in 0 to MAX_DS_LINKS_C-1 loop
-         if (pause(i)='1' and r.latch(i)='0') then
-            v.latch(i)           := '1';
-            v.status.pathTime(i) := r.count;
+      for i in 0 to NCHAN_G-1 loop
+         if (stop(i)='1' and r.latch(i)='0') then
+            v.latch(i) := '1';
+            v.times(i) := r.count;
          end if;
       end loop;
       
@@ -72,7 +109,18 @@ begin
       end if;
 
       r_in   <= v;
-      status <= r.status;
+
+      axiSlaveWaitTxn(ep, syncWriteMaster, syncReadMaster, v.wslave, v.rslave);
+      axiSlaveRegisterR(ep, toSlv(0, 12), 0, r.latch);
+      for i in 0 to NCHAN_G-1 loop
+        axiSlaveRegisterR(ep, toSlv(4*i+4, 12), 0, r.times(i));
+      end loop;
+      
+      axiSlaveDefault(ep, v.wslave, v.rslave);
+
+      syncReadSlave  <= r.rslave;
+      syncWriteSlave <= r.wslave;
+
    end process comb_p;
 
    seq_p : process (clk) is
