@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-12-09
+-- Last update: 2025-12-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -778,6 +778,7 @@ begin
            DEBUG_G    => true)
          port map (
            stableClk => regClk,
+           stableRst => regRst,
            gtTxP     => idsTxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
            gtTxN     => idsTxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
            gtRxP     => idsRxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
@@ -804,19 +805,19 @@ begin
            axilWriteMaster => AXI_LITE_WRITE_MASTER_INIT_C );
      end generate;
      
-     GEN_DUMMY: if AMC_DS_LINKS_C(i)<4 generate
-       -- Unused QSFP Port
-       U_QSFP : entity surf.Gtye4ChannelDummy
-         generic map (
-           TPD_G   => TPD_G,
-           WIDTH_G => 4-AMC_DS_LINKS_C(i))
-         port map (
-           refClk => regClk,
-           gtRxP  => idsRxP (i)(3 downto AMC_DS_PORTN_C(i)+1),
-           gtRxN  => idsRxN (i)(3 downto AMC_DS_PORTN_C(i)+1),
-           gtTxP  => idsTxP (i)(3 downto AMC_DS_PORTN_C(i)+1),
-           gtTxN  => idsTxN (i)(3 downto AMC_DS_PORTN_C(i)+1));
-     end generate;
+     -- GEN_DUMMY: if AMC_DS_LINKS_C(i)<4 generate
+     --   -- Unused QSFP Port
+     --   U_QSFP : entity surf.Gtye4ChannelDummy
+     --     generic map (
+     --       TPD_G   => TPD_G,
+     --       WIDTH_G => 4-AMC_DS_LINKS_C(i))
+     --     port map (
+     --       refClk => regClk,
+     --       gtRxP  => idsRxP (i)(3 downto AMC_DS_PORTN_C(i)+1),
+     --       gtRxN  => idsRxN (i)(3 downto AMC_DS_PORTN_C(i)+1),
+     --       gtTxP  => idsTxP (i)(3 downto AMC_DS_PORTN_C(i)+1),
+     --       gtTxN  => idsTxN (i)(3 downto AMC_DS_PORTN_C(i)+1));
+     -- end generate;
       
    end generate;
 

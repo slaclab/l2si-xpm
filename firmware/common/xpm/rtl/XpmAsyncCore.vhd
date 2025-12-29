@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-10-09
+-- Last update: 2025-12-08
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -186,43 +186,87 @@ begin
       mAxiReadMasters     => axilReadMasters,
       mAxiReadSlaves      => axilReadSlaves);
 
-  TimingGtCoreWrapper_1 : entity l2si.TimingGtCoreWrapper
-    generic map (TPD_G            => TPD_G,
-                 AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(GTH_INDEX_C).baseAddr,
-                 EXTREF_G         => true)
-    port map (
-      axilClk         => axilClk,
-      axilRst         => axilRst,
-      axilReadMaster  => axilReadMasters (GTH_INDEX_C),
-      axilReadSlave   => axilReadSlaves  (GTH_INDEX_C),
-      axilWriteMaster => axilWriteMasters(GTH_INDEX_C),
-      axilWriteSlave  => axilWriteSlaves (GTH_INDEX_C),
-      stableClk       => axilClk,
-      stableRst       => axilRst,
-      gtRefClk        => usRefClkGt,
-      gtRefClkDiv2    => usRefClkGtDiv2,
-      gtRxP           => usRxP,
-      gtRxN           => usRxN,
-      gtTxP           => usTxP,
-      gtTxN           => usTxN,
-      rxControl       => usRxControl,
-      rxStatus        => usRxStatus,
-      rxUsrClkActive  => '1',
-      rxCdrStable     => usRxStable,
-      rxUsrClk        => usRecClk,
-      rxData          => usRx.data,
-      rxDataK         => usRx.dataK,
-      rxDispErr       => usRx.dspErr,
-      rxDecErr        => usRx.decErr,
-      rxOutClk        => usRecClk,
-      txControl       => usTxControl,
-      txStatus        => timingFbStatus,
-      txUsrClk        => timingFbClkB,
-      txUsrClkActive  => '1',
-      txData          => timingFb.data,
-      txDataK         => timingFb.dataK,
-      txOutClk        => timingFbClkB,
-      loopback        => "000");
+  GEN_GTH: if HW_TYPE_G = "GTH" generate
+    TimingGtCoreWrapper_1 : entity l2si.TimingGtCoreWrapper
+      generic map (TPD_G            => TPD_G,
+                   AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(GTH_INDEX_C).baseAddr,
+                   EXTREF_G         => true)
+      port map (
+        axilClk         => axilClk,
+        axilRst         => axilRst,
+        axilReadMaster  => axilReadMasters (GTH_INDEX_C),
+        axilReadSlave   => axilReadSlaves  (GTH_INDEX_C),
+        axilWriteMaster => axilWriteMasters(GTH_INDEX_C),
+        axilWriteSlave  => axilWriteSlaves (GTH_INDEX_C),
+        stableClk       => axilClk,
+        stableRst       => axilRst,
+        gtRefClk        => usRefClkGt,
+        gtRefClkDiv2    => usRefClkGtDiv2,
+        gtRxP           => usRxP,
+        gtRxN           => usRxN,
+        gtTxP           => usTxP,
+        gtTxN           => usTxN,
+        rxControl       => usRxControl,
+        rxStatus        => usRxStatus,
+        rxUsrClkActive  => '1',
+        rxCdrStable     => usRxStable,
+        rxUsrClk        => usRecClk,
+        rxData          => usRx.data,
+        rxDataK         => usRx.dataK,
+        rxDispErr       => usRx.dspErr,
+        rxDecErr        => usRx.decErr,
+        rxOutClk        => usRecClk,
+        txControl       => usTxControl,
+        txStatus        => timingFbStatus,
+        txUsrClk        => timingFbClkB,
+        txUsrClkActive  => '1',
+        txData          => timingFb.data,
+        txDataK         => timingFb.dataK,
+        txOutClk        => timingFbClkB,
+        loopback        => "000");
+  end generate;
+
+  GEN_GTY : if HW_TYPE_G = "GTY+" generate
+    TimingGtCoreWrapper_1 : entity l2si.TimingGtCoreWrapper
+      generic map (TPD_G            => TPD_G,
+                   AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(GTH_INDEX_C).baseAddr,
+                   EXTREF_G         => false)
+      port map (
+        axilClk         => axilClk,
+        axilRst         => axilRst,
+        axilReadMaster  => axilReadMasters (GTH_INDEX_C),
+        axilReadSlave   => axilReadSlaves  (GTH_INDEX_C),
+        axilWriteMaster => axilWriteMasters(GTH_INDEX_C),
+        axilWriteSlave  => axilWriteSlaves (GTH_INDEX_C),
+        stableClk       => axilClk,
+        stableRst       => axilRst,
+        gtRefClk        => '0',
+        gtRefClkDiv2    => usRefClkGtDiv2,
+        gtRxP           => usRxP,
+        gtRxN           => usRxN,
+        gtTxP           => usTxP,
+        gtTxN           => usTxN,
+        gtgRefClk       => usRefClkGt,
+        cpllRefClkSel   => "111",
+        rxControl       => usRxControl,
+        rxStatus        => usRxStatus,
+        rxUsrClkActive  => '1',
+        rxCdrStable     => usRxStable,
+        rxUsrClk        => usRecClk,
+        rxData          => usRx.data,
+        rxDataK         => usRx.dataK,
+        rxDispErr       => usRx.dspErr,
+        rxDecErr        => usRx.decErr,
+        rxOutClk        => usRecClk,
+        txControl       => usTxControl,
+        txStatus        => timingFbStatus,
+        txUsrClk        => timingFbClkB,
+        txUsrClkActive  => '1',
+        txData          => timingFb.data,
+        txDataK         => timingFb.dataK,
+        txOutClk        => timingFbClkB,
+        loopback        => "000");
+  end generate;
   
   U_UsRx : entity lcls_timing_core.TimingCore
     generic map (

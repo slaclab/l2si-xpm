@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-12-09
+-- Last update: 2025-12-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -177,9 +177,12 @@ architecture rtl of XpmReg is
       pllCfg         => XPM_PLL_INIT_C,
       inhibitCfg     => XPM_INHIBIT_CONFIG_INIT_C,
       patternCfg     => XPM_PATTERN_CONFIG_INIT_C,
-      mmcmRst        => '1',
-      rxAllRst       => '1',
-      txAllRst       => '1',
+      -- mmcmRst        => '1',
+      -- rxAllRst       => '1',
+      -- txAllRst       => '1',
+      mmcmRst        => '0',
+      rxAllRst       => '0',
+      txAllRst       => '0',
       axilReadSlave  => AXI_LITE_READ_SLAVE_INIT_C,
       axilWriteSlave => AXI_LITE_WRITE_SLAVE_INIT_C,
       axilRdEn       => (others => '1'),
@@ -739,11 +742,12 @@ begin
         port map ( clk     => staClk,
                    dataIn  => r.step(i).enable,
                    dataOut => step(i).enable );
-      U_SyncNumL0 : entity surf.SynchronizerVector
-         generic map ( WIDTH_G => 32 )
-         port map ( clk     => staClk,
-                    dataIn  => r.step(i).numL0Acc,
-                    dataOut => step(i).numL0Acc );
+      U_SyncNumL0 : entity surf.SynchronizerFifo
+         generic map ( DATA_WIDTH_G => 32 )
+         port map ( wr_clk  => clk,
+                    din     => r.step(i).numL0Acc,
+                    rd_clk  => staClk,
+                    dout    => step(i).numL0Acc );
       U_SyncGroups : entity surf.SynchronizerVector
          generic map ( WIDTH_G => XPM_PARTITIONS_C )
          port map ( clk     => staClk,

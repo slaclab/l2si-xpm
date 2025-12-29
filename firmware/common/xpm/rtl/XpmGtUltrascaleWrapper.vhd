@@ -56,6 +56,7 @@ entity XpmGtUltrascaleWrapper is
       devClkOut        : out sl;
       devClkBuf        : out sl;
       stableClk        : in  sl;
+      stableRst        : in  sl;
       txData           : in  Slv16Array(NLINKS_G-1 downto 0);
       txDataK          : in  Slv2Array (NLINKS_G-1 downto 0);
       rxData           : out Slv16Array(NLINKS_G-1 downto 0);
@@ -320,14 +321,14 @@ begin
   GEN_CTRL : for i in 0 to NLINKS_G-1 generate
     txCtrl2In (i) <= "000000" & txDataS(i)(17 downto 16);
     rxErrIn   (i) <= '0' when (rxCtrl1Out(i)(1 downto 0)="00" and rxCtrl3Out(i)(1 downto 0)="00") else '1';
-    txFifoRst (i) <= not txbypassdone(i);
+    txFifoRst (i) <= txReady(i);
     rxFifoRst (i) <= not rxResetDone(i);
     loopback  (i) <= "0" & config(i).loopback & "0";
     status    (i).rxErr       <= rxErrS(i);
     status    (i).rxErrCnts   <= rxErrCnts(i);
     status    (i).rxReady     <= rxResetDone(i);
     rxReset   (i) <= config(i).rxReset or r(i).reset;
-    txResetDone(i) <= txbypassdone(i) and not txbypasserr(i);
+    txResetDone(i) <= txReady(i) and not txbypasserr(i);
     
    U_Axi2Drp: entity surf.AxiLiteToDrp 
       generic map(
@@ -411,17 +412,16 @@ begin
     txUsrRst(i) <= txClkRst or config(i).txReset;
     
     rxErrL (i)  <= rxErrIn(i);
-    rxClk  (i)  <= rxUsrClk(i);
     rxRst  (i)  <= rxFifoRst(i);
     rxDataK(i)  <= rxCtrl0Out(i)(1 downto 0);
 
     U_RstSyncTx : entity surf.RstSync
-      port map ( clk      => txUsrClk(i),
+      port map ( clk      => gtRefClkDiv2,
                  asyncRst => txUsrRst(i),
                  syncRst  => txbypassrst(i) );
 
     U_RstSyncRx : entity surf.RstSync
-      port map ( clk      => rxUsrClk(i),
+      port map ( clk      => gtRefClkDiv2,
                  asyncRst => rxReset(i),
                  syncRst  => rxbypassrst(i) );
                      
@@ -440,7 +440,7 @@ begin
             gtwiz_buffbypass_rx_done_out(0)       => rxbypassdone(i),
             gtwiz_buffbypass_rx_error_out         => open,
             gtwiz_reset_clk_freerun_in(0)         => stableClk,
-            gtwiz_reset_all_in(0)                 => '0',
+            gtwiz_reset_all_in(0)                 => stableRst,
             gtwiz_reset_tx_pll_and_datapath_in(0) => txpllreset(i),
             gtwiz_reset_tx_datapath_in(0)         => txUsrRst(i),
             gtwiz_reset_rx_pll_and_datapath_in(0) => rxpllreset(i),
@@ -544,9 +544,11 @@ begin
       rin(i) <= v;
     end process comb;
 
-    seq : process ( rxUsrClk ) is
+--    seq : process ( rxUsrClk ) is
+    seq : process ( gtRefClkDiv2 ) is
     begin
-      if rising_edge(rxUsrClk(i)) then
+--      if rising_edge(rxUsrClk(i)) then
+      if rising_edge(gtRefClkDiv2) then
         r(i) <= rin(i);
       end if;
     end process seq;
@@ -575,7 +577,9 @@ begin
 --        probe0(111 downto 104) => x"FF",
         probe0(119 downto 112) => rxcdrlock,
         probe0(127 downto 120) => rxErrIn,
-        probe0(255 downto 128) => (others=>'0') );
+        probe0(130 downto 128) => loopback(0),
+        probe0(133 downto 131) => loopback(1),
+        probe0(255 downto 134) => (others=>'0') );
     U_ILA_TX : ila_0
       port map (
         clk     => txUsrClk(0),
@@ -584,7 +588,8 @@ begin
         probe0(255 downto  18) => (others=>'0') );
     U_ILA_RX : ila_0
       port map (
-        clk     => rxUsrClk(0),
+--        clk     => rxUsrClk(0),
+        clk     => gtRefClkDiv2,
         probe0( 15 downto   0) => x"ABCD",
         probe0( 17 downto  16) => rxCtrl0Out(0)(1 downto 0),
         probe0( 19 downto  18) => rxCtrl1Out(0)(1 downto 0),
