@@ -615,7 +615,6 @@ begin
       generic map (
          TPD_G               => TPD_G,
          NUM_DS_LINKS_G      => NUM_FP_LINKS_C,
-         NUM_BP_LINKS_G      => NUM_BP_LINKS_C,
          NUM_DDC_G           => NUM_DDC_C,
          NUM_SEQ_G           => NUM_SEQ_C,
          AXIL_SEQ_BASEADDR_G => AXI_XBAR_CONFIG_C(SEQ_INDEX_C).baseAddr,

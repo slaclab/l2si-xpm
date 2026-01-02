@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-12-29
+-- Last update: 2026-01-01
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -98,7 +98,7 @@ architecture rtl of XpmReg is
 
    type StepType is record
       enable   : sl;
-      numL0Acc : slv(31 downto 0);
+      numL0Acc : slv(XPM_LCTR_DEPTH_C-1 downto 0);
       groups   : slv(XPM_PARTITIONS_C-1 downto 0);
    end record;
 
@@ -194,13 +194,11 @@ architecture rtl of XpmReg is
    type QRegType is record
       cnt       : slv(19 downto 0);
       staUpdate : sl;
-      stepDone  : slv(XPM_PARTITIONS_C-1 downto 0);
    end record;
 
    constant QREG_INIT_C : QRegType := (
       cnt       => (others=>'0'),
-      staUpdate => '0',
-      stepDone  => (others=>'0') );
+      staUpdate => '0');
    
    signal q    : QRegType := QREG_INIT_C;
    signal q_in : QRegType;
@@ -221,9 +219,6 @@ architecture rtl of XpmReg is
    signal p0InhCh  : sl;
    signal p0InhErr : sl;
    signal pInhV    : slv(XPM_PARTITIONS_C-1 downto 0);
-
-   signal step     : StepArray(XPM_PARTITIONS_C-1 downto 0);
-   signal stepDone : slv      (XPM_PARTITIONS_C-1 downto 0);
 
    signal monBusy  : sl := '0';
    signal monCount : slv(26 downto 0) := (others=>'0');
@@ -362,7 +357,7 @@ begin
          rdClk        => axilClk);
 
    comb : process (r, axilReadMaster, axilWriteMaster, status, s, axilRst,
-                   pllCount, pllStat, groupLinkClear, stepDone, obDebugSlave,
+                   pllCount, pllStat, groupLinkClear, obDebugSlave,
                    monClkRate, monClkLock, monClkFast, monClkSlow,
                    monCount, monIndex, monBusy, monId) is
       variable v              : RegType;
@@ -375,6 +370,7 @@ begin
       variable groupL0Disable : slv(XPM_PARTITIONS_C-1 downto 0);
       variable groupMsgInsert : slv(XPM_PARTITIONS_C-1 downto 0);
       variable paddr          : slv(XPM_PARTITION_ADDR_LENGTH_C-1 downto 0);
+      variable stepDone       : sl;
    begin
       v                             := r;
       -- reset strobing signals
@@ -557,10 +553,15 @@ begin
       end if;
       
       for i in 0 to XPM_PARTITIONS_C-1 loop
-         if stepDone(i) = '0' and r.step(i).groups /= 0 then
+         stepDone := '0';
+         if s.partition(i).l0Select.numAcc = r.step(i).numL0Acc then
+           stepDone := '1';
+         end if;
+         
+         if stepDone = '0' and r.step(i).groups /= 0 then
             v.step(i).enable := '1';
          end if;
-         if stepDone(i) = '1' and r.step(i).enable = '1' and v.stepMaster.tValid = '0' then
+         if stepDone = '1' and r.step(i).enable = '1' and v.stepMaster.tValid = '0' then
             v.step(i).enable  := '0';
             for j in 0 to XPM_PARTITIONS_C-1 loop
                groupL0Disable(j) := r.step(i).groups(j);
@@ -665,7 +666,7 @@ begin
       obMonitorSlave  => obMonitorSlave );
 --   obMonitorMaster <= AXI_STREAM_MASTER_INIT_C;
    
-   rcomb : process ( staRst, q, step, status ) is
+   rcomb : process ( staRst, q, status ) is
       constant STATUS_INTERVAL_C : slv(19 downto 0) := toSlv(STA_INTERVAL_C-1, 20);
       variable v : QRegType;
    begin
@@ -679,13 +680,6 @@ begin
          v.staUpdate := '0';
       end if;
 
-      for i in 0 to XPM_PARTITIONS_C-1 loop
-         v.stepDone(i) := '0';
-         if status.partition(i).l0Select.numAcc = step(i).numL0Acc then
-           v.stepDone(i) := '1';
-         end if;
-      end loop;
-      
       if staRst = '1' then
          v := QREG_INIT_C;
       end if;
@@ -700,25 +694,4 @@ begin
       end if;
    end process rseq;
    
-   STEP_SYNC : for i in 0 to XPM_PARTITIONS_C-1 generate
-      U_SyncEnable : entity surf.Synchronizer
-        port map ( clk     => staClk,
-                   dataIn  => r.step(i).enable,
-                   dataOut => step(i).enable );
-      U_SyncNumL0 : entity surf.SynchronizerVector
-         generic map ( WIDTH_G => 32 )
-         port map ( clk     => staClk,
-                    dataIn  => r.step(i).numL0Acc,
-                    dataOut => step(i).numL0Acc );
-      U_SyncGroups : entity surf.SynchronizerVector
-         generic map ( WIDTH_G => XPM_PARTITIONS_C )
-         port map ( clk     => staClk,
-                    dataIn  => r.step(i).groups,
-                    dataOut => step(i).groups );
-      U_SyncDone : entity surf.SynchronizerOneShot
-         port map ( clk     => axilClk,
-                    dataIn  => q.stepDone(i),
-                    dataOut => stepDone(i) );
-   end generate;
-
 end rtl;

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-08-22
+-- Last update: 2025-12-29
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -210,7 +210,7 @@ begin
       
   comb : process ( regRst, r, enable, period, status, sL0Stats, pattSlvS,
                    pllCount, pllStat, monClkRate, seqCount, seqInvalid,
-                   obMonitorSlave, r_dataL_3 ) is
+                   obMonitorSlave, r_dataL_3, timeStamp ) is
     variable v  : RegType;
   begin
     v := r;

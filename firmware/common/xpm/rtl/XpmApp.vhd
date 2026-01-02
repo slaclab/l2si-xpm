@@ -244,7 +244,7 @@ begin
          mAxiReadMasters     => appReadMasters,
          mAxiReadSlaves      => appReadSlaves );
    
-   linkstatp : process (bpStatus, dsLinkStatus, dsRxRcvs, isXpm, dsId) is
+   linkstatp : process (dsLinkStatus, dsRxRcvs, isXpm, dsId) is
       variable linkStat : XpmLinkStatusType;
    begin
       for i in status.dsLink'range loop
