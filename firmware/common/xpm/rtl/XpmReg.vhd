@@ -567,8 +567,8 @@ begin
                groupL0Disable(j) := r.step(i).groups(j);
             end loop;
             v.stepMaster.tValid := '1';
-            v.stepMaster.tData(31 downto  0) := toSlv(i,16) & toSlv(1,16);
-            v.stepMaster.tData(63 downto 32) := r.step(i).numL0Acc;
+            v.stepMaster.tData(23 downto  0) := toSlv(i,8) & toSlv(1,16);
+            v.stepMaster.tData(63 downto 24) := r.step(i).numL0Acc;
          end if;
       end loop;
 
