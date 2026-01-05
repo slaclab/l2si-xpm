@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-04
+-- Last update: 2026-01-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -496,10 +496,10 @@ begin
          pattern         => pattern,
          common          => common,
          config          => xpmConfig,
-         axilReadMaster  => axilReadMasters (APP_INDEX_C downto SEQ_INDEX_C),
-         axilReadSlave   => axilReadSlaves  (APP_INDEX_C downto SEQ_INDEX_C),
-         axilWriteMaster => axilWriteMasters(APP_INDEX_C downto SEQ_INDEX_C),
-         axilWriteSlave  => axilWriteSlaves (APP_INDEX_C downto SEQ_INDEX_C),
+         axilReadMasters => axilReadMasters (APP_INDEX_C downto SEQ_INDEX_C),
+         axilReadSlaves  => axilReadSlaves  (APP_INDEX_C downto SEQ_INDEX_C),
+         axilWriteMasters=> axilWriteMasters(APP_INDEX_C downto SEQ_INDEX_C),
+         axilWriteSlaves => axilWriteSlaves (APP_INDEX_C downto SEQ_INDEX_C),
          groupLinkClear  => groupLinkClear,
          seqRestart      => seqRestart,
          seqDisable      => seqDisable,
