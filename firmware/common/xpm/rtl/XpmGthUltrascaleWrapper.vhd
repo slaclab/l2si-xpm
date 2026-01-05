@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-05-08
+-- Last update: 2026-01-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -363,9 +363,7 @@ begin
                     CLRMASK => '1',
                     DIV     => "000",
                     O       => txUsrClk(i) );
-      U_TxSync : entity surf.SynchronizerFifo
-        generic map ( DATA_WIDTH_G => 18,
-                      ADDR_WIDTH_G => 4 )  -- avoid full thresholds
+      U_TxSync : entity l2si.XpmSynchronizerFifo
         port map ( rst               => txFifoRst(i),
                    wr_clk            => txClkIn,
                    din(17 downto 16) => txDataK (i),
