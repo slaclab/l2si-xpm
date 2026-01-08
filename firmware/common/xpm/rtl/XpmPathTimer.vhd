@@ -104,10 +104,6 @@ begin
          end if;
       end loop;
       
-      if start = '1' or rst = '1' then
-         v := REG_INIT_C;
-      end if;
-
       axiSlaveWaitTxn(ep, syncWriteMaster, syncReadMaster, v.wslave, v.rslave);
       axiSlaveRegisterR(ep, toSlv(0, 12), 0, r.latch);
       for i in 0 to NCHAN_G-1 loop
@@ -115,6 +111,10 @@ begin
       end loop;
       
       axiSlaveDefault(ep, v.wslave, v.rslave);
+
+      if start = '1' or rst = '1' then
+         v := REG_INIT_C;
+      end if;
 
       r_in   <= v;
 
