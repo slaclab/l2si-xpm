@@ -108,8 +108,6 @@ begin
          v := REG_INIT_C;
       end if;
 
-      r_in   <= v;
-
       axiSlaveWaitTxn(ep, syncWriteMaster, syncReadMaster, v.wslave, v.rslave);
       axiSlaveRegisterR(ep, toSlv(0, 12), 0, r.latch);
       for i in 0 to NCHAN_G-1 loop
@@ -117,6 +115,8 @@ begin
       end loop;
       
       axiSlaveDefault(ep, v.wslave, v.rslave);
+
+      r_in   <= v;
 
       syncReadSlave  <= r.rslave;
       syncWriteSlave <= r.wslave;

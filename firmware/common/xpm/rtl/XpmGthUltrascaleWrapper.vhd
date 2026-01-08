@@ -35,6 +35,7 @@ use l2si_core.XpmPkg.all;
 library unisim;
 use unisim.vcomponents.all;
 
+library l2si;
 
 entity XpmGthUltrascaleWrapper is
    generic ( GTGCLKRX         : boolean := true;

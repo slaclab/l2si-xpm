@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-01-28
+-- Last update: 2026-01-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -159,7 +159,7 @@ begin
 
   timingFbClk <= timingFbClkB;
 
-  p_txcontrol : process(timingFb) is
+  p_txcontrol : process(timingFb, timingFbRst) is
   begin
     usTxControl <= timingFb.control;
     usTxControl.pllReset <= timingFbRst;
