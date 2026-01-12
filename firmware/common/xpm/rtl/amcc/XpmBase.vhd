@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-05
+-- Last update: 2026-01-12
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -793,7 +793,6 @@ begin
          NUM_DS_LINKS_G      => NUM_FP_LINKS_C,
          US_RX_ENABLE_INIT_G => US_RX_ENABLE_INIT_G,
          CU_RX_ENABLE_INIT_G => CU_RX_ENABLE_INIT_G,
-         STA_INTERVAL_C      => ite(UED_MODE_G, 500000, 910000),
          DSCLK_119MHZ_G      => (UED_MODE_G),
          NUM_SEQ_G           => NUM_SEQ_C,
          NUM_DDC_G           => NUM_DDC_C )

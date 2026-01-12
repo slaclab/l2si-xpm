@@ -48,7 +48,7 @@ entity XpmReg is
       NUM_DS_LINKS_G      : integer;
       US_RX_ENABLE_INIT_G : boolean := true;
       CU_RX_ENABLE_INIT_G : boolean := false;
-      STA_INTERVAL_C      : integer := 910000;
+      STA_INTERVAL_C      : integer := 8;
       DSCLK_119MHZ_G      : boolean := false;
       REMOVE_MONREG_G     : boolean := true;
 --      AXILCLK_FREQ_G      : integer := 125000000);
