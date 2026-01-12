@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-01
+-- Last update: 2026-01-12
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -598,7 +598,8 @@ begin
       for i in 0 to XPM_PARTITIONS_C-1 loop
          axiSlaveRegister (axilEp, toSlv(528+8*i+0,12), 0, v.step(i).groups);
          axiSlaveRegister (axilEp, toSlv(528+8*i+0,12),16, v.seqmask(i));
-         axiSlaveRegister (axilEp, toSlv(528+8*i+4,12), 0, v.step(i).numL0Acc);
+         axiSlaveRegister (axilEp, toSlv(528+8*i+0,12),24, v.step(i).numL0Acc(7 downto 0));
+         axiSlaveRegister (axilEp, toSlv(528+8*i+4,12), 0, v.step(i).numL0Acc(XPM_LCTR_DEPTH_C-1 downto 8));
       end loop;
       
       if r.link(4) = '0' and r.linkStat.rxIsXpm = '0' then
