@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-12
+-- Last update: 2026-01-13
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -270,7 +270,7 @@ begin
             wr_clk => staClk,
             wr_en  => q.staUpdate,
             rd_clk => axilClk,
-            rd_en  => r.axilRdEn(i),
+            --rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.enabled,
             dout   => s.partition(i).l0Select.enabled);
 
@@ -282,7 +282,7 @@ begin
             wr_clk => staClk,
             wr_en  => q.staUpdate,
             rd_clk => axilClk,
-            rd_en  => r.axilRdEn(i),
+            --rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.inhibited,
             valid  => pInhV(i),
             dout   => s.partition(i).l0Select.inhibited);
@@ -295,7 +295,7 @@ begin
             wr_clk => staClk,
             wr_en  => q.staUpdate,
             rd_clk => axilClk,
-            rd_en  => r.axilRdEn(i),
+            --rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.num,
             dout   => s.partition(i).l0Select.num);
 
@@ -307,7 +307,7 @@ begin
             wr_clk => staClk,
             wr_en  => q.staUpdate,
             rd_clk => axilClk,
-            rd_en  => r.axilRdEn(i),
+            --rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.numInh,
             dout   => s.partition(i).l0Select.numInh);
 
@@ -319,7 +319,7 @@ begin
             wr_clk => staClk,
             wr_en  => q.staUpdate,
             rd_clk => axilClk,
-            rd_en  => r.axilRdEn(i),
+            --rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l0Select.numAcc,
             dout   => s.partition(i).l0Select.numAcc);
 
@@ -331,7 +331,7 @@ begin
             wr_clk => staClk,
             wr_en  => q.staUpdate,
             rd_clk => axilClk,
-            rd_en  => r.axilRdEn(i),
+            --rd_en  => r.axilRdEn(i),
             din    => status.partition(i).l1Select.numAcc,
             dout   => s.partition(i).l1Select.numAcc);
    end generate;
