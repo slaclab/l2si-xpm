@@ -50,46 +50,32 @@ architecture rtl of XpmPathTimer is
       count  : slv(15 downto 0);
       latch  : slv(NCHAN_G-1 downto 0);
       times  : Slv16Array(NCHAN_G-1 downto 0);
-      rslave : AxiLiteReadSlaveType;
-      wslave : AxiLiteWriteSlaveType;
    end record;
    constant REG_INIT_C : RegType := (
       count  => (others=>'0'),
       latch  => (others=>'0'),
-      times  => (others=>(others=>'0')),
-      rslave => AXI_LITE_READ_SLAVE_INIT_C,
-      wslave => AXI_LITE_WRITE_SLAVE_INIT_C);
+      times  => (others=>(others=>'0')));
 
    signal r    : RegType := REG_INIT_C;
    signal r_in : RegType;
 
-   signal syncReadMaster  : AxiLiteReadMasterType;
-   signal syncReadSlave   : AxiLiteReadSlaveType;
-   signal syncWriteMaster : AxiLiteWriteMasterType;
-   signal syncWriteSlave  : AxiLiteWriteSlaveType;
+   type ARegType is record
+      rslave : AxiLiteReadSlaveType;
+      wslave : AxiLiteWriteSlaveType;
+   end record;
+   constant AREG_INIT_C : ARegType := (
+      rslave => AXI_LITE_READ_SLAVE_INIT_C,
+      wslave => AXI_LITE_WRITE_SLAVE_INIT_C);
+
+   signal a    : ARegType := AREG_INIT_C;
+   signal a_in : ARegType;
+
+   signal latch  : slv(NCHAN_G-1 downto 0);
+   signal times  : Slv16Array(NCHAN_G-1 downto 0);
    
 begin
 
-  U_AXIL_XBAR : entity surf.AxiLiteAsync
-    generic map (
-      TPD_G     => TPD_G )
-    port map (
-      -- Slave Port
-      sAxiClk         => axilClk,
-      sAxiClkRst      => axilRst,
-      sAxiReadMaster  => axilReadMaster,
-      sAxiReadSlave   => axilReadSlave,
-      sAxiWriteMaster => axilWriteMaster,
-      sAxiWriteSlave  => axilWriteSlave,
-      -- Master Port
-      mAxiClk         => clk,
-      mAxiClkRst      => rst,
-      mAxiReadMaster  => syncReadMaster,
-      mAxiReadSlave   => syncReadSlave,
-      mAxiWriteMaster => syncWriteMaster,
-      mAxiWriteSlave  => syncWriteSlave );
-      
-   comb_p : process( r, rst, start, stop, syncReadMaster, syncWriteMaster ) is
+   comb_p : process( r, rst, start, stop, axilReadMaster, axilWriteMaster ) is
      variable v : RegType;
      variable ep : AxiLiteEndPointType;
    begin
@@ -104,22 +90,11 @@ begin
          end if;
       end loop;
       
-      axiSlaveWaitTxn(ep, syncWriteMaster, syncReadMaster, v.wslave, v.rslave);
-      axiSlaveRegisterR(ep, toSlv(0, 12), 0, r.latch);
-      for i in 0 to NCHAN_G-1 loop
-        axiSlaveRegisterR(ep, toSlv(4*i+4, 12), 0, r.times(i));
-      end loop;
-      
-      axiSlaveDefault(ep, v.wslave, v.rslave);
-
       if start = '1' or rst = '1' then
          v := REG_INIT_C;
       end if;
 
       r_in   <= v;
-
-      syncReadSlave  <= r.rslave;
-      syncWriteSlave <= r.wslave;
 
    end process comb_p;
 
@@ -129,5 +104,52 @@ begin
          r <= r_in after TPD_G;
       end if;
    end process seq_p;
+
+   U_LATCH : entity surf.SynchronizerVector
+     generic map (
+       WIDTH_G => NCHAN_G )
+     port map (
+       clk      => axilClk,
+       rst      => axilRst,
+       dataIn   => r.latch,
+       dataOut  => latch );
+
+   GEN_CHAN : for i in 0 to NCHAN_G-1 generate
+     U_TIMES : entity surf.SynchronizerVector
+       generic map (
+         WIDTH_G => 16 )
+       port map (
+         clk      => axilClk,
+         rst      => axilRst,
+         dataIn   => r.times(i),
+         dataOut  => times(i) );
+   end generate GEN_CHAN;
+   
+   acomb_p : process( a, axilRst, latch, times, axilReadMaster, axilWriteMaster ) is
+     variable v : ARegType;
+     variable ep : AxiLiteEndPointType;
+   begin
+      v := a;
+
+      axiSlaveWaitTxn(ep, axilWriteMaster, axilReadMaster, v.wslave, v.rslave);
+      axiSlaveRegisterR(ep, toSlv(0, 12), 0, latch);
+      for i in 0 to NCHAN_G-1 loop
+        axiSlaveRegisterR(ep, toSlv(4*i+4, 12), 0, times(i));
+      end loop;
+      
+      axiSlaveDefault(ep, v.wslave, v.rslave);
+
+      a_in <= v;
+
+      axilReadSlave  <= a.rslave;
+      axilWriteSlave <= a.wslave;
+   end process acomb_p;
+
+   aseq_p : process (axilClk) is
+   begin
+      if rising_edge(axilClk) then
+         a <= a_in after TPD_G;
+      end if;
+   end process aseq_p;
 
 end rtl;

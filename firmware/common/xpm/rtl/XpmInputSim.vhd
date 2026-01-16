@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2025-06-16
+-- Last update: 2026-01-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -99,11 +99,6 @@ architecture mapping of XpmInputSim is
 
   signal isimClk, isimRst : sl;
   signal simTx            : TimingPhyType;
-
-  signal tpgWriteMaster : AxiLiteWriteMasterType;
-  signal tpgWriteSlave  : AxiLiteWriteSlaveType;
-  signal tpgReadMaster  : AxiLiteReadMasterType;
-  signal tpgReadSlave   : AxiLiteReadSlaveType;
 
   signal tpgConfig : TPGConfigType;
   signal tpgStatus : TPGStatusType;
@@ -202,36 +197,19 @@ begin
       mAxiReadMasters     => axilReadMasters,
       mAxiReadSlaves      => axilReadSlaves);
 
-  U_AxiLiteAsync : entity surf.AxiLiteAsync
-    generic map (
-      TPD_G => TPD_G)
-    port map (
-      -- Slave Port
-      sAxiClk         => axilClk,
-      sAxiClkRst      => axilRst,
-      sAxiReadMaster  => axilReadMasters (TPGMINI_INDEX_C),
-      sAxiReadSlave   => axilReadSlaves  (TPGMINI_INDEX_C),
-      sAxiWriteMaster => axilWriteMasters(TPGMINI_INDEX_C),
-      sAxiWriteSlave  => axilWriteSlaves (TPGMINI_INDEX_C),
-      -- Master Port
-      mAxiClk         => isimClk,
-      mAxiClkRst      => isimRst,
-      mAxiReadMaster  => tpgReadMaster,
-      mAxiReadSlave   => tpgReadSlave,
-      mAxiWriteMaster => tpgWriteMaster,
-      mAxiWriteSlave  => tpgWriteSlave);
-  
   U_Reg : entity l2si.TPGMiniReg
     port map (
       irqActive         => '0',
       --
-      axiClk            => isimClk,
-      axiRst            => isimRst,
-      axiReadMaster     => tpgReadMaster,
-      axiReadSlave      => tpgReadSlave,
-      axiWriteMaster    => tpgWriteMaster,
-      axiWriteSlave     => tpgWriteSlave,
+      axiClk            => axilClk,
+      axiRst            => axilRst,
+      axiReadMaster     => axilReadMasters (TPGMINI_INDEX_C),
+      axiReadSlave      => axilReadSlaves  (TPGMINI_INDEX_C),
+      axiWriteMaster    => axilWriteMasters(TPGMINI_INDEX_C),
+      axiWriteSlave     => axilWriteSlaves (TPGMINI_INDEX_C),
       --
+      clk               => isimClk,
+      rst               => isimRst,
       status            => tpgStatus,
       config            => tpgConfig );
   
