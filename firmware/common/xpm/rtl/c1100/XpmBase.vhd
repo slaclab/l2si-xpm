@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-12-10
+-- Last update: 2026-01-21
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -131,6 +131,9 @@ architecture top_level of XpmBase is
    signal uregRst        : sl;
    signal regUpdate      : slv(XPM_PARTITIONS_C-1 downto 0);
 
+   signal stableClk      : sl;
+   signal stableRst      : sl;
+   
    -- Reference Clocks and Resets
    signal timingPhyClk : sl;
    signal timingPhyRst : sl := '0';
@@ -217,6 +220,7 @@ architecture top_level of XpmBase is
 
    signal clk371, rst371 : sl;
    signal clk186, rst186 : sl;
+   signal clk78,  rst78  : sl;
 
    signal ipAddr   : slv(31 downto 0);
 
@@ -372,21 +376,24 @@ begin
          INPUT_BUFG_G       => false,
          FB_BUFG_G          => true,
          RST_IN_POLARITY_G  => '1',
-         NUM_CLOCKS_G       => 1,
+         NUM_CLOCKS_G       => 2,
          -- MMCM attributes
          BANDWIDTH_G        => "OPTIMIZED",
          CLKIN_PERIOD_G     => 4.0,    -- 250MHz
          DIVCLK_DIVIDE_G    => 1,       -- 
          CLKFBOUT_MULT_F_G  => 5.0,    -- 1250MHz VCO
-         CLKOUT0_DIVIDE_F_G => 12.0)    -- 104MHz = 1.25GHz/12
+         CLKOUT0_DIVIDE_F_G => 12.0,   -- 104MHz = 1.25GHz/12
+         CLKOUT1_DIVIDE_G   => 16)     -- 78.125MHz = 1.25GHz/16
       port map(
          -- Clock Input
          clkIn     => dmaClk,
          rstIn     => dmaRst,
          -- Clock Outputs
          clkOut(0) => regClk,
+         clkOut(1) => stableClk,
          -- Reset Outputs
-         rstOut(0) => regRst);
+         rstOut(0) => regRst,
+         rstOut(1) => stableRst);
 
     -- U_REGRST : BUFG
     --   port map (
@@ -404,14 +411,17 @@ begin
          NUM_CLOCKS_G       => 1,
          -- MMCM attributes
          BANDWIDTH_G        => "OPTIMIZED",
-         CLKIN_PERIOD_G     => 4.0,    -- 250MHz
-         DIVCLK_DIVIDE_G    => 5,       -- 
-         CLKFBOUT_MULT_F_G  => 26.0,    -- 1300MHz VCO
+         --CLKIN_PERIOD_G     => 4.0,    -- 250MHz
+         CLKIN_PERIOD_G     => 5.384,    -- 185.7MHz
+         DIVCLK_DIVIDE_G    => 1,       -- 
+         CLKFBOUT_MULT_F_G  => 7.0,    -- 1300MHz VCO
          CLKOUT0_DIVIDE_F_G => 3.5)     -- 371MHz = 1.3GHz/3.5
       port map(
          -- Clock Input
-         clkIn     => dmaClk,
-         rstIn     => dmaRst,
+         --clkIn     => dmaClk,
+         --rstIn     => dmaRst,
+         clkIn     => phyClk01,
+         rstIn     => phyRst01,
          -- Clock Outputs
          clkOut(0) => clk371,
          -- Reset Outputs
@@ -771,14 +781,13 @@ begin
      GEN_AMC : if AMC_DS_LINKS_C(i)>0 generate
        U_Rcvr : entity l2si.XpmGtUltrascaleWrapper
          generic map (
+           TPD_G      => TPD_G,
            HWTYPE_G   => "GTY+", 
            GTGCLKRX   => false,
            NLINKS_G   => AMC_DS_LINKS_C(i),
            USE_IBUFDS => false,
            DEBUG_G    => true)
          port map (
-           stableClk => regClk,
-           stableRst => regRst,
            gtTxP     => idsTxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
            gtTxN     => idsTxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
            gtRxP     => idsRxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
@@ -800,9 +809,10 @@ begin
            txClkRst  => timingPhyRst,
            config    => dsLinkConfig(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
            status    => dsLinkStatus(AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
-           axilRst         => regRst,
-           axilReadMaster  => AXI_LITE_READ_MASTER_INIT_C,
-           axilWriteMaster => AXI_LITE_WRITE_MASTER_INIT_C );
+           stableClk => stableClk,
+           stableRst => stableRst,
+           axilClk         => regClk,
+           axilRst         => regRst );
      end generate;
      
      -- GEN_DUMMY: if AMC_DS_LINKS_C(i)<4 generate

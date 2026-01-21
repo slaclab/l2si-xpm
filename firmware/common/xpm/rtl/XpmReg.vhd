@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-12-28
+-- Last update: 2026-01-21
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -141,8 +141,6 @@ architecture rtl of XpmReg is
       inhibitCfg     : XpmInhibitConfigType;
       patternCfg     : XpmPatternConfigType;
       mmcmRst        : sl;
-      rxAllRst       : sl;
-      txAllRst       : sl;
       axilReadSlave  : AxiLiteReadSlaveType;
       axilWriteSlave : AxiLiteWriteSlaveType;
       axilRdEn       : slv(XPM_PARTITIONS_C-1 downto 0);
@@ -178,11 +176,7 @@ architecture rtl of XpmReg is
       inhibitCfg     => XPM_INHIBIT_CONFIG_INIT_C,
       patternCfg     => XPM_PATTERN_CONFIG_INIT_C,
       -- mmcmRst        => '1',
-      -- rxAllRst       => '1',
-      -- txAllRst       => '1',
       mmcmRst        => '0',
-      rxAllRst       => '0',
-      txAllRst       => '0',
       axilReadSlave  => AXI_LITE_READ_SLAVE_INIT_C,
       axilWriteSlave => AXI_LITE_WRITE_SLAVE_INIT_C,
       axilRdEn       => (others => '1'),
@@ -417,20 +411,18 @@ begin
          v.config.pll (ia)      := r.pllCfg;
       end if;
 
-      for i in r.config.dsLink'range loop
-         if mmcmLocked = '0' then
-            v.config.dsLink(i).rxPllReset := '1';
-            v.rxAllRst := '1';
-            v.config.dsLink(i).txPllReset := '1';
-            v.txAllRst := '1';
-         end if;
-         if rxAllRst = '1' then
-            v.config.dsLink(i).rxReset := '1';
-         end if;
-         if txAllRst = '1' then
-            v.config.dsLink(i).txReset := '1';
-         end if;
-      end loop;
+      -- for i in r.config.dsLink'range loop
+      --    if mmcmLocked = '0' then
+      --       v.config.dsLink(i).rxPllReset := '1';
+      --       v.config.dsLink(i).txPllReset := '1';
+      --    end if;
+      --    if rxAllRst = '1' then
+      --       v.config.dsLink(i).rxReset := '1';
+      --    end if;
+      --    if txAllRst = '1' then
+      --       v.config.dsLink(i).txReset := '1';
+      --    end if;
+      -- end loop;
       
       --  strobing signals only set by group registers
       for i in 0 to XPM_PARTITIONS_C-1 loop
@@ -744,7 +736,7 @@ begin
                    dataOut => step(i).enable );
       U_SyncNumL0 : entity surf.SynchronizerFifo
          generic map ( DATA_WIDTH_G => 32 )
-         port map ( wr_clk  => clk,
+         port map ( wr_clk  => staClk,
                     din     => r.step(i).numL0Acc,
                     rd_clk  => staClk,
                     dout    => step(i).numL0Acc );
@@ -775,7 +767,7 @@ begin
        SIM_SPEEDUP_G => false,
        DURATION_G    => 156000000)
      port map (
-       arst    => r.rxAllRst,
+       arst    => axilRst,
        clk     => axilClk,
        rstOut  => rxAllRst );
 

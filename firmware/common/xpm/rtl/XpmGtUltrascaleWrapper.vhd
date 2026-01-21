@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-12-09
+-- Last update: 2026-01-21
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -38,11 +38,11 @@ library unisim;
 use unisim.vcomponents.all;
 
 entity XpmGtUltrascaleWrapper is
-   generic ( HWTYPE_G         : string := "GTH";  -- "GTH" or "GTY+"
+   generic ( TPD_G            : time := 1 ns;
+             HWTYPE_G         : string := "GTH";  -- "GTH" or "GTY+"
              GTGCLKRX         : boolean := true;
              NLINKS_G         : integer range 1 to 7:= 7;
              USE_IBUFDS       : boolean := true;
-             AXIL_BASE_ADDR_G : slv(31 downto 0) := (others => '0');
              DEBUG_G          : boolean := true
        );
    port (
@@ -55,8 +55,6 @@ entity XpmGtUltrascaleWrapper is
       devClkIn         : in  sl := '0';
       devClkOut        : out sl;
       devClkBuf        : out sl;
-      stableClk        : in  sl;
-      stableRst        : in  sl;
       txData           : in  Slv16Array(NLINKS_G-1 downto 0);
       txDataK          : in  Slv2Array (NLINKS_G-1 downto 0);
       rxData           : out Slv16Array(NLINKS_G-1 downto 0);
@@ -72,13 +70,12 @@ entity XpmGtUltrascaleWrapper is
       txUsrClkActive   : in  sl := '1';
       config           : in  XpmLinkConfigArray(NLINKS_G-1 downto 0);
       status           : out XpmLinkStatusArray(NLINKS_G-1 downto 0);
-            
-      axilRst          : in sl;
-      axilReadMaster   : in  AxiLiteReadMasterType;
-      axilReadSlave    : out AxiLiteReadSlaveType;
-      axilWriteMaster  : in  AxiLiteWriteMasterType;
-      axilWriteSlave   : out AxiLiteWriteSlaveType
-      
+      --
+      stableClk        : in  sl;  -- 78.125 MHz
+      stableRst        : in  sl;
+      --
+      axilClk          : in sl; -- for status
+      axilRst          : in sl
       );
 end XpmGtUltrascaleWrapper;
 
@@ -178,7 +175,6 @@ architecture rtl of XpmGtUltrascaleWrapper is
   signal r    : RegTypeArray(NLINKS_G-1 downto 0) := (others=>REG_INIT_C);
   signal rin  : RegTypeArray(NLINKS_G-1 downto 0);
   
-  signal txCtrl2In  : Slv8Array (NLINKS_G-1 downto 0);
   signal rxCtrl0Out : Slv16Array(NLINKS_G-1 downto 0);
   signal rxCtrl1Out : Slv16Array(NLINKS_G-1 downto 0);
   signal rxCtrl3Out : Slv8Array (NLINKS_G-1 downto 0);
@@ -209,6 +205,7 @@ architecture rtl of XpmGtUltrascaleWrapper is
   signal txpmarstdone : slv(7 downto 0) := x"00";
   signal rxbypassrst  : slv(7 downto 0) := x"00";
   signal rxbypassdone : slv(7 downto 0) := x"00";
+  signal rxbypasserr  : slv(7 downto 0) := x"00";
   signal rxpllreset   : slv(7 downto 0) := x"00";
   signal rxReset      : slv(7 downto 0) := x"00";
   signal rxResetDone  : slv(7 downto 0) := x"00";
@@ -218,6 +215,7 @@ architecture rtl of XpmGtUltrascaleWrapper is
   signal rxErrIn      : slv(7 downto 0) := x"00";
 
   signal txResetDone  : slv(7 downto 0) := x"00";
+  signal configRxReset: slv(7 downto 0) := x"00";
   --
   
   signal loopback  : Slv3Array(NLINKS_G-1 downto 0);
@@ -229,49 +227,10 @@ architecture rtl of XpmGtUltrascaleWrapper is
   signal drpen    : slv(NLINKS_G-1 downto 0);
   signal drpwe    : slv(NLINKS_G-1 downto 0);
   
-  constant LINK0_INDEX_C : integer := 0;
-  constant LINK1_INDEX_C : integer := 1;
-  constant LINK2_INDEX_C : integer := 2;
-  constant LINK3_INDEX_C : integer := 3;
-  constant LINK4_INDEX_C : integer := 4;
-  constant LINK5_INDEX_C : integer := 5;
-  constant LINK6_INDEX_C : integer := 6;
-  constant LINK7_INDEX_C : integer := 7;
-  constant LINK8_INDEX_C : integer := 8;
-  
-  constant AXI_XBAR_CONFIG_C : AxiLiteCrossbarMasterConfigArray(8 downto 0) := (
-     LINK0_INDEX_C   => (baseAddr     => AXIL_BASE_ADDR_G,
-                       addrBits     => 16,
-                       connectivity => X"FFFF"),
-     LINK1_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"10000",
-                       addrBits     => 16,
-                       connectivity => X"FFFF"),
-     LINK2_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"20000",
-                       addrBits     => 16,
-                       connectivity => X"FFFF"),
-     LINK3_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"30000",
-                       addrBits     => 16,
-                       connectivity => X"FFFF"),
-     LINK4_INDEX_C   => (baseAddr     => AXIL_BASE_ADDR_G + X"40000",
-                       addrBits     => 16,
-                       connectivity => X"FFFF"),
-     LINK5_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"50000",
-                       addrBits     => 16,
-                       connectivity => X"FFFF"),
-     LINK6_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"60000",
-                       addrBits     => 16,
-                       connectivity => X"FFFF"),
-     LINK7_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"70000",
-                       addrBits     => 16,
-                       connectivity => X"FFFF"),
-     LINK8_INDEX_C  => (baseAddr     => AXIL_BASE_ADDR_G + X"80000",
-                       addrBits     => 16,
-                       connectivity => X"FFFF") );
-
-  signal axilReadMasters  : AxiLiteReadMasterArray (AXI_XBAR_CONFIG_C'range);
-  signal axilReadSlaves   : AxiLiteReadSlaveArray (AXI_XBAR_CONFIG_C'range) := (others=>AXI_LITE_READ_SLAVE_EMPTY_OK_C);
-  signal axilWriteMasters : AxiLiteWriteMasterArray(AXI_XBAR_CONFIG_C'range);
-  signal axilWriteSlaves  : AxiLiteWriteSlaveArray (AXI_XBAR_CONFIG_C'range) := (others=>AXI_LITE_WRITE_SLAVE_EMPTY_OK_C);
+  signal axilReadMasters  : AxiLiteReadMasterArray (NLINKS_G-1 downto 0);
+  signal axilReadSlaves   : AxiLiteReadSlaveArray (NLINKS_G-1 downto 0) := (others=>AXI_LITE_READ_SLAVE_EMPTY_OK_C);
+  signal axilWriteMasters : AxiLiteWriteMasterArray(NLINKS_G-1 downto 0);
+  signal axilWriteSlaves  : AxiLiteWriteSlaveArray (NLINKS_G-1 downto 0) := (others=>AXI_LITE_WRITE_SLAVE_EMPTY_OK_C);
    
   constant TX_SYNC_C : boolean := true;
 
@@ -287,24 +246,6 @@ begin
   txClk    <= txUsrClk(0);
   txOutClk <= txUsrClk;
   
-  U_XBAR : entity surf.AxiLiteCrossbar
-      generic map (
-         DEC_ERROR_RESP_G   => AXI_RESP_DECERR_C,
-         NUM_SLAVE_SLOTS_G  => 1,
-         NUM_MASTER_SLOTS_G => AXI_XBAR_CONFIG_C'length,
-         MASTERS_CONFIG_G   => AXI_XBAR_CONFIG_C)
-      port map (
-         axiClk              => stableClk,
-         axiClkRst           => axilRst,
-         sAxiWriteMasters(0) => axilWriteMaster,
-         sAxiWriteSlaves(0)  => axilWriteSlave,
-         sAxiReadMasters(0)  => axilReadMaster,
-         sAxiReadSlaves (0)  => axilReadSlave,
-         mAxiWriteMasters    => axilWriteMasters,
-         mAxiWriteSlaves     => axilWriteSlaves,
-         mAxiReadMasters     => axilReadMasters,
-         mAxiReadSlaves      => axilReadSlaves);
-
   gtRefClk   <= devClkIn;
   devClkOut  <= gtRefClk;
   devClkBuf  <= gRefClk;
@@ -319,17 +260,48 @@ begin
        O   => gtRefClkDiv2 );
   
   GEN_CTRL : for i in 0 to NLINKS_G-1 generate
-    txCtrl2In (i) <= "000000" & txDataS(i)(17 downto 16);
     rxErrIn   (i) <= '0' when (rxCtrl1Out(i)(1 downto 0)="00" and rxCtrl3Out(i)(1 downto 0)="00") else '1';
-    txFifoRst (i) <= txReady(i);
+    txFifoRst (i) <= not txReady(i);
     rxFifoRst (i) <= not rxResetDone(i);
     loopback  (i) <= "0" & config(i).loopback & "0";
     status    (i).rxErr       <= rxErrS(i);
     status    (i).rxErrCnts   <= rxErrCnts(i);
     status    (i).rxReady     <= rxResetDone(i);
-    rxReset   (i) <= config(i).rxReset or r(i).reset;
+    configRxReset   (i) <= config(i).rxReset;
     txResetDone(i) <= txReady(i) and not txbypasserr(i);
     
+   U_AlignCheck : entity surf.GtRxAlignCheck
+      generic map (
+         TPD_G          => TPD_G,
+         SIMULATION_G   => false,
+         GT_TYPE_G      => "GTYE4",
+         AXI_CLK_FREQ_G => 78.125E+6,
+         DRP_ADDR_G     => (others=>'0'))
+      port map (
+         -- Clock Monitoring
+         txClk            => gtRefClkDiv2,
+         rxClk            => rxUsrClk(i),
+         refClk           => stableClk,
+         -- GTH Status/Control Interface
+         resetIn          => config(i).rxReset,
+         resetDone        => rxbypassdone(i),
+         resetErr         => rxbypasserr(i),
+         resetOut         => rxReset(i),
+         locked           => open,
+         -- Clock and Reset
+         axilClk          => stableClk,
+         axilRst          => stableRst,
+         -- Slave AXI-Lite Interface
+         mAxilReadMaster  => axilReadMasters(i),
+         mAxilReadSlave   => axilReadSlaves(i),
+         mAxilWriteMaster => axilWriteMasters(i),
+         mAxilWriteSlave  => axilWriteSlaves(i),
+         -- Slave AXI-Lite Interface
+         sAxilReadMaster  => AXI_LITE_READ_MASTER_INIT_C,
+         sAxilReadSlave   => open,
+         sAxilWriteMaster => AXI_LITE_WRITE_MASTER_INIT_C,
+         sAxilWriteSlave  => open );
+
    U_Axi2Drp: entity surf.AxiLiteToDrp 
       generic map(
           ADDR_WIDTH_G   => 9
@@ -337,7 +309,7 @@ begin
       port map(
           -- AXI-Lite Port
           axilClk         => stableClk,
-          axilRst         => axilRst,
+          axilRst         => stableRst,
           axilReadMaster  => axilReadMasters(i),
           axilReadSlave   => axilReadSlaves(i),
           axilWriteMaster => axilWriteMasters(i),
@@ -345,7 +317,7 @@ begin
           
           -- DRP Interface
           drpClk          => stableClk,
-          drpRst          => axilRst,
+          drpRst          => stableRst,
           drpRdy          => drprdy(i),
           drpEn           => drpen(i),
           drpWe           => drpwe(i),
@@ -362,11 +334,11 @@ begin
                  rollOverEn   => '1',
                  cntOut       => rxErrCnts(i),
                  wrClk        => rxUsrClk (i),
-                 rdClk        => stableClk );
+                 rdClk        => axilClk );
 
     U_TXSTATUS : entity surf.SynchronizerVector
       generic map ( WIDTH_G => 2 )
-      port map ( clk         => stableClk,
+      port map ( clk         => axilClk,
                  dataIn (0)  => txResetDone(i),
                  dataIn (1)  => txReady    (i),
                  dataOut(0)  => status(i).txResetDone,
@@ -433,19 +405,19 @@ begin
             gtwiz_userclk_rx_active_in(0)         => rxUsrClkActive,
             gtwiz_buffbypass_tx_reset_in(0)       => txbypassrst(i),
             gtwiz_buffbypass_tx_start_user_in(0)  => '0',
-            gtwiz_buffbypass_tx_done_out          => open,
-            gtwiz_buffbypass_tx_error_out         => open,
+            gtwiz_buffbypass_tx_done_out(0)       => txbypassdone(i),
+            gtwiz_buffbypass_tx_error_out(0)      => txbypasserr(i),
             gtwiz_buffbypass_rx_reset_in(0)       => rxbypassrst(i),
             gtwiz_buffbypass_rx_start_user_in(0)  => '0',
             gtwiz_buffbypass_rx_done_out(0)       => rxbypassdone(i),
-            gtwiz_buffbypass_rx_error_out         => open,
+            gtwiz_buffbypass_rx_error_out(0)      => rxbypasserr(i),
             gtwiz_reset_clk_freerun_in(0)         => stableClk,
             gtwiz_reset_all_in(0)                 => stableRst,
             gtwiz_reset_tx_pll_and_datapath_in(0) => txpllreset(i),
             gtwiz_reset_tx_datapath_in(0)         => txUsrRst(i),
             gtwiz_reset_rx_pll_and_datapath_in(0) => rxpllreset(i),
             gtwiz_reset_rx_datapath_in(0)         => rxReset(i),
-            gtwiz_reset_rx_cdr_stable_out(0)      => open,
+            gtwiz_reset_rx_cdr_stable_out(0)      => rxcdrlock(i),
             gtwiz_reset_tx_done_out(0)            => txReady(i),
             gtwiz_reset_rx_done_out(0)            => rxResetDone(i),
             gtwiz_userdata_tx_in                  => txDataS(i)(15 downto 0),
@@ -503,55 +475,55 @@ begin
     status(i).txpmarstdone  <= txpmarstdone(i);
     status(i).rxResetDone   <= rxbypassdone(i);
     status(i).rxcdrlock     <= rxcdrlock(i);
-    status(i).rxGTHWordCnts <= r(i).gthWrdCnt;
-    status(i).rxGTHErrCnts  <= r(i).gthErrCnt;
+--     status(i).rxGTHWordCnts <= r(i).gthWrdCnt;
+--     status(i).rxGTHErrCnts  <= r(i).gthErrCnt;
     
-    comb : process ( r, rxResetDone, rxErrIn, config ) is
-      variable v : RegType;
-    begin
-      v := r(i);
+--     comb : process ( r, rxResetDone, rxErrIn, config ) is
+--       variable v : RegType;
+--     begin
+--       v := r(i);
 
-      if rxErrIn(i)='1' then
-        if r(i).errdet='1' then
-          v.reset := '1';
-        else
-          v.errdet := '1';
-        end if;
-      end if;
+--       if rxErrIn(i)='1' then
+--         if r(i).errdet='1' then
+--           v.reset := '1';
+--         else
+--           v.errdet := '1';
+--         end if;
+--       end if;
 
-      if r(i).reset='0' then
-        v.clkcnt := r(i).clkcnt+1;
-        if r(i).clkcnt=ERR_INTVL then
-          v.errdet := '0';
-          v.clkcnt := (others=>'0');
-        end if;
-      end if;
+--       if r(i).reset='0' then
+--         v.clkcnt := r(i).clkcnt+1;
+--         if r(i).clkcnt=ERR_INTVL then
+--           v.errdet := '0';
+--           v.clkcnt := (others=>'0');
+--         end if;
+--       end if;
       
-      v.gthWrdCnt := r(i).gthWrdCnt + 1;
-      if rxErrIn(i) = '1' then
-          v.gthErrCnt := r(i).gthErrCnt + 1;
-      end if;
+--       v.gthWrdCnt := r(i).gthWrdCnt + 1;
+--       if rxErrIn(i) = '1' then
+--           v.gthErrCnt := r(i).gthErrCnt + 1;
+--       end if;
       
-      if config(i).rstGthCnter = '1' then
-          v.gthWrdCnt := (others => '0');
-          v.gthErrCnt := (others => '0');
-      end if;
+--       if config(i).rstGthCnter = '1' then
+--           v.gthWrdCnt := (others => '0');
+--           v.gthErrCnt := (others => '0');
+--       end if;
 
-      if rxResetDone(i)='0' then
-        v := REG_INIT_C;
-      end if;
+--       if rxResetDone(i)='0' then
+--         v := REG_INIT_C;
+--       end if;
       
-      rin(i) <= v;
-    end process comb;
+--       rin(i) <= v;
+--     end process comb;
 
---    seq : process ( rxUsrClk ) is
-    seq : process ( gtRefClkDiv2 ) is
-    begin
---      if rising_edge(rxUsrClk(i)) then
-      if rising_edge(gtRefClkDiv2) then
-        r(i) <= rin(i);
-      end if;
-    end process seq;
+-- --    seq : process ( rxUsrClk ) is
+--     seq : process ( gtRefClkDiv2 ) is
+--     begin
+-- --      if rising_edge(rxUsrClk(i)) then
+--       if rising_edge(gtRefClkDiv2) then
+--         r(i) <= rin(i);
+--       end if;
+--     end process seq;
     
   end generate GEN_CTRL;
 
@@ -579,13 +551,16 @@ begin
         probe0(127 downto 120) => rxErrIn,
         probe0(130 downto 128) => loopback(0),
         probe0(133 downto 131) => loopback(1),
-        probe0(255 downto 134) => (others=>'0') );
+        probe0(141 downto 134) => rxbypasserr,
+        probe0(142)            => stableRst,
+        probe0(150 downto 143) => configRxReset,
+        probe0(255 downto 151) => (others=>'0') );
     U_ILA_TX : ila_0
       port map (
         clk     => txUsrClk(0),
-        probe0( 15 downto   0) => txData(0),
-        probe0( 17 downto  16) => txDataK(0),
-        probe0(255 downto  18) => (others=>'0') );
+        probe0( 17 downto   0) => txDataS(0),
+        probe0( 18 )           => txUsrRst(0),
+        probe0(255 downto  19) => (others=>'0') );
     U_ILA_RX : ila_0
       port map (
 --        clk     => rxUsrClk(0),
