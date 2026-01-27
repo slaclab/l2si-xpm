@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-06-13
+-- Last update: 2026-01-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -44,7 +44,7 @@ use l2si_core.XpmPkg.all;
 
 library l2si;
 
-entity XpmSimKcu1500 is
+entity XpmSimCore is
    generic (
       TPD_G               : time    := 1 ns );
    port (
@@ -58,16 +58,12 @@ entity XpmSimKcu1500 is
      signal timingPhyClk          : in  sl;
      signal timingPhyRst          : in  sl;
      signal recStream             : out XpmStreamType );
-end XpmGenKcu1500;
+end XpmSimCore;
 
-architecture rtl of XpmGenKcu1500 is
+architecture rtl of XpmSimCore is
 
    signal tpgConfig : TPGConfigType;
    signal tpgStatus : TPGStatusType;
-   signal tpgReadMaster  : AxiLiteReadMasterType;
-   signal tpgReadSlave   : AxiLiteReadSlaveType;
-   signal tpgWriteMaster : AxiLiteWriteMasterType;
-   signal tpgWriteSlave  : AxiLiteWriteSlaveType;
    
    -- Timing Interface (timingClk domain)
    signal txStreams   : TimingSerialArray(2 downto 0);
@@ -77,45 +73,22 @@ architecture rtl of XpmGenKcu1500 is
 
 begin
 
-   U_AxiLiteAsync : entity surf.AxiLiteAsync
-      generic map (
-         TPD_G => TPD_G)
-      port map (
-         -- Slave Port
-         sAxiClk         => axilClk,
-         sAxiClkRst      => axilRst,
-         sAxiReadMaster  => axilReadMaster,
-         sAxiReadSlave   => axilReadSlave,
-         sAxiWriteMaster => axilWriteMaster,
-         sAxiWriteSlave  => axilWriteSlave,
-         -- Master Port
-         mAxiClk         => timingPhyClk,
-         mAxiClkRst      => timingPhyRst,
-         mAxiReadMaster  => tpgReadMaster,
-         mAxiReadSlave   => tpgReadSlave,
-         mAxiWriteMaster => tpgWriteMaster,
-         mAxiWriteSlave  => tpgWriteSlave);
-   -- axilReadSlave <= AXI_LITE_READ_SLAVE_INIT_C;
-   -- axilWriteSlave <= AXI_LITE_WRITE_SLAVE_INIT_C;
-   -- tpgReadMaster <= AXI_LITE_READ_MASTER_INIT_C;
-   -- tpgWriteMaster <= AXI_LITE_WRITE_MASTER_INIT_C;
-   
    TPGMiniReg_Inst : entity l2si.TPGMiniReg
       generic map (
          TPD_G       => TPD_G )
       port map (
-         axiClk         => timingPhyClk,
-         axiRst         => timingPhyRst,
-         axiReadMaster  => tpgReadMaster,
-         axiReadSlave   => tpgReadSlave,
-         axiWriteMaster => tpgWriteMaster,
-         axiWriteSlave  => tpgWriteSlave,
+         axiClk         => axilClk,
+         axiRst         => axilRst,
+         axiReadMaster  => axilReadMaster,
+         axiReadSlave   => axilReadSlave,
+         axiWriteMaster => axilWriteMaster,
+         axiWriteSlave  => axilWriteSlave,
+         --
+         clk            => timingPhyClk,
+         rst            => timingPhyRst,
          status         => tpgStatus,
          config         => tpgConfig,
          irqActive      => '0' );
-   -- tpgConfig     <= TPG_CONFIG_INIT_C;
-   -- tpgReadSlave  <= AXI_LITE_READ_SLAVE_INIT_C;
-   -- tpgWriteSlave <= AXI_LITE_WRITE_SLAVE_INIT_C;
 
    U_TPGMiniCore : entity l2si.TPGMiniClock
      generic map (
@@ -133,9 +106,6 @@ begin
        streamIds       => txStreamIds(0 downto 0),
        advance         => txAdvance  (0 downto 0),
        fiducial        => txFiducial );
-   -- txStreams     <= (others=>TIMING_SERIAL_INIT_C);
-   -- txStreamIds   <= (others=>(others=>'0'));
-   -- txFiducial    <= '0';
    
    U_SimSerializer : entity lcls_timing_core.TimingSerializer
       generic map (
@@ -149,12 +119,10 @@ begin
          advance   => txAdvance,
          data      => open,
          dataK     => open);
-   -- txAdvance <= (others=>'0');
    
-   -- recStream.fiducial <= txFiducial;
-   -- recStream.streams  <= txStreams;
-   -- recStream.advance  <= txAdvance;
-   recStream <= XPM_STREAM_INIT_C;
+   recStream.fiducial <= txFiducial;
+   recStream.streams  <= txStreams;
+   recStream.advance  <= txAdvance;
    
 end rtl;
 

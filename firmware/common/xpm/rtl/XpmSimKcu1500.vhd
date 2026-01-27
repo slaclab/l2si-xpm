@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-06-13
+-- Last update: 2026-01-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -64,10 +64,6 @@ architecture rtl of XpmSimKcu1500 is
 
    signal tpgConfig : TPGConfigType;
    signal tpgStatus : TPGStatusType;
-   signal tpgReadMaster  : AxiLiteReadMasterType;
-   signal tpgReadSlave   : AxiLiteReadSlaveType;
-   signal tpgWriteMaster : AxiLiteWriteMasterType;
-   signal tpgWriteSlave  : AxiLiteWriteSlaveType;
    
    -- Timing Interface (timingClk domain)
    signal txStreams   : TimingSerialArray(2 downto 0);
@@ -77,35 +73,19 @@ architecture rtl of XpmSimKcu1500 is
 
 begin
 
-   U_AxiLiteAsync : entity surf.AxiLiteAsync
-      generic map (
-         TPD_G => TPD_G)
-      port map (
-         -- Slave Port
-         sAxiClk         => axilClk,
-         sAxiClkRst      => axilRst,
-         sAxiReadMaster  => axilReadMaster,
-         sAxiReadSlave   => axilReadSlave,
-         sAxiWriteMaster => axilWriteMaster,
-         sAxiWriteSlave  => axilWriteSlave,
-         -- Master Port
-         mAxiClk         => timingPhyClk,
-         mAxiClkRst      => timingPhyRst,
-         mAxiReadMaster  => tpgReadMaster,
-         mAxiReadSlave   => tpgReadSlave,
-         mAxiWriteMaster => tpgWriteMaster,
-         mAxiWriteSlave  => tpgWriteSlave);
-   
    TPGMiniReg_Inst : entity l2si.TPGMiniReg
       generic map (
          TPD_G       => TPD_G )
       port map (
-         axiClk         => timingPhyClk,
-         axiRst         => timingPhyRst,
-         axiReadMaster  => tpgReadMaster,
-         axiReadSlave   => tpgReadSlave,
-         axiWriteMaster => tpgWriteMaster,
-         axiWriteSlave  => tpgWriteSlave,
+         axiClk         => axilClk,
+         axiRst         => axilRst,
+         axiReadMaster  => axilReadMaster,
+         axiReadSlave   => axilReadSlave,
+         axiWriteMaster => axilWriteMaster,
+         axiWriteSlave  => axilWriteSlave,
+         --
+         clk            => timingPhyClk,
+         rst            => timingPhyRst,
          status         => tpgStatus,
          config         => tpgConfig,
          irqActive      => '0' );

@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-13
+-- Last update: 2026-01-26
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -94,16 +94,18 @@ end XpmReg;
 
 architecture rtl of XpmReg is
 
-   type StateType is (IDLE_S, READING_S);
-
+   type StateType is (IDLE_S, RUN_S, REPORT_S);
+   
    type StepType is record
-      enable   : sl;
+      state    : StateType;
+      done     : sl;
       numL0Acc : slv(XPM_LCTR_DEPTH_C-1 downto 0);
       groups   : slv(XPM_PARTITIONS_C-1 downto 0);
    end record;
 
    constant STEP_INIT_C : StepType := (
-      enable   => '0',
+      state    => IDLE_S,
+      done     => '1',
       numL0Acc => (others=>'0'),
       groups   => (others=>'0'));
 
@@ -122,7 +124,6 @@ architecture rtl of XpmReg is
       rstn   => '1');
    
    type RegType is record
-      state          : StateType;
       load           : sl;
       config         : XpmConfigType;
       common         : slv(XPM_PARTITIONS_C-1 downto 0);
@@ -156,7 +157,6 @@ architecture rtl of XpmReg is
    end record RegType;
 
    constant REG_INIT_C : RegType := (
-      state          => IDLE_S,
       load           => '1',
       config         => XPM_CONFIG_INIT_C,
       common         => (others => '0'),
@@ -225,8 +225,32 @@ architecture rtl of XpmReg is
    signal monId    : slv(31 downto 0) := (others=>'0');
    signal monIndex : slv( 9 downto 0) := (others=>'0');
 
+   component ila_0
+     port ( clk    : in  sl;
+            probe0 : in  slv(255 downto 0) );
+   end component;
+
+   signal stepstate : slv(1 downto 0);
+   signal falsestep : sl;
 begin
 
+  stepstate <= "00" when r.step(0).state = IDLE_S else
+               "01" when r.step(0).state = RUN_S else
+               "10";
+
+  falsestep <= '1' when r.step(0).state=REPORT_S and r.step(0).done='0' else
+               '0';
+               
+  U_ILA : ila_0
+    port map ( clk                    => axilClk,
+               probe0(  0)            => r.step(0).done,
+               probe0( 40 downto   1) => s.partition(0).l0Select.numAcc,
+               probe0( 80 downto  41) => r.step(0).numL0Acc,
+               probe0( 82 downto  81) => stepstate,
+               probe0( 83)            => falsestep,
+               probe0( 84)            => r.config.partition(0).l0Select.enabled,
+               probe0(255 downto  85) => (others=>'0') );
+               
    staRst         <= axilRst;
    dbgChan        <= r.linkDebug(dbgChan'range);
    config         <= r.config;
@@ -553,23 +577,35 @@ begin
       end if;
       
       for i in 0 to XPM_PARTITIONS_C-1 loop
-         stepDone := '0';
-         if s.partition(i).l0Select.numAcc = r.step(i).numL0Acc then
-           stepDone := '1';
-         end if;
-         
-         if stepDone = '0' and r.step(i).groups /= 0 then
-            v.step(i).enable := '1';
-         end if;
-         if stepDone = '1' and r.step(i).enable = '1' and v.stepMaster.tValid = '0' then
-            v.step(i).enable  := '0';
-            for j in 0 to XPM_PARTITIONS_C-1 loop
-               groupL0Disable(j) := r.step(i).groups(j);
-            end loop;
-            v.stepMaster.tValid := '1';
-            v.stepMaster.tData(23 downto  0) := toSlv(i,8) & toSlv(1,16);
-            v.stepMaster.tData(63 downto 24) := r.step(i).numL0Acc;
-         end if;
+        --  Give a full cycle for this test
+        v.step(i).done := '0';
+        if s.partition(i).l0Select.numAcc = r.step(i).numL0Acc then
+          v.step(i).done := '1';
+        end if;
+        
+        case (r.step(i).state) is
+          when IDLE_S =>
+            if r.step(i).groups /= 0 and r.step(i).done = '0' then
+              -- Begin tracking the step
+              v.step(i).state := RUN_S;
+            end if;
+          when RUN_S =>
+            if r.step(i).done = '1' then
+              -- Disable the associated readout groups
+              for j in 0 to XPM_PARTITIONS_C-1 loop
+                groupL0Disable(j) := r.step(i).groups(j);
+              end loop;
+              v.step(i).state := REPORT_S;
+            end if;
+          when REPORT_S =>
+            if v.stepMaster.tValid = '0' then
+              -- Queue the step end report
+              v.stepMaster.tValid := '1';
+              v.stepMaster.tData(23 downto  0) := toSlv(i,8) & toSlv(1,16);
+              v.stepMaster.tData(63 downto 24) := r.step(i).numL0Acc;
+              v.step(i).state := IDLE_S;
+            end if;
+        end case;
       end loop;
 
       v.seqRestart := (others=>'0');

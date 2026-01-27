@@ -1,11 +1,11 @@
 -------------------------------------------------------------------------------
 -- Title      : 
 -------------------------------------------------------------------------------
--- File       : XpmAsyncKcu1500.vhd
+-- File       : XpmAsyncCore.vhd
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-05
+-- Last update: 2026-01-22
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -47,7 +47,7 @@ use l2si_core.XpmExtensionPkg.all;
 
 library l2si;
 
-entity XpmAsyncKcu1500 is
+entity XpmAsyncCore is
    generic (
      TPD_G               : time    := 1 ns;
      AXIL_BASE_G         : slv(31 downto 0) );
@@ -65,6 +65,7 @@ entity XpmAsyncKcu1500 is
      usTxN                 : out   sl;
      usRefClk              : in    sl;
      usRefClkGt            : in    sl;
+     usRefClkGtDiv2        : in    sl;
      
      timingFbClk           : out sl;
      timingFbRst           : in  sl;
@@ -74,9 +75,9 @@ entity XpmAsyncKcu1500 is
      recClk                : in  sl;
      recClkRst             : in  sl;
      recStream             : out XpmStreamType );
-end XpmAsyncKcu1500;
+end XpmAsyncCore;
 
-architecture rtl of XpmAsyncKcu1500 is
+architecture rtl of XpmAsyncCore is
 
    constant GTH_INDEX_C  : integer := 0;
    constant TIM_INDEX_C  : integer := 1;
@@ -184,11 +185,9 @@ begin
       mAxiReadMasters     => axilReadMasters,
       mAxiReadSlaves      => axilReadSlaves);
 
-   TimingGtCoreWrapper_1 : entity lcls_timing_core.TimingGtCoreWrapper
-      generic map (ADDR_BITS_G      => 14,
-                   AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(GTH_INDEX_C).baseAddr,
-                   GTH_DRP_OFFSET_G => x"00004000",
-                   EXTREF_G         => true)
+   TimingGtCoreWrapper_1 : entity l2si.TimingGtCoreWrapper
+      generic map (TPD_G            => TPD_G,
+                   AXIL_BASE_ADDR_G => AXI_XBAR_CONFIG_C(GTH_INDEX_C).baseAddr )
       port map (
          axilClk         => axilClk,
          axilRst         => axilRst,
@@ -199,7 +198,7 @@ begin
          stableClk       => axilClk,
          stableRst       => axilRst,
          gtRefClk        => usRefClkGt,
-         gtRefClkDiv2    => '0',
+         gtRefClkDiv2    => usRefClkGtDiv2,
          gtRxP           => usRxP,
          gtRxN           => usRxN,
          gtTxP           => usTxP,

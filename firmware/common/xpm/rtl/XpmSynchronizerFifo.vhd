@@ -48,8 +48,9 @@ architecture rtl of XpmSynchronizerFifo is
 
    constant IDLE_C : slv(17 downto 0) := "01" & D_215_C & K_COM_C;
 
-   signal wr_en, rd_en : sl;
+   signal wr_en, rd_en, rd_rst : sl;
    signal wr_cnt, rd_cnt : slv(ADDR_WIDTH_C-1 downto 0);
+   signal doutb : slv(dout'range);
    signal com_detected : sl;
    constant LO_MARK_C : slv(ADDR_WIDTH_C-1 downto 0) := toSlv(2,ADDR_WIDTH_C);
    constant HI_MARK_C : slv(ADDR_WIDTH_C-1 downto 0) := toSlv((2**ADDR_WIDTH_C)-3,
@@ -77,7 +78,7 @@ begin
             full          => open,
             rd_clk        => rd_clk,
             rd_en         => rd_en,
-            dout          => dout,
+            dout          => doutb,
             rd_data_count => rd_cnt,
             valid         => valid,
             underflow     => open,
@@ -95,8 +96,26 @@ begin
    end generate;
 
    GEN_SYNC : if (COMMON_CLK_G = true) generate
-      dout  <= din;
+      doutb <= din;
       valid <= wr_en;
    end generate;
+
+   U_RD_RST : entity surf.RstSync
+     port map (
+       clk      => rd_clk,
+       asyncRst => rst,
+       syncRst  => rd_rst );
+   
+   --  Put a comma on the link to allow lock
+   U_RST_DATA : entity surf.RegisterVector
+     generic map (
+       TPD_G    => TPD_G,
+       WIDTH_G  => dout'length,
+       INIT_G   => "01" & D_215_C & K_COM_C )
+     port map (
+       clk    => rd_clk,
+       rst    => rd_rst,
+       sig_i  => doutb,
+       reg_o  => dout );
 
 end architecture rtl;
