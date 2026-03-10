@@ -1,0 +1,519 @@
+-------------------------------------------------------------------------------
+-- Title      : 
+-------------------------------------------------------------------------------
+-- File       : xpm_sim.vhd
+-- Author     : Matt Weaver <weaver@slac.stanford.edu>
+-- Company    : SLAC National Accelerator Laboratory
+-- Created    : 2015-07-10
+-- Last update: 2026-01-08
+-- Platform   : 
+-- Standard   : VHDL'93/02
+-------------------------------------------------------------------------------
+-- Description: XpmApp's Top Level
+-- 
+-- Note: Common-to-XpmApp interface defined here (see URL below)
+--       https://confluence.slac.stanford.edu/x/rLyMCw
+-------------------------------------------------------------------------------
+-- This file is part of 'LCLS2 DAQ Software'.
+-- It is subject to the license terms in the LICENSE.txt file found in the 
+-- top-level directory of this distribution and at: 
+--    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
+-- No part of 'LCLS2 DAQ Software', including this file, 
+-- may be copied, modified, propagated, or distributed except according to 
+-- the terms contained in the LICENSE.txt file.
+-------------------------------------------------------------------------------
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+
+
+library surf;
+use surf.StdRtlPkg.all;
+use surf.AxiLitePkg.all;
+use surf.AxiStreamPkg.all;
+use surf.SsiPkg.all;
+
+library lcls_timing_core;
+use lcls_timing_core.TimingPkg.all;
+use lcls_timing_core.TPGPkg.all;
+use lcls_timing_core.TPGMiniEdefPkg.all;
+
+library l2si_core;
+use l2si_core.L2SiPkg.all;
+use l2si_core.XpmPkg.all;
+use l2si_core.XpmMiniPkg.all;
+
+library l2si;
+use l2si.AxiLiteSimPkg.all;
+use l2si.XpmAppPkg.all;
+
+library unisim;
+use unisim.vcomponents.all;
+
+entity xpm_sim is
+end xpm_sim;
+
+architecture top_level_app of xpm_sim is
+
+   constant DMA_AXIS_CONFIG_C : AxiStreamConfigType := ssiAxiStreamConfig(8, TKEEP_COMP_C, TUSER_FIRST_LAST_C, 8, 2);
+   
+   constant NDsLinks : integer := 14;
+  
+   signal tpgConfig : TPGConfigType := TPG_CONFIG_INIT_C;
+   signal xpmConfig : XpmMiniConfigType := XPM_MINI_CONFIG_INIT_C;
+   signal appConfig : XpmConfigType := XPM_CONFIG_INIT_C;
+   
+   signal regClk         : sl;
+   signal regRst         : sl;
+   signal axiRst         : sl;
+
+   signal dsClk, dsRst : slv(NDsLinks-1 downto 0);
+   signal dsRx       : TimingRxArray (NDsLinks-1 downto 0) := (others=>TIMING_RX_INIT_C);
+   signal dsTx       : TimingPhyArray(NDsLinks-1 downto 0) := (others=>TIMING_PHY_INIT_C);
+
+   signal fbPhy      : TimingPhyType := TIMING_PHY_INIT_C;
+   signal fbPause    : slv(XPM_PARTITIONS_C-1 downto 0) := (others=>'0');
+   
+   signal scClk, scRst : sl;
+   signal usClk, usRst : sl;
+   signal usRx  : TimingRxType := TIMING_RX_INIT_C;
+   signal usRxStatus : TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
+   
+   signal xpmStream  : XpmStreamType := XPM_STREAM_INIT_C;
+   signal timingStream  : XpmStreamType := XPM_STREAM_INIT_C;
+   signal xData      : TimingRxType := TIMING_RX_INIT_C;
+   signal xDataStatus: TimingPhyStatusType := TIMING_PHY_STATUS_INIT_C;
+
+   signal tpgStream   : TimingSerialType;
+   signal tpgAdvance  : sl;
+   signal tpgFiducial : sl;
+   
+   type RegType is record
+     advance : sl;
+   end record;
+
+   constant REG_INIT_C : RegType := ( advance => '0' );
+
+   signal r    : RegType := REG_INIT_C;
+   signal rin  : RegType;
+
+   signal pllCount : SlVectorArray(3 downto 0,2 downto 0) := (others=>(others=>'0'));
+   signal pllStat  : slv(3 downto 0) := "1011";
+   signal monClkRate : Slv32Array(3 downto 0) := ( toSlv(3,32), toSlv(2,32), toSlv(1,32), toSlv(0,32));
+   signal status     : XpmStatusType := XPM_STATUS_INIT_C;
+   signal obMonitorMaster : AxiStreamMasterType;
+   signal obMonitorSlave  : AxiStreamSlaveType := AXI_STREAM_SLAVE_FORCE_C;
+
+   signal eventTrigMsgMasters   : AxiStreamMasterArray(7 downto 0);
+   signal eventTrigMsgSlaves    : AxiStreamSlaveArray(7 downto 0);
+
+   signal eventTrigMsgMastersG  : AxiStreamMasterArray(7 downto 0);
+   signal eventTrigMsgSlavesG   : AxiStreamSlaveArray(7 downto 0);
+
+   signal eventTimingMessagesValid : slv(7 downto 0);
+   signal eventTimingMessages      : TimingMessageArray(7 downto 0);
+   signal eventTimingMessagesRd    : slv(7 downto 0);
+   
+   signal eventTimingMsgMasters : AxiStreamMasterArray(7 downto 0);
+   signal eventTimingMsgSlaves  : AxiStreamSlaveArray(7 downto 0);
+   
+   signal triggerData : TriggerEventDataArray(7 downto 0);
+   signal trgMaster   : AxiStreamMasterType := AxiStreamMasterInit(DMA_AXIS_CONFIG_C);
+   signal trgSlave    : AxiStreamSlaveType;
+   signal detMaster   : AxiStreamMasterType;
+   signal detSlave    : AxiStreamSlaveType;
+   
+   signal clearReadout : slv(7 downto 0);
+
+   signal appTimingBus : TimingBusType;
+   signal appTimingMode : sl;
+
+   signal eventMaster : AxiStreamMasterType;
+   signal eventSlave  : AxiStreamSlaveType;
+
+   signal monMaster : AxiStreamMasterType;
+   signal monSlave  : AxiStreamSlaveType;
+
+   signal temWriteMaster : AxiLiteWriteMasterType;
+   signal temWriteSlave  : AxiLiteWriteSlaveType;
+
+   signal seqReadMaster  : AxiLiteReadMasterType;
+   signal seqReadSlave   : AxiLiteReadSlaveType;
+   signal seqWriteMaster : AxiLiteWriteMasterType;
+   signal seqWriteSlave  : AxiLiteWriteSlaveType;
+   signal seqWriteDone, seqWriteNotDone : sl;
+   signal seqCountRst    : sl;
+
+   signal ddcReadMaster  : AxiLiteReadMasterType := AXI_LITE_READ_MASTER_INIT_C;
+   signal ddcReadSlave   : AxiLiteReadSlaveType;
+   signal ddcWriteMaster : AxiLiteWriteMasterType := AXI_LITE_WRITE_MASTER_INIT_C;
+   signal ddcWriteSlave  : AxiLiteWriteSlaveType;
+   
+   signal appReadMaster  : AxiLiteReadMasterType := AXI_LITE_READ_MASTER_INIT_C;
+   signal appReadSlave   : AxiLiteReadSlaveType;
+   signal appWriteMaster : AxiLiteWriteMasterType := AXI_LITE_WRITE_MASTER_INIT_C;
+   signal appWriteSlave  : AxiLiteWriteSlaveType;
+   
+   signal paddr : slv(31 downto 0) := x"DEADBEEF";
+   signal scClkA  : slv(0 downto 0);
+   signal scRstA  : slv(0 downto 0);
+
+   signal nscClk     : sl;
+   signal nscRst     : sl;
+   signal dsTxDataS  : slv(17 downto 0);
+   signal dsTxData   : slv(15 downto 0);
+   signal dsTxDataK  : slv( 1 downto 0);
+
+   signal pattern     : XpmPatternStatisticsType;
+   signal common      : slv( 7 downto 0) := x"01";
+   signal commonDelay : slv( 7 downto 0) := toSlv(104,8);
+   
+   constant EVENTCODES_C : Slv20Array(16 downto 0) := (0 => toSlv(2,20),
+                                                       16 => toSlv(3,20),
+                                                       others => toSlv(0,20));
+
+   constant CONSUME_C : boolean := true;
+
+   type StringArray is array (7 downto 0) of string(1 to 15);
+   constant XTC_FILE : StringArray := ("xpm_event_7.xtc",
+                                       "xpm_event_6.xtc",
+                                       "xpm_event_5.xtc",
+                                       "xpm_event_4.xtc",
+                                       "xpm_event_3.xtc",
+                                       "xpm_event_2.xtc",
+                                       "xpm_event_1.xtc",
+                                       "xpm_event_0.xtc" );
+
+   ------
+   -- XpmAsync
+   ------
+   type TimingSuperFrameType is record
+     valid            : sl;
+     timingMessage    : TimingMessageType;
+     timingExtension  : TimingExtensionArray;
+   end record;
+
+   constant SUPER_FRAME_BITS_C : integer := 1 + TIMING_MESSAGE_BITS_C +
+                                            15*(TIMING_EXTENSION_MESSAGE_BITS_C+1);
+   signal superFrame, superFrameS : TimingSuperFrameType;
+   signal superFrameSlv, superFrameSlvS : slv(SUPER_FRAME_BITS_C-1 downto 0);
+   
+   function toSlv(frame : TimingSuperFrameType) return slv
+   is
+     variable vector : slv(SUPER_FRAME_BITS_C-1 downto 0);
+     variable i      : integer := 0;
+     variable j      : integer;
+   begin
+     assignSlv(i, vector, frame.valid);
+     vector(TIMING_MESSAGE_BITS_C+i-1 downto i) := toSlv(frame.timingMessage);
+     i := i + TIMING_MESSAGE_BITS_C;
+     for j in 1 to 15 loop
+       assignSlv(i, vector, frame.timingExtension(j).valid);
+       assignSlv(i, vector, frame.timingExtension(j).data);
+     end loop;
+     return vector;
+   end function toSlv;
+   
+   function toTimingSuperFrameType(vector : slv) return TimingSuperFrameType is
+     variable v : TimingSuperFrameType;
+     variable m : slv(TIMING_MESSAGE_BITS_C-1 downto 0);
+     variable i : integer := 0;
+   begin
+     assignRecord(i, vector, v.valid);
+     m := vector(TIMING_MESSAGE_BITS_C-1+i downto i);
+     v.timingMessage := toTimingMessageType(m);
+     i := i + TIMING_MESSAGE_BITS_C;
+     for j in 1 to 15 loop
+       assignRecord(i, vector, v.timingExtension(j).valid);
+       assignRecord(i, vector, v.timingExtension(j).data);
+     end loop;
+     return v;
+   end function toTimingSuperFrameType;
+   
+
+   signal usRxTimingBus : TimingBusType;
+   signal usRxStrobe : sl;
+
+   signal seqRestart, seqDisable : slv(0 downto 0);
+
+   signal regWriteMaster : AxiLiteWriteMasterType;
+   signal regWriteSlave  : AxiLiteWriteSlaveType;
+
+begin
+
+  tpgConfig.FixedRateDivisors <= (toSlv(0,20),
+                                  toSlv(0,20),
+                                  toSlv(1,20),
+                                  toSlv(1,20),
+                                  toSlv(2,20),
+                                  toSlv(4,20),
+                                  toSlv(8,20),
+                                  toSlv(16,20),
+                                  toSlv(32,20),
+                                  toSlv(64,20));
+  tpgConfig.ACRateDivisors <= (x"01",
+                               x"02",
+                               x"06",
+                               x"0C",
+                               x"3C",
+                               x"78");
+   xpmConfig.partition.l0Select.enabled <= '1';
+   xpmConfig.partition.l0Select.rateSel <= x"0000";
+   xpmConfig.partition.l0Select.destSel <= x"8000";
+   xpmConfig.partition.pipeline.depth_fids <= toSlv(90,8);
+   xpmConfig.partition.pipeline.depth_clks <= toSlv(90*200,16);
+
+   xpmConfig.dsLink(0).enable    <= '1';
+
+   process is
+   begin
+     appConfig.partition(0).master              <= '1';
+--     appConfig.partition(0).l0Select.enabled    <= '1';
+     appConfig.partition(0).l0Select.rateSel    <= x"8000";
+     appConfig.partition(0).l0Select.destSel    <= x"8000";
+     appConfig.partition(0).l0Select.groups     <= x"FF" and not common;
+     appConfig.partition(0).pipeline.depth_fids <= commonDelay+1;
+     appConfig.partition(0).pipeline.depth_clks <= toSlv(conv_integer(commonDelay+1)*200,16);
+     for i in 1 to 6 loop
+       appConfig.partition(i).master              <= '1';
+       appConfig.partition(i).l0Select.rateSel    <= toSlv((i mod 2)+1,16);
+       appConfig.partition(i).l0Select.destSel    <= x"8000";
+       appConfig.partition(i).pipeline.depth_fids <= toSlv(10-i,8);
+       appConfig.partition(i).pipeline.depth_clks <= toSlv((10-i)*200,16);
+       appConfig.partition(i).l0Select.rawPeriod  <= toSlv(720-i*100,20);
+       appConfig.partition(i).l0Select.groups     <= x"FF" and not common;
+     end loop;
+     -- Group 7 is copy of group 6
+     appConfig.partition(7).master              <= '1';
+     appConfig.partition(7).l0Select.rateSel    <= toSlv((6 mod 2)+1,16);
+     appConfig.partition(7).l0Select.destSel    <= x"8000";
+     appConfig.partition(7).pipeline.depth_fids <= toSlv(10-6,8);
+     appConfig.partition(7).pipeline.depth_clks <= toSlv((10-6)*200,16);
+     appConfig.partition(7).l0Select.rawPeriod  <= toSlv(720-6*100,20);
+     appConfig.partition(7).l0Select.groups     <= x"FF" and not common;
+
+     wait for 20 us;
+     seqRestart <= (others=>'1');
+     wait for 10 ns;
+     seqRestart <= (others=>'0');
+
+     wait for 5 us;
+     seqDisable <= (others=>'1');
+     wait for 10 ns;
+     seqDisable <= (others=>'0');
+     
+     --  Need to wait until all pipelines are going else l0Select enables
+     --  aren't sync'd
+     wait for 115 us;
+
+     for i in 0 to 7 loop
+       appConfig.partition(i).l0Select.enabled <= '1';
+     end loop;
+     
+     --  Simplify - no messages
+     wait for 10000 us;
+     
+     wait for 25 us;
+     for i in 0 to 7 loop
+       appConfig.partition(i).message.header <= toSlv(0,9);
+     end loop;
+     wait until regClk='0';
+     for i in 0 to 7 loop
+       appConfig.partition(i).message.insert <= '1';
+--       appConfig.partition(i).message.insert <= '0';
+     end loop;
+     wait until regClk='1';
+     wait until regClk='0';
+     for i in 0 to 7 loop
+       appConfig.partition(i).message.insert <= '0';
+     end loop;
+     wait for 20 us;
+     for i in 0 to 7 loop
+       appConfig.partition(i).l0Select.enabled <= '1';
+     end loop;
+     wait;
+   end process;
+   
+   process is
+   begin
+     regRst <= '1';
+     axiRst <= '1';
+     xpmConfig.partition.l0Select.reset <= '1';
+     wait for 100 ns;
+     regRst <= '0';
+     wait for 100 ns;
+     axiRst <= '0';
+     xpmConfig.partition.l0Select.reset <= '0';
+     tpgConfig.pulseIdWrEn <= '0';
+     wait for 100 ns;
+
+     --  Clear Readout (and put the FIFOs into a known state)
+     xpmConfig.partition.message.header <= toSlv(0,9);
+     wait until regClk='0';
+     xpmConfig.partition.message.insert <= '1';
+     wait until regClk='1';
+     wait until regClk='0';
+     xpmConfig.partition.message.insert <= '0';
+
+     --  Simplify
+     wait for 10000 us;
+     
+     --  Send transitions (avoiding ClearReadout)
+     wait for 180 us;
+     for i in 0 to 100 loop
+       --  Insert transition, even if inhibited
+       xpmConfig.partition.message.header <= XPM_PART_MSG_DEFAULT_C &
+                                             "00" & toSlv(i,5); 
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '1';
+       wait until regClk='1';
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '0';
+       wait for 5 us;
+
+       --  Insert transition, only if not inhibited (can be dropped)
+       xpmConfig.partition.message.header <= XPM_PART_MSG_DROP_FULL_C &
+                                             "10" & toSlv(i,5);
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '1';
+       wait until regClk='1';
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '0';
+       wait for 5 us;
+
+       --  Insert transition, waiting for not inhibited
+       xpmConfig.partition.message.header <= XPM_PART_MSG_WAIT_FULL_C &
+                                             "11" & toSlv(i,5);
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '1';
+       wait until regClk='1';
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '0';
+       wait for 5 us;
+
+       --  Insert transition, waiting for not inhibited and no L0
+       xpmConfig.partition.message.header <= XPM_PART_MSG_LOW_PRIO_C &
+                                             "01" & toSlv(i,5);
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '1';
+       wait until regClk='1';
+       wait until regClk='0';
+       xpmConfig.partition.message.insert <= '0';
+       wait for 5 us;
+     end loop;
+     wait;
+   end process;
+
+   process is
+   begin
+     seqCountRst <= '0';
+     wait for 10 us;
+     seqCountRst <= '1';
+     wait for 10 ns;
+   end process;
+   
+   process is
+   begin
+     wait for 220 us;
+     for i in 0 to 100 loop
+       fbPause(0) <= '1';
+       wait for 20 us;
+       fbPause(0) <= '0';
+       wait for 28 us;
+     end loop;
+     wait;
+   end process;
+   
+   process is
+   begin
+     regClk <= '1';
+     wait for 4.0 ns;
+     regClk <= '0';
+     wait for 4.0 ns;
+   end process;
+     
+   process is
+   begin
+     scClk <= '1';
+     wait for 2.69 ns;
+     scClk <= '0';
+     wait for 2.69 ns;
+   end process;
+   scRst <= regRst;
+
+   scClkA <= (others=>scClk);
+   scRstA <= (others=>scRst);
+   
+   U_AppStatus : entity l2si.AxiLiteReadMasterSim
+     generic map ( CMDS => (x"00000000",
+                            x"00000004",
+                            x"00000030") )
+     port map ( clk    => regClk,
+                rst    => seqWriteNotDone,
+                master => appReadMaster,
+                slave  => appReadSlave,
+                done   => open );
+   
+    U_App : entity l2si.XpmApp
+      generic map ( NUM_DS_LINKS_G => 1 )
+      port map (
+       -----------------------
+       -- XpmApp Ports --
+       -----------------------
+       regclk          => regClk,
+       regrst          => regRst,
+       update          => (others=>'0'),
+       config          => appConfig,
+       common          => common,
+       commonDelay     => commonDelay,
+       status          => open,
+       patternCfg      => XPM_PATTERN_CONFIG_INIT_C,
+       pattern         => pattern,
+       axilReadMasters (0) => seqReadMaster,
+       axilReadMasters (1) => ddcReadMaster,
+       axilReadMasters (2) => appReadMaster,
+       axilReadSlaves  (0) => seqReadSlave,
+       axilReadSlaves  (1) => ddcReadSlave,
+       axilReadSlaves  (2) => appReadSlave,
+       axilWriteMasters(0) => seqWriteMaster,
+       axilWriteMasters(1) => ddcWriteMaster,
+       axilWriteMasters(2) => appWriteMaster,
+       axilWriteSlaves (0) => seqWriteSlave,
+       axilWriteSlaves (1) => ddcWriteSlave,
+       axilWriteSlaves (2) => appWriteSlave,
+       obAppMaster     => open,
+       obAppSlave      => AXI_STREAM_SLAVE_INIT_C,
+       groupLinkClear  => open,
+       seqRestart      => seqRestart,
+       seqDisable      => seqDisable,
+       -- AMC's DS Ports
+       dsLinkStatus    => (others=>XPM_LINK_STATUS_INIT_C),
+       dsRxData        => (others=>x"0000"),
+       dsRxDataK       => (others=>"00"),
+       dsTxData    (0) => dsTxData,
+       dsTxDataK   (0) => dsTxDataK,
+       dsRxErr         => (others=>'0'),
+       dsRxClk         => scClkA,
+       dsRxRst         => scRstA,
+       -- Timing Interface (timingClk domain)
+       timingClk       => scClk,
+       timingRst       => scRst,
+--      timingIn          : in  TimingRxType;
+       timingStream    => xpmStream,
+       timingFbClk     => scClk,
+       timingFbRst     => scRst,
+       timingFbId      => x"DEADBEEF",
+       seqCountRst     => seqCountRst );
+
+   process is
+   begin
+     nscRst <= '1';
+     wait for 100 ns;
+     nscRst <= '0';
+     wait for 5000 ns;
+   end process;
+     
+   nscClk <= not scClk;
+    
+end top_level_app;

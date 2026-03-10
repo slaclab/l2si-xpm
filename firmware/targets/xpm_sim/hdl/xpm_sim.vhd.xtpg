@@ -1,0 +1,221 @@
+-------------------------------------------------------------------------------
+-- Title      : 
+-------------------------------------------------------------------------------
+-- File       : xpm_sim.vhd
+-- Author     : Matt Weaver <weaver@slac.stanford.edu>
+-- Company    : SLAC National Accelerator Laboratory
+-- Created    : 2015-07-10
+-- Last update: 2026-03-10
+-- Platform   : 
+-- Standard   : VHDL'93/02
+-------------------------------------------------------------------------------
+-- Description: XpmApp's Top Level
+-- 
+-- Note: Common-to-XpmApp interface defined here (see URL below)
+--       https://confluence.slac.stanford.edu/x/rLyMCw
+-------------------------------------------------------------------------------
+-- This file is part of 'LCLS2 DAQ Software'.
+-- It is subject to the license terms in the LICENSE.txt file found in the 
+-- top-level directory of this distribution and at: 
+--    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
+-- No part of 'LCLS2 DAQ Software', including this file, 
+-- may be copied, modified, propagated, or distributed except according to 
+-- the terms contained in the LICENSE.txt file.
+-------------------------------------------------------------------------------
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+
+
+library surf;
+use surf.StdRtlPkg.all;
+use surf.AxiLitePkg.all;
+use surf.AxiStreamPkg.all;
+
+library lcls_timing_core;
+use lcls_timing_core.TimingPkg.all;
+use lcls_timing_core.TPGPkg.all;
+use lcls_timing_core.TPGMiniEdefPkg.all;
+
+library l2si_core;
+use l2si_core.CuTimingPkg.all;
+
+library l2si;
+use l2si.AxiLiteSimPkg.all;
+use l2si.XpmAppPkg.all;
+
+library unisim;
+use unisim.vcomponents.all;
+
+entity xpm_sim is
+end xpm_sim;
+
+architecture top_level_app of xpm_sim is
+
+   signal regClk         : sl;
+   signal regRst         : sl;
+   signal axiRst         : sl;
+
+   signal ncClk, ncRst : sl;
+   signal scClk, scRst : sl;
+   signal simClk, simRst : sl;
+   
+   signal cuTiming   : CuTimingType := CU_TIMING_INIT_C;
+   signal ncRx : TimingRxType;
+   signal ncRxStatus : TimingPhyStatusType := (
+     locked       => '1',
+     resetDone    => '1',
+     bufferByDone => '1',
+     bufferByErr  => '0' );
+   
+   signal regWriteMaster : AxiLiteWriteMasterType := AXI_LITE_WRITE_MASTER_INIT_C;
+   signal regWriteSlave  : AxiLiteWriteSlaveType;
+   
+   signal config : TPGConfigType := TPG_CONFIG_INIT_C;
+   signal edefConfig : TPGMiniEdefConfigType := TPG_MINI_EDEF_CONFIG_INIT_C;
+   
+begin
+
+   process is
+   begin
+     regRst <= '1';
+     axiRst <= '1';
+     ncRst  <= '1';
+     wait for 100 ns;
+     regRst <= '0';
+     axiRst <= '0';
+     ncRst  <= '0';
+     wait for 2000 us;
+     ncRst  <= '1';
+     wait for 10 ns;
+     ncRst  <= '0';
+     wait;
+   end process;
+
+   scRst <= regRst;
+   
+   U_ClkSim : entity l2si.ClkSim
+     generic map (
+       VCO_HALF_PERIOD_G => 2 ps,
+       PHY_DIVISOR_G     => 833,
+       TIM_DIVISOR_G     => 1300 )
+     port map (
+       phyClk => scClk,
+       evrClk => ncClk );
+
+   process is
+   begin
+     regClk <= '1';
+     wait for 4.0 ns;
+     regClk <= '0';
+     wait for 4.0 ns;
+   end process;
+
+   U_EVG : entity lcls_timing_core.TPGMiniStream
+     generic map (
+       AC_PERIOD => 2*1666 )
+     port map (
+         -- Register Interface
+         config         => config,
+         edefConfig     => edefConfig,
+         -- TPG Interface
+         txClk          => ncClk,
+         txRst          => ncRst,
+         txRdy          => '1',
+         txData         => ncRx.data,
+         txDataK        => ncRx.dataK );
+
+   ncRx.decErr <= "00";
+   ncRx.dspErr <= "00";
+   
+   -- U_TemConfig : entity l2si.AxiLiteWriteMasterSim
+   --   generic map ( CMDS => -- group 0 to 5
+   --                 (( addr  => x"00009004", value => x"00000000"),
+   --                  ( addr  => x"00009000", value => x"00000001"),
+   --                  ( addr  => x"00009104", value => x"00000001"),
+   --                  ( addr  => x"00009100", value => x"00000001"),
+   --                  ( addr  => x"00009204", value => x"00000002"),
+   --                  ( addr  => x"00009200", value => x"00000001"),
+   --                  ( addr  => x"00009304", value => x"00000003"),
+   --                  ( addr  => x"00009300", value => x"00000001"),
+   --                  ( addr  => x"00009404", value => x"00000004"),
+   --                  ( addr  => x"00009400", value => x"00000001"),
+   --                  ( addr  => x"00009504", value => x"00000005"),
+   --                  ( addr  => x"00009500", value => x"00000001"),
+   --                  -- group 6
+   --                  ( addr  => x"00009604", value => x"00010006"), -- EVR
+   --                  ( addr  => x"0000960C", value => x"00000000"), -- delay
+   --                  ( addr  => x"00009600", value => x"00000001"),
+   --                  -- group 7
+   --                  ( addr  => x"00009704", value => x"00000007"), -- XPM
+   --                  ( addr  => x"0000970C", value => x"00000000"), -- delay
+   --                  ( addr  => x"00009700", value => x"00000001"),
+   --                  -- EvrV2CoreTriggers, channel 1
+   --                  ( addr  => x"00000600", value => x"00000001"),
+   --                  ( addr  => x"00000604", value => x"40000001"),
+   --                  ( addr  => x"00001600", value => x"80010006"),
+   --                  ( addr  => x"00001604", value => x"000003e8"),
+   --                  ( addr  => x"00001608", value => x"00000080")) )
+   --   port map ( clk    => regClk,
+   --              rst    => regRst,
+   --              master => temWriteMaster,
+   --              slave  => temWriteSlave,
+   --              done   => open );
+
+   
+   U_DUT : entity l2si.Xpm2Timing
+     generic map (
+       AXIL_BASE_ADDR_G    => x"00000000",
+       SIMULATION_G        => true,
+       US_RX_ENABLE_INIT_G => false,
+       CU_RX_ENABLE_INIT_G => true,
+       CU_ASYNC_G          => false )
+     port map (
+    -- AXI-Lite Interface (axilClk domain)
+    axilClk         => regClk,
+    axilRst         => regRst,
+    axilReadMaster  => AXI_LITE_READ_MASTER_INIT_C,
+    axilReadSlave   => open,
+    axilWriteMaster => regWriteMaster,
+    axilWriteSlave  => regWriteSlave,
+    ----------------------
+    -- Top Level Interface
+    ----------------------
+      --  SC timing input
+      usRefClk        => scClk,
+      usRefClkRst     => scRst,
+      usRecClk        => scClk,
+      usRecClkRst     => scRst,
+      usRxEnable      => '0',
+      usRx            => TIMING_RX_INIT_C,
+      usRxStatus      => TIMING_PHY_STATUS_INIT_C,
+      usRxControl     => open,
+      --  Cu timing input
+      cuRefClk        => ncClk,
+      cuRecClk        => ncClk,
+      cuRecClkRst     => ncRst,
+      cuRx            => ncRx,
+      cuRxStatus      => ncRxStatus,
+      cuRxControl     => open,
+      cuSync          => open,
+      cuRxFiducial    => open,
+      --
+      timingClk       => simClk,
+      timingRst       => simRst,
+      timingLkN       => open,
+      timingStream    => open );
+
+   -- U_UsRecSerializer : entity lcls_timing_core.WordSerializer
+   --    generic map (
+   --       NWORDS_G => TIMING_MESSAGE_WORDS_C)
+   --    port map (
+   --       txClk    => scClk,
+   --       txRst    => scRst,
+   --       fiducial => txFiducial,  -- 1MH
+   --       words    => toSlv(0,TIMING_MESSAGE_BITS_C),
+   --       ready    => '1',
+   --       advance  => txAdvance (0),
+   --       stream   => recStreams(0));
+
+end top_level_app;

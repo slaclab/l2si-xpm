@@ -1,1 +1,1 @@
-xpm_sim.vhd.axil
+xpm_sim.vhd.xtpg
