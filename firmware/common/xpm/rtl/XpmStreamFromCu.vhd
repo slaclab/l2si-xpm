@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver  <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-11-09
--- Last update: 2025-05-08
+-- Last update: 2026-03-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -105,6 +105,8 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
     cuValidCountL   : slv(7 downto 0);
     cuValidPulse    : slv(11 downto 0);
     cuValidPulseL   : slv(11 downto 0);
+    syncTest        : sl;
+    resync          : sl;
   end record;
 
   constant REG_INIT_C : RegType := (
@@ -128,11 +130,15 @@ architecture XpmStreamFromCu of XpmStreamFromCu is
     cuValidCount    => (others=>'0'),
     cuValidCountL   => (others=>'0'),
     cuValidPulse    => (others=>'0'),
-    cuValidPulseL   => (others=>'0') );
+    cuValidPulseL   => (others=>'0'),
+    syncTest        => '0',
+    resync          => '0');
 
   signal r   : RegType := REG_INIT_C;
   signal rin : RegType;
 
+  signal dividerReset : sl;
+  
   constant DEBUG_C : boolean := false;
 
   component ila_0
@@ -201,16 +207,29 @@ begin
       divisor  => config.baseDivisor,
       trigO    => baseEnable);
 
+--  dividerReset <= txRst or r.resync;
+  dividerReset <= r.resync and r.cuValid;
+  
   FixedDivider_loop : for i in 0 to FixedRateDepth-1 generate
-    U_FixedDivider_1 : entity lcls_timing_core.Divider
+    -- U_FixedDivider_1 : entity lcls_timing_core.Divider
+    --   generic map (
+    --     TPD_G => TPD_G,
+    --     Width => FixedRateWidth)
+    --   port map (
+    --     sysClk   => txClk,
+    --     sysReset => dividerReset,
+    --     enable   => baseEnable,
+    --     clear    => '0',
+    --     divisor  => config.FixedRateDivisors(i),
+    --     trigO    => frame.fixedRates(i));
+    U_FixedDivider_1 : entity l2si.SyncDivider
       generic map (
         TPD_G => TPD_G,
         Width => FixedRateWidth)
       port map (
         sysClk   => txClk,
-        sysReset => txRst,
+        sync     => dividerReset,
         enable   => baseEnable,
-        clear    => '0',
         divisor  => config.FixedRateDivisors(i),
         trigO    => frame.fixedRates(i));
   end generate FixedDivider_loop;
@@ -286,6 +305,17 @@ begin
       v.bsaActive       := cuTiming.bsaActive;
       v.bsaAvgDone      := cuTiming.bsaAvgDone;
       v.bsaDone         := cuTiming.bsaInit;
+    end if;
+
+    --  Test if the fixedRate markers are aligned to the AC marker input
+    --  If not, force a realignment
+    v.syncTest        := r.cuValid;
+    if r.syncTest = '1' then
+      if uOr(frame.fixedRates(5 downto 1))='0' and r.resync = '0' then
+        v.resync := '1';
+      else
+        v.resync := '0';
+      end if;
     end if;
     
     if config.pulseIdWrEn = '1' then
