@@ -399,11 +399,12 @@ begin
 
   U_Sync_CuResync : entity surf.SynchronizerOneShotCnt
     port map (
-      wrClk    => isimClk,
-      dataIn   => cuResync,
-      rdClk    => axilClk,
-      rdRst    => axilRst,
-      cntOut   => cuResyncCnt );
+      wrClk      => isimClk,
+      dataIn     => cuResync,
+      rdClk      => axilClk,
+      rdRst      => axilRst,
+      rollOverEn => '1',
+      cntOut     => cuResyncCnt );
   
   ccomb : process (cr, cuFiducial, cuFiducialIntv, cuRecClkRst) is
     variable v : CuRegType;
