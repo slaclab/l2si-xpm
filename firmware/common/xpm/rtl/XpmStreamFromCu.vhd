@@ -55,6 +55,7 @@ entity XpmStreamFromCu is
     stream     : out TimingSerialType;
     advance    : in  sl;
     fiducial   : out sl;
+    resync     : out sl;
     configI    : in  TPGConfigType;
     statusO    : out TPGStatusType
     );
@@ -209,6 +210,7 @@ begin
 
 --  dividerReset <= txRst or r.resync;
   dividerReset <= r.resync and r.cuValid;
+  resync       <= dividerReset;
   
   FixedDivider_loop : for i in 0 to FixedRateDepth-1 generate
     -- U_FixedDivider_1 : entity lcls_timing_core.Divider

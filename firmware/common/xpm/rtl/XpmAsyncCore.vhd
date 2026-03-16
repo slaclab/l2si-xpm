@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-22
+-- Last update: 2026-01-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -66,6 +66,7 @@ entity XpmAsyncCore is
      usRefClk              : in    sl;
      usRefClkGt            : in    sl;
      usRefClkGtDiv2        : in    sl;
+     usLoopback            : in    slv(2 downto 0) := "000";
      
      timingFbClk           : out sl;
      timingFbRst           : in  sl;
@@ -220,7 +221,7 @@ begin
          txData          => timingFb.data,
          txDataK         => timingFb.dataK,
          txOutClk        => timingFbClkB,
-         loopback        => "000");
+         loopback        => usLoopback);
 
   
   U_UsRx : entity lcls_timing_core.TimingCore

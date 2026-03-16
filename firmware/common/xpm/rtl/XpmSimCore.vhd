@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-16
+-- Last update: 2026-01-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -57,7 +57,9 @@ entity XpmSimCore is
 
      signal timingPhyClk          : in  sl;
      signal timingPhyRst          : in  sl;
-     signal recStream             : out XpmStreamType );
+     signal recStream             : out XpmStreamType;
+     signal txData                : out slv(15 downto 0);
+     signal txDataK               : out slv( 1 downto 0) );
 end XpmSimCore;
 
 architecture rtl of XpmSimCore is
@@ -117,8 +119,8 @@ begin
          streams   => txStreams,
          streamIds => txStreamIds,
          advance   => txAdvance,
-         data      => open,
-         dataK     => open);
+         data      => txData,
+         dataK     => txDataK );
    
    recStream.fiducial <= txFiducial;
    recStream.streams  <= txStreams;

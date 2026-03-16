@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-22
+-- Last update: 2026-01-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -235,10 +235,12 @@ architecture top_level of XpmBase is
    signal groupLinkClear         : slv(XPM_PARTITIONS_C-1 downto 0);
 
    -- Timing Interface (timingClk domain)
-   signal recStream   : XpmStreamType;
+   signal recStream, recStreamSim : XpmStreamType;
+   signal txDataSim : slv(15 downto 0);
+   signal txDataKSim : slv(1 downto 0);
    signal timingFbClk : sl;
    signal timingFbRst : sl := '0';
-   signal timingFb    : TimingPhyType := TIMING_PHY_INIT_C;
+   signal timingFb, timingFbO, timingFbSim : TimingPhyType := TIMING_PHY_INIT_C;
    signal timingFbId  : slv(xpmConfig.paddr'range);
    signal timingFbStatus : TimingPhyStatusType;
    signal txStreams   : TimingSerialArray(2 downto 0);
@@ -261,7 +263,7 @@ architecture top_level of XpmBase is
    signal seqRestart  : slv(NUM_SEQ_C-1 downto 0);
    signal seqDisable  : slv(NUM_SEQ_C-1 downto 0);
 
-   signal tmpReg  : slv(31 downto 0) := x"DEADBEEF";
+   signal tmpReg  : slv(31 downto 0) := x"00000000";
    signal tmpRegR : slv(31 downto 0) := x"DEADBEEF";
    signal usRx    : TimingRxType;
 
@@ -333,6 +335,8 @@ begin
        CLR => '0',
        O   => clk186 );
    
+   timingPhyClk   <= clk186;
+
    U_Rst186 : entity surf.RstSync
      generic map (
        TPD_G => TPD_G)
@@ -456,8 +460,6 @@ begin
                  CLRMASK => '1',
                  DIV     => "000",
                  O       => phyClk11 );
-   
---   timingPhyClk <= timingFbClk;
    
    U_TimingPhyRst : entity surf.RstSync
      generic map (
@@ -699,7 +701,6 @@ begin
          cuRxEnable      => open,
          dbgChan         => dbgChan);
 
-   GEN_XPMGEN : if XPM_MODE_G = "XpmGen" generate
      U_XpmGen : entity l2si.XpmSimCore
        port map (
          axilClk               => regClk,
@@ -711,17 +712,34 @@ begin
 
          timingPhyClk          => timingPhyClk,
          timingPhyRst          => timingPhyRst,
-         recStream             => recStream );
+         recStream             => recStreamSim,
+         txData                => txDataSim,
+         txDataK               => txDataKSim);
      -- axilReadSlaves (TIM_INDEX_C) <= AXI_LITE_READ_SLAVE_INIT_C;
      -- axilWriteSlaves(TIM_INDEX_C) <= AXI_LITE_WRITE_SLAVE_INIT_C;
      -- recStream <= XPM_STREAM_INIT_C;
 
-     timingPhyClk   <= clk186;
+   GEN_XPMGEN : if XPM_MODE_G = "XpmGen" generate
+     recStream      <= recStreamSim;
      timingFbClk    <= clk186;
      timingFbStatus <= TIMING_PHY_STATUS_INIT_C;
      dsLinkConfig   <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 0);
    end generate;
-   
+
+   timingFbO <= timingFb when tmpReg(2) = '0' else
+                timingFbSim;
+
+   U_TimingFbSimSync : entity surf.SynchronizerFifo
+     generic map (
+       DATA_WIDTH_G => 18
+       )
+     port map (
+       wr_clk             => timingPhyClk,
+       din (15 downto  0) => txDataSim,
+       din (17 downto 16) => txDataKSim,
+       rd_clk             => timingFbClk,
+       dout(15 downto  0) => timingFbSim.data,
+       dout(17 downto 16) => timingFbSim.dataK );
 
    GEN_XPMASYNC : if XPM_MODE_G = "XpmAsync" generate
      U_XpmAsync : entity l2si.XpmAsyncCore
@@ -742,9 +760,10 @@ begin
          usRefClk              => '0', -- timingPhyClk,
          usRefClkGt            => clk371,
          usRefClkGtDiv2        => clk186,
+         usLoopback            => tmpReg(3 downto 1),
          timingFbClk           => timingFbClk,
          timingFbRst           => timingFbRst,
-         timingFb              => timingFb,
+         timingFb              => timingFbO,
          timingFbStatus        => timingFbStatus,
          recClk                => timingPhyClk,
          recClkRst             => timingPhyRst,

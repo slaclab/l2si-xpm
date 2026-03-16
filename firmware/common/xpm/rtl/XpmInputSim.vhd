@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2026-01-15
+-- Last update: 2026-03-10
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -171,6 +171,9 @@ architecture mapping of XpmInputSim is
   signal cuFiducialErrS  : sl;
   signal phaseReset      : sl;
 
+  signal cuResync : sl;
+  signal cuResyncCnt : slv(15 downto 0);
+  
 begin
 
   isimClk  <= timingClk;
@@ -355,6 +358,7 @@ begin
         cuTimingV => cuTimingV,
         stream    => simStream,
         advance   => simAdvance,
+        resync    => cuResync,
         fiducial  => simFiducial);
   end generate;
 
@@ -393,6 +397,14 @@ begin
       dataIn  => cr.fiducialErrL,
       dataOut => cuFiducialErrS);
 
+  U_Sync_CuResync : entity surf.SynchronizerOneShotCnt
+    port map (
+      wrClk    => isimClk,
+      dataIn   => cuResync,
+      rdClk    => axilClk,
+      rdRst    => axilRst,
+      cntOut   => cuResyncCnt );
+  
   ccomb : process (cr, cuFiducial, cuFiducialIntv, cuRecClkRst) is
     variable v : CuRegType;
     variable d : slv(cuFiducialIntv'range);
@@ -426,7 +438,7 @@ begin
     end if;
   end process cseq;
 
-  comb : process (axilReadMasters, axilRst, axilWriteMasters, cuFiducialErrS, cuFiducialIntvS, r, status) is
+  comb : process (axilReadMasters, axilRst, axilWriteMasters, cuFiducialErrS, cuFiducialIntvS, r, status, cuResyncCnt) is
     variable v        : RegType;
     variable ep       : AxiLiteEndpointType;
     variable clearErr : sl;
@@ -450,6 +462,8 @@ begin
     elsif cuFiducialErrS = '1' then
       v.cuFiducialErr := '1';
     end if;
+
+    axiSlaveRegisterR(ep, x"1C", 31, cuResyncCnt);
 
     axiSlaveDefault(ep, v.axiWriteSlave, v.axiReadSlave);
 
