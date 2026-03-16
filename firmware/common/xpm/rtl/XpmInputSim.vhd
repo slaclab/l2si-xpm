@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2026-03-10
+-- Last update: 2026-03-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -463,7 +463,7 @@ begin
       v.cuFiducialErr := '1';
     end if;
 
-    axiSlaveRegisterR(ep, x"1C", 31, cuResyncCnt);
+    axiSlaveRegisterR(ep, x"1C", 0, cuResyncCnt);
 
     axiSlaveDefault(ep, v.axiWriteSlave, v.axiReadSlave);
 
