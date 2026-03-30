@@ -66,8 +66,8 @@ architecture xbar of XpmSeqXbar is
       1                  => (baseAddr     => X"00004000" + AXIL_BASEADDR_G,
                              addrBits     => 14,
                              connectivity => X"FFFF"),
-      2                  => (baseAddr     => X"00010000" + AXIL_BASEADDR_G,
-                             addrBits     => 16,
+      2                  => (baseAddr     => X"00200000" + AXIL_BASEADDR_G,
+                             addrBits     => 21,
                              connectivity => X"FFFF"));
 
    signal mAxilWriteMasters : AxiLiteWriteMasterArray(NUM_AXI_MASTERS_C-1 downto 0);
@@ -88,7 +88,7 @@ architecture xbar of XpmSeqXbar is
    type XpmSeqConfigArrayArray is array (natural range<>) of XpmSeqConfigArray(NUM_SEQ_G-1 downto 0);
    signal mConfig, mConfigS : XpmSeqConfigArrayArray(NUM_AXI_MASTERS_C-1 downto 0);
 
-   signal gConfigSlv,gConfigSlvS : slv(SEQADDRLEN+31 downto 0);
+   signal gConfigSlv,gConfigSlvS : slv(XPMSEQADDRLEN_C+31 downto 0);
    type XpmSeqConfigSlvArray is array (natural range <>) of slv(NUM_SEQ_G*XPM_SEQ_CONFIG_BITS_C-1 downto 0);
    signal mConfigSlv  : XpmSeqConfigSlvArray(NUM_AXI_MASTERS_C-1 downto 0);
    signal mConfigSlvS : XpmSeqConfigSlvArray(NUM_AXI_MASTERS_C-1 downto 0);
@@ -149,7 +149,7 @@ begin
    U_SeqMemReg : entity l2si.XpmSeqMemReg
       generic map (
          NUM_SEQ_G   => NUM_SEQ_G,
-         ADDR_BITS_G => 16 )
+         ADDR_BITS_G => AXI_CROSSBAR_MASTERS_CONFIG_C(SEQMEM_INDEX_C).addrBits )
       port map (
          axiReadMaster  => mAxilReadMasters (SEQMEM_INDEX_C),
          axiReadSlave   => mAxilReadSlaves  (SEQMEM_INDEX_C),

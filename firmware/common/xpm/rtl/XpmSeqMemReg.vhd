@@ -78,6 +78,8 @@ architecture rtl of XpmSeqMemReg is
 
 begin
 
+   assert (ADDR_BITS_G>=bitSize(NUM_SEQ_G-1)+XPMSEQADDRLEN_C+2) report "too few ADDR_BITS" severity error;
+  
    -------------------------------
    -- Configuration Register
    -------------------------------
@@ -124,10 +126,10 @@ begin
             regWrData          := axiWriteMaster.wdata;
             axiWriteResp       := AXI_RESP_OK_C;
             case wrPntr is
-               when 0 to NUM_SEQ_G*2048-1 =>
-                  iseq                   := conv_integer(regAddr(ADDR_BITS_G-1 downto SEQADDRLEN+2));
+               when 0 to NUM_SEQ_G*2**XPMSEQADDRLEN_C-1 =>
+                  iseq                   := conv_integer(regAddr(ADDR_BITS_G-1 downto XPMSEQADDRLEN_C+2));
                   v.config(iseq).seqWrEn := '1';
-                  v.gconfig.seqAddr      := SeqAddrType(regAddr(SEQADDRLEN+1 downto 2));
+                  v.gconfig.seqAddr      := XpmSeqAddrType(regAddr(XPMSEQADDRLEN_C+1 downto 2));
                when others => axiWriteResp := AXI_ERROR_RESP_G;
             end case;
             axiSlaveWriteResponse(v.axiWriteSlave, axiWriteResp);
@@ -148,21 +150,21 @@ begin
          -- Check for alignment
          if axiReadMaster.araddr(1 downto 0) = "00" then
             -- Update external data/address buses
-            v.gconfig.seqAddr := SeqAddrType(regAddr(SEQADDRLEN+1 downto 2));
+            v.gconfig.seqAddr := XpmSeqAddrType(regAddr(XPMSEQADDRLEN_C+1 downto 2));
             -- Address is aligned
             axiReadResp      := AXI_RESP_OK_C;
             -- BRAM 2 cycles read delay
             v.axiRdEn        := r.axiRdEn(1 downto 0) & '1';
             -- Check if BRAM is valid
             if r.axiRdEn(1) = '1' then
-              v.seqRdSeq := resize(regAddr(ADDR_BITS_G-1 downto SEQADDRLEN+2),
+              v.seqRdSeq := resize(regAddr(ADDR_BITS_G-1 downto XPMSEQADDRLEN_C+2),
                                    r.seqRdSeq'length);
             end if;
             if r.axiRdEn(2) = '1' then
                -- Decode the read address
                case rdPntr is
-                  when 0 to NUM_SEQ_G*2048-1 =>
-                     iseq       := conv_integer(regAddr(ADDR_BITS_G-1 downto SEQADDRLEN+2));
+                  when 0 to NUM_SEQ_G*(2**ADDR_BITS_G)-1 =>
+                     iseq       := conv_integer(regAddr(ADDR_BITS_G-1 downto XPMSEQADDRLEN_C+2));
                      v.seqRd    := '1';
                      v.seqRdSeq := std_logic_vector(conv_unsigned(iseq, v.seqRdSeq'length));
                   when others => v.axiReadSlave.rdata := x"DEAD" & regAddr(15 downto 2) & "00";

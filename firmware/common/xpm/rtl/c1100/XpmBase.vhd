@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-28
+-- Last update: 2026-03-24
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -63,7 +63,6 @@ use lcls_timing_core.TPGMiniEdefPkg.all;
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
-use l2si_core.XpmSeqPkg.all;
 
 --library amc_carrier_core;
 --use amc_carrier_core.AmcCarrierPkg.all;
@@ -200,8 +199,8 @@ architecture top_level of XpmBase is
      TIM_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00030000",
                        addrBits     => 16,
                        connectivity => X"FFFF"),
-     SEQ_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00040000",
-                       addrBits     => 17,
+     SEQ_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00400000",
+                       addrBits     => 22,
                        connectivity => X"FFFF"),
      DDC_INDEX_C   => (baseAddr     => AXIL_BASE_G + X"00060000",
                        addrBits     => 16,

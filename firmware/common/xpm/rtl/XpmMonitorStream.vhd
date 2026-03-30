@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2025-12-29
+-- Last update: 2026-03-24
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -40,7 +40,6 @@ use surf.EthMacPkg.all;
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
-use l2si_core.XpmSeqPkg.all;
 
 library l2si;
 use l2si.XpmAppPkg.all;

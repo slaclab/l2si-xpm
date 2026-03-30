@@ -30,7 +30,6 @@ use lcls_timing_core.TimingPkg.all;
 use lcls_timing_core.TPGPkg.all;
 
 library l2si_core;
---use l2si_core.XpmSeqPkg.all;
 use l2si_core.XpmPkg.all;
 
 library l2si;
@@ -88,7 +87,7 @@ architecture mapping of XpmSequence is
    signal seqData      : Slv4Array   (NUM_SEQ_G-1 downto 0);
    signal seqReset     : slv         (NUM_SEQ_G-1 downto 0);
    signal seqJump      : slv         (NUM_SEQ_G-1 downto 0);
-   signal seqJumpAddr  : SeqAddrArray(NUM_SEQ_G-1 downto 0);
+   signal seqJumpAddr  : XpmSeqAddrArray(NUM_SEQ_G-1 downto 0);
    signal frameSlv     : slv(TIMING_MESSAGE_BITS_C-1 downto 0);
    signal frame        : TimingMessageType;
    signal tframeSlv    : slv(TIMING_MESSAGE_BITS_C-1 downto 0);
@@ -128,7 +127,7 @@ architecture mapping of XpmSequence is
    signal r_in : RegType;
 
    signal seqNotifyValid : slv (NUM_SEQ_G-1 downto 0);
-   signal seqNotify      : SeqAddrArray(NUM_SEQ_G-1 downto 0);
+   signal seqNotify      : XpmSeqAddrArray(NUM_SEQ_G-1 downto 0);
 
    signal axisSlave : AxiStreamSlaveType;
 
@@ -241,29 +240,26 @@ begin
             resetReq => config(i).seqRestart,
             resetO   => seqReset(i));
 
-      U_Jump_i : entity l2si_core.SeqJump
+      U_Jump_i : entity l2si.SeqJump
          generic map (
-            TPD_G => TPD_G)
+           TPD_G     => TPD_G )
          port map (
             clk      => timingClk,
             rst      => timingRst,
             config   => config(i).seqJumpConfig,
             manReset => seqReset(i),
-            bcsFault => '0',
-            mpsFault => '0',
-            mpsClass => (others => '0'),
             jumpEn   => r.strobe(S0),
             jumpReq  => seqJump(i),
             jumpAddr => seqJumpAddr(i));
 
-      U_Seq : entity l2si_core.Sequence
+      U_Seq : entity l2si.Sequence
           generic map (
             MON_SUM_G => false )
           port map (
             clkA         => timingClk,
             rstA         => timingRst,
             wrEnA        => config(i).seqWrEn,
-            indexA       => gconfig.seqAddr,
+            indexA       => slv(gconfig.seqAddr),
             rdStepA      => status(i).seqRdData,
             wrStepA      => gconfig.seqWrData,
             clkB         => timingClk,
@@ -276,7 +272,7 @@ begin
             seqReset     => seqJump (i),
             startAddr    => seqJumpAddr (i),
             seqState     => status(i).seqState,
-            seqNotify    => seqNotify (i),
+            seqNotify    => seqNotify(i),
             seqNotifyWr  => seqNotifyValid (i),
             seqNotifyAck => r.ack (i),
             dataO(16 downto 4) => sinkSlv (i),

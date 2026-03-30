@@ -82,6 +82,7 @@ begin
       variable regWrData    : slv(31 downto 0);
       variable tmpRdData    : slv(31 downto 0);
       variable regAddr      : slv(31 downto 2);
+      variable q            : slv(XPMSEQADDRLEN_C-1 downto 0);
    begin
       -- Latch the current value
       v := r;
@@ -110,8 +111,8 @@ begin
                   ichn                             := conv_integer(regAddr(5 downto 2));
                   if (ichn = 15) then
                      v.config(iseq).seqJumpConfig.syncSel   := regWrData(31 downto 16);
-                     v.config(iseq).seqJumpConfig.syncClass := regWrData(15 downto 12);
-                     v.config(iseq).seqJumpConfig.syncJump  := SeqAddrType(regWrData(SeqAddrType'range));
+                     v.config(iseq).seqJumpConfig.syncClass := regWrData(XPMSEQADDRLEN_C-1 downto SEQADDRLEN);
+                     v.config(iseq).seqJumpConfig.syncJump  := regWrData(SEQADDRLEN-1 downto 0);
                   end if;
                when others => axiWriteResp := AXI_ERROR_RESP_G;
             end case;
@@ -141,9 +142,9 @@ begin
                   iseq                             := conv_integer(regAddr(ADDR_BITS_G-1 downto 6));
                   ichn                             := conv_integer(regAddr(5 downto 2));
                   if (ichn = 15) then
-                     tmpRdData(31 downto 16)      := r.config(iseq).seqJumpConfig.syncSel;
-                     tmpRdData(15 downto 12)      := r.config(iseq).seqJumpConfig.syncClass;
-                     tmpRdData(SeqAddrType'range) := slv(r.config(iseq).seqJumpConfig.syncJump);
+                     tmpRdData(31 downto 16)      := r.config(iseq).seqJumpConfig.syncSel;      
+                     q := r.config(iseq).seqJumpConfig.syncClass & slv(r.config(iseq).seqJumpConfig.syncJump);
+                     tmpRdData(15 downto  0)      := resize(q,16);
                   end if;
                when others => tmpRdData := x"DEAD" & regAddr(15 downto 2) & "00";
             end case;

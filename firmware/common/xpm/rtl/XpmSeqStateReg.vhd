@@ -82,8 +82,8 @@ begin
 
       axiSlaveWaitTxn(ep, axiWriteMaster, axiReadMaster, v.axiWriteSlave, v.axiReadSlave);
 
-      axiSlaveRegisterR(ep, toSlv(0, 12), 0, toSlv(SEQADDRLEN, 4));
-      axiSlaveRegisterR(ep, toSlv(0, 12), 16, toSlv(MAXEXPSEQDEPTH, 8));
+      axiSlaveRegisterR(ep, toSlv(0, 12), 0, toSlv(XPMSEQADDRLEN_C, 4));
+      axiSlaveRegisterR(ep, toSlv(0, 12), 16, toSlv(0, 8));
       axiSlaveRegisterR(ep, toSlv(0, 12), 24, toSlv(NUM_SEQ_G, 8));
 
       for i in 0 to NUM_SEQ_G-1 loop

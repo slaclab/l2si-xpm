@@ -30,9 +30,15 @@ use l2si_core.XpmPkg.all;
 
 package XpmAppPkg is
 
+   constant XPM_SEQ_DEPTH_C : integer := 8;
+   constant XPMSEQADDRLEN_C : integer := 15;
+
    -----------------------------------------------------------
    -- Application: Configurations, Constants and Records Types
-   -----------------------------------------------------------
+  -----------------------------------------------------------
+   subtype XpmSeqAddrType is slv(XPMSEQADDRLEN_C-1 downto 0);
+   type XpmSeqAddrArray is array(natural range<>) of XpmSeqAddrType;
+   
    type XpmSeqStatusType is record
       countRequest : slv(127 downto 0);
       countInvalid : slv( 31 downto 0);
@@ -48,7 +54,7 @@ package XpmAppPkg is
 
    type XpmSeqStatusArray is array(natural range<>) of XpmSeqStatusType;
      
-   constant XPM_SEQ_STATUS_BITS_C : integer := 192+8*SEQCOUNTDEPTH+SEQADDRLEN;
+   constant XPM_SEQ_STATUS_BITS_C : integer := 192+8*SEQCOUNTDEPTH+XPMSEQADDRLEN_C;
 
    function toSlv(s : XpmSeqStatusType) return slv;
    function toSlv(s : XpmSeqStatusArray) return slv;
@@ -56,7 +62,7 @@ package XpmAppPkg is
    function toXpmSeqStatusArray (vector : slv; n : integer) return XpmSeqStatusArray;
 
    type XpmSeqGConfigType is record
-      seqAddr       : SeqAddrType;
+      seqAddr       : XpmSeqAddrType;
       seqWrData     : slv(31 downto 0);
    end record;
 
@@ -90,7 +96,7 @@ package XpmAppPkg is
 
    type XpmSeqNotifyType is record
       valid : sl;
-      addr  : SeqAddrType;
+      addr  : XpmSeqAddrType;
    end record;
 
    type XpmSeqNotifyArray is array(natural range<>) of XpmSeqNotifyType;
@@ -140,9 +146,7 @@ package body XpmAppPkg is
      assignSlv(i, vector, s.countRequest);
      assignSlv(i, vector, s.countInvalid);
      assignSlv(i, vector, s.seqRdData   );
-     for k in 0 to SEQADDRLEN-1 loop
-       assignSlv(i, vector, s.seqState.index(k));
-     end loop;  -- k
+     assignSlv(i, vector, s.seqState.index);
      for k in 0 to SEQCOUNTDEPTH-1 loop
        assignSlv(i, vector, s.seqState.count(k));
      end loop;  -- k
@@ -169,9 +173,7 @@ package body XpmAppPkg is
      assignRecord(i, vector, s.countRequest);
      assignRecord(i, vector, s.countInvalid);
      assignRecord(i, vector, s.seqRdData   );
-     for k in 0 to SEQADDRLEN-1 loop
-       assignRecord(i, vector, s.seqState.index(k));
-     end loop;
+     assignRecord(i, vector, s.seqState.index);
      for k in 0 to SEQCOUNTDEPTH-1 loop
        assignRecord(i, vector, s.seqState.count(k));
      end loop;  -- k
@@ -191,12 +193,10 @@ package body XpmAppPkg is
    
    function toSlv(s : XpmSeqGConfigType) return slv
    is
-     variable vector : slv(SEQADDRLEN+31 downto 0) := (others => '0');
+     variable vector : slv(XPMSEQADDRLEN_C+31 downto 0) := (others => '0');
      variable i      : integer                     := 0;
    begin
-      for k in 0 to SEQADDRLEN-1 loop
-        assignSlv(i, vector, s.seqAddr(k));
-      end loop;
+      assignSlv(i, vector, s.seqAddr);
       assignSlv(i, vector, s.seqWrData);
       return vector;
    end function;
@@ -212,16 +212,12 @@ package body XpmAppPkg is
       assignSlv(i, vector, s.seqWrEn);
       assignSlv(i, vector, s.seqJumpConfig.syncSel);
       assignSlv(i, vector, s.seqJumpConfig.syncClass);
+      assignSlv(i, vector, s.seqJumpConfig.syncJump);
       assignSlv(i, vector, s.seqJumpConfig.bcsClass);
-      for k in 0 to SEQADDRLEN-1 loop
-        assignSlv(i, vector, s.seqJumpConfig.syncJump(k));
-        assignSlv(i, vector, s.seqJumpConfig.bcsJump(k));
-      end loop;
+      assignSlv(i, vector, s.seqJumpConfig.bcsJump);
       for k in 0 to MPSCHAN-1 loop
-        for m in 0 to SEQADDRLEN-1 loop
-          assignSlv(i, vector, s.seqJumpConfig.mpsJump (k)(m));
-        end loop;
         assignSlv(i, vector, s.seqJumpConfig.mpsClass(k));
+        assignSlv(i, vector, s.seqJumpConfig.mpsJump (k));
       end loop;  -- k
       assert (i=XPM_SEQ_CONFIG_BITS_C) report "toSlv(XpmSeqConfig) incomplete" severity error;
       return vector;
@@ -243,9 +239,7 @@ package body XpmAppPkg is
      variable s : XpmSeqGConfigType;
      variable i : integer := 0;
    begin
-      for k in 0 to SEQADDRLEN-1 loop
-        assignRecord(i, vector, s.seqAddr(k));
-      end loop;
+      assignRecord(i, vector, s.seqAddr);
       assignRecord(i, vector, s.seqWrData);
       return s;
    end function;
@@ -260,16 +254,12 @@ package body XpmAppPkg is
       assignRecord(i, vector, s.seqWrEn);
       assignRecord(i, vector, s.seqJumpConfig.syncSel);
       assignRecord(i, vector, s.seqJumpConfig.syncClass);
+      assignRecord(i, vector, s.seqJumpConfig.syncJump);
       assignRecord(i, vector, s.seqJumpConfig.bcsClass);
-      for k in 0 to SEQADDRLEN-1 loop
-        assignRecord(i, vector, s.seqJumpConfig.syncJump(k));
-        assignRecord(i, vector, s.seqJumpConfig.bcsJump(k));
-      end loop;
+      assignRecord(i, vector, s.seqJumpConfig.bcsJump);
       for k in 0 to MPSCHAN-1 loop
-        for m in 0 to SEQADDRLEN-1 loop
-          assignRecord(i, vector, s.seqJumpConfig.mpsJump (k)(m));
-        end loop;
         assignRecord(i, vector, s.seqJumpConfig.mpsClass(k));
+        assignRecord(i, vector, s.seqJumpConfig.mpsJump (k));
       end loop;  -- k
       assert (i=XPM_SEQ_CONFIG_BITS_C) report "toXpmSeqConfig incomplete" severity error;
       return s;

@@ -29,7 +29,6 @@ use lcls_timing_core.TimingPkg.all;
 
 library l2si_core;
 use l2si_core.XpmPkg.all;
---use l2si_core.XpmSeqPkg.all;
 use l2si_core.XpmExtensionPkg.all;
 use l2si_core.XpmMiniPkg.all;
 
