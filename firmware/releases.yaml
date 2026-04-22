@@ -18,14 +18,6 @@ RogueScripts:
   - ../software/scripts/xpmGui
 
 Targets:
-  xpmGenKcu1500:
-    ImageDir: targets/xpmGenKcu1500/images
-    Extensions:
-      - mcs      
-  xpmKcu1500:
-    ImageDir: targets/xpmKcu1500/images
-    Extensions:
-      - mcs      
   xtpg:
     ImageDir: targets/xtpg/images
     Extensions:
@@ -42,21 +34,40 @@ Targets:
     ImageDir: targets/xpmUed/images
     Extensions:
       - mcs
+  xpmKcu1500:
+    ImageDir: targets/xpmKcu1500/images
+    Extensions:
+      - mcs      
+  xpmC1100:
+    ImageDir: targets/xpmC1100/images
+    Extensions:
+      - mcs
+      
   xpmGen:
     ImageDir: targets/xpmGen/images
     Extensions:
       - mcs
+  xpmGenKcu1500:
+    ImageDir: targets/xpmGenKcu1500/images
+    Extensions:
+      - mcs      
+  xpmGenC1100:
+    ImageDir: targets/xpmGenC1100/images
+    Extensions:
+      - mcs      
 
 Releases:
   l2si_xpm:
     Primary: True
     Targets:
-      - xpmGenKcu1500
-      - xpmKcu1500
       - xtpg
       - xpm
       - xpm_noRTM
       - xpmUed
+      - xpmKcu1500
+      - xpmC1100
       - xpmGen
+      - xpmGenKcu1500
+      - xpmGenC1100
     Types:
       - Rogue
