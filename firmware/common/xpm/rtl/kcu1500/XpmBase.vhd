@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-03-24
+-- Last update: 2026-04-22
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -652,6 +652,8 @@ begin
          usRefClk              => timingPhyClk,
          usRefClkGt            => dsClkBuf(0),
          usRefClkGtDiv2        => '0',
+         stableClk             => regClk,
+         stableRst             => regRst,
          timingFbClk           => timingFbClk,
          timingFbRst           => timingFbRst,
          timingFb              => timingFb,
