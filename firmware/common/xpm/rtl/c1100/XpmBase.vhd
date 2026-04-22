@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-03-24
+-- Last update: 2026-04-22
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -265,7 +265,7 @@ architecture top_level of XpmBase is
    signal tmpReg  : slv(31 downto 0) := x"00000000";
    signal tmpRegR : slv(31 downto 0) := x"DEADBEEF";
    signal usRx    : TimingRxType;
-
+   
    signal common : slv(XPM_PARTITIONS_C-1 downto 0);
    
    component ila_0
@@ -760,6 +760,8 @@ begin
          usRefClkGt            => clk371,
          usRefClkGtDiv2        => clk186,
          usLoopback            => tmpReg(3 downto 1),
+         stableClk             => stableClk,
+         stableRst             => stableRst,
          timingFbClk           => timingFbClk,
          timingFbRst           => timingFbRst,
          timingFb              => timingFbO,

@@ -254,7 +254,9 @@ begin
 
       U_Seq : entity l2si.Sequence
           generic map (
-            MON_SUM_G => false )
+            MON_SUM_G   => false,
+            EN_NOTIFY_G => XPM_SEQ_EN_NOTIFY_C,
+            EN_CALLRT_G => XPM_SEQ_EN_CALLRT_C )
           port map (
             clkA         => timingClk,
             rstA         => timingRst,

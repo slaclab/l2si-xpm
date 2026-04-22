@@ -31,8 +31,6 @@ use unisim.vcomponents.all;
 entity TimingGtCoreWrapper is
    generic (
       TPD_G             : time             := 1 ns;
-      HW_TYPE_G          : string          := "GTY+";
-      EXTREF_G          : boolean          := false;
       AXI_CLK_FREQ_G    : real             := 104.167e6;
       AXIL_BASE_ADDR_G  : slv(31 downto 0) );
    port (

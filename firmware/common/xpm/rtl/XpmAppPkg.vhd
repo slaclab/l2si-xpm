@@ -33,6 +33,10 @@ package XpmAppPkg is
    constant XPM_SEQ_DEPTH_C : integer := 8;
    constant XPMSEQADDRLEN_C : integer := 15;
 
+   --  Instruction availability
+   constant XPM_SEQ_EN_NOTIFY_C : boolean := false;
+   constant XPM_SEQ_EN_CALLRT_C : boolean := false;
+
    -----------------------------------------------------------
    -- Application: Configurations, Constants and Records Types
   -----------------------------------------------------------

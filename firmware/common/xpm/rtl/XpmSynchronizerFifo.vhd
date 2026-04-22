@@ -50,7 +50,7 @@ architecture rtl of XpmSynchronizerFifo is
 
    signal wr_en, rd_en, rd_rst : sl;
    signal wr_cnt, rd_cnt : slv(ADDR_WIDTH_C-1 downto 0);
-   signal doutb : slv(dout'range);
+   signal dinb, doutb : slv(dout'range);
    signal com_detected : sl;
    constant LO_MARK_C : slv(ADDR_WIDTH_C-1 downto 0) := toSlv(2,ADDR_WIDTH_C);
    constant HI_MARK_C : slv(ADDR_WIDTH_C-1 downto 0) := toSlv((2**ADDR_WIDTH_C)-3,
@@ -58,6 +58,18 @@ architecture rtl of XpmSynchronizerFifo is
    
 begin
 
+   --  Put a comma on the link to allow lock
+   U_PIPELINE : entity surf.RegisterVector
+     generic map (
+       TPD_G    => TPD_G,
+       WIDTH_G  => din'length,
+       INIT_G   => "01" & D_215_C & K_COM_C )
+     port map (
+       clk    => wr_clk,
+       rst    => rst,
+       sig_i  => din,
+       reg_o  => dinb );
+  
    GEN_ASYNC : if (COMMON_CLK_G = false) generate
 
       FifoAsync_1 : entity surf.FifoAsync
@@ -69,7 +81,7 @@ begin
             rst           => rst,
             wr_clk        => wr_clk,
             wr_en         => wr_en,
-            din           => din,
+            din           => dinb,
             wr_data_count => wr_cnt,
             wr_ack        => open,
             overflow      => open,
@@ -87,7 +99,7 @@ begin
             empty         => open);
 
       -- Drop idle characters if the FIFO is running full
-      com_detected <= '1' when (din (16)='1' and din(7 downto 0)=K_COM_C) else '0';
+      com_detected <= '1' when (dinb (16)='1' and dinb(7 downto 0)=K_COM_C) else '0';
       wr_en <= '0' when (com_detected = '1' and
                          wr_cnt > HI_MARK_C) else '1';
       -- Duplicate idle characters if the FIFO is running empty
@@ -96,7 +108,7 @@ begin
    end generate;
 
    GEN_SYNC : if (COMMON_CLK_G = true) generate
-      doutb <= din;
+      doutb <= dinb;
       valid <= wr_en;
    end generate;
 

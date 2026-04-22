@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-03-30
+-- Last update: 2026-04-22
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -649,7 +649,9 @@ begin
       axiSlaveRegisterR(axilEp, X"300",  0, toSlv(NUM_DDC_G,8));
       axiSlaveRegisterR(axilEp, X"300",  8, toSlv(NUM_SEQ_G,8));
       axiSlaveRegisterR(axilEp, X"300", 16, toSlv(NUM_DS_LINKS_G,8));
-      axiSlaveRegisterR(axilEp, X"300", 24, toSlv(0,4)); -- NUM_BP_LINKS
+      axiSlaveRegisterR(axilEp, X"300", 24, toSlv(XPMSEQADDRLEN_C,4));
+      axiSlaveRegisterR(axilEp, X"300", 28, ite(XPM_SEQ_EN_NOTIFY_C,'1','0'));
+      axiSlaveRegisterR(axilEp, X"300", 29, ite(XPM_SEQ_EN_CALLRT_C,'1','0'));
       axiSlaveRegisterR(axilEp, X"304",  0, toSlv(AXILCLK_FREQ_G,32));
       axiSlaveRegisterR(axilEp, X"308",  0, toSlv(STA_INTERVAL_C,32));
       

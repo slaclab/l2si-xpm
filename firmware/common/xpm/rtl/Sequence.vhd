@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver  <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-09-15
--- Last update: 2026-03-30
+-- Last update: 2026-04-20
 -- Platform   :
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -64,6 +64,7 @@ entity Sequence is
    generic (TPD_G       : time                  := 1 ns;
             MON_SUM_G   : boolean               := true;  -- monCount is the sum of requests
             EN_NOTIFY_G : boolean               := true;
+            EN_CALLRT_G : boolean               := true;
             MON_WIDTH_G : integer range 1 to 32 := 20;
             MON_DEPTH_G : integer               := 4;
             DEBUG       : boolean               := false);
@@ -267,13 +268,17 @@ begin
                   v.index := r.index+1;
                   v.data  := '1' & rdStepB(15 downto 0);
                   v.state := SEQ_LOAD;
-               when "101" =>                           -- Call/Return
-                  if rdStepB(12) = '1' then            -- return
-                     v.index      := r.returnaddr;
-                     v.returnaddr := (others => '0');  -- some stack safety
+              when "101" =>                           -- Call/Return
+                  if EN_CALLRT_G then
+                     if rdStepB(12) = '1' then            -- return
+                        v.index      := r.returnaddr;
+                        v.returnaddr := (others => '0');  -- some stack safety
+                     else
+                        v.index      := r.upper & rdStepB(SEQADDRLEN-1 downto 0);
+                        v.returnaddr := r.index+1;
+                     end if;
                   else
-                     v.index      := r.upper & rdStepB(SEQADDRLEN-1 downto 0);
-                     v.returnaddr := r.index+1;
+                    v.index := r.index+1;
                   end if;
                   v.state := SEQ_LOAD;
                when "110" =>                           -- Upper Address
