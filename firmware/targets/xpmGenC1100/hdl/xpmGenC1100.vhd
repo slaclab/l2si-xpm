@@ -88,7 +88,7 @@ end xpmGenC1100;
 architecture top_level of xpmGenC1100 is
 
    constant DMA_AXIS_CONFIG_C : AxiStreamConfigType := ssiAxiStreamConfig(8, TKEEP_COMP_C, TUSER_FIRST_LAST_C, 8, 2);  -- 64-bit interface
-   constant DMA_SIZE_C        : positive            := 3;
+   constant DMA_SIZE_C        : positive            := 2;
 
    signal userClk          : sl;
    
@@ -193,7 +193,7 @@ begin
         XPM_MODE_G          => "XpmGen",
 --        XPM_MODE_G          => "XpmAsync",
         AXIL_BASE_G         => x"0080_0000",
-        DMA_SIZE_G          => DMA_SIZE_C-1,
+        DMA_SIZE_G          => DMA_SIZE_C,
         DMA_AXIS_CONFIG_G   => DMA_AXIS_CONFIG_C )
       port map (
          -- AXI-Lite Interface (axilClk domain)
@@ -205,10 +205,10 @@ begin
          axilWriteSlave        => axilWriteSlave ,
          dmaClk                => dmaClk,
          dmaRst                => dmaRst,
-         ibDmaMasters          => dmaIbMasters(DMA_SIZE_C-1 downto 1),
-         ibDmaSlaves           => dmaIbSlaves (DMA_SIZE_C-1 downto 1),
-         obDmaMasters          => dmaObMasters(DMA_SIZE_C-1 downto 1),
-         obDmaSlaves           => dmaObSlaves (DMA_SIZE_C-1 downto 1),
+         ibDmaMasters          => dmaIbMasters,
+         ibDmaSlaves           => dmaIbSlaves ,
+         obDmaMasters          => dmaObMasters,
+         obDmaSlaves           => dmaObSlaves ,
          ------------------
          --  Hardware Ports
          ------------------
