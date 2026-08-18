@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver <weaver@slac.stanford.edu>
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-07-08
--- Last update: 2024-10-23
+-- Last update: 2026-07-15
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -369,7 +369,8 @@ begin
 
    U_UsRx : entity lcls_timing_core.TimingRx
       generic map (
-         CLKSEL_MODE_G => "LCLSII")
+        CLKSEL_MODE_G => "LCLSII",
+        RESET_ON_ERR_G => false )
       port map (
          rxClk               => usRecClk,
          rxData              => usRx,

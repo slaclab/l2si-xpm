@@ -313,7 +313,7 @@ begin
    --  Replace words in the timing frame.  Skip recalculating the CRC
    --  in the frame, since it will be done on transmission.
    --
-   comb : process (timingRst, r, config, timingDataIn, timingAdvance,
+   comb : process (timingRst, r, config, timingDataIn, timingAdvance, seqReset,
                    ddcData, seqData, seqNotify, seqNotifyValid, axisSlave) is
       variable v : RegType;
       variable iword : integer;
