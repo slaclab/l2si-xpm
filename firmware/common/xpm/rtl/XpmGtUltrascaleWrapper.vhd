@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-01-23
+-- Last update: 2026-08-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -50,11 +50,9 @@ entity XpmGtUltrascaleWrapper is
       gtTxN            : out slv(NLINKS_G-1 downto 0);
       gtRxP            : in  slv(NLINKS_G-1 downto 0);
       gtRxN            : in  slv(NLINKS_G-1 downto 0);
-      devClkP          : in  sl := '0';
-      devClkN          : in  sl := '0';
-      devClkIn         : in  sl := '0';
+      devClkIn         : in  sl;
+      devClkBuf        : in  sl;
       devClkOut        : out sl;
-      devClkBuf        : out sl;
       txData           : in  Slv16Array(NLINKS_G-1 downto 0);
       txDataK          : in  Slv2Array (NLINKS_G-1 downto 0);
       rxData           : out Slv16Array(NLINKS_G-1 downto 0);
@@ -81,7 +79,7 @@ end XpmGtUltrascaleWrapper;
 
 architecture rtl of XpmGtUltrascaleWrapper is
 
-   component TimingGty_fixedlat
+   component TimingGty_extref
       port (
          gtwiz_userclk_tx_reset_in          : in  std_logic_vector(0 downto 0);
          gtwiz_userclk_tx_active_in         : in  std_logic_vector(0 downto 0);
@@ -105,13 +103,11 @@ architecture rtl of XpmGtUltrascaleWrapper is
          gtwiz_reset_rx_done_out            : out std_logic_vector(0 downto 0);
          gtwiz_userdata_tx_in               : in  std_logic_vector(15 downto 0);
          gtwiz_userdata_rx_out              : out std_logic_vector(15 downto 0);
-         cpllrefclksel_in                   : in  std_logic_vector(2 downto 0);
          drpaddr_in                         : in  std_logic_vector(9 downto 0);
          drpclk_in                          : in  std_logic_vector(0 downto 0);
          drpdi_in                           : in  std_logic_vector(15 downto 0);
          drpen_in                           : in  std_logic_vector(0 downto 0);
          drpwe_in                           : in  std_logic_vector(0 downto 0);
-         gtgrefclk_in                       : in  std_logic_vector(0 downto 0);
          gtrefclk0_in                       : in  std_logic_vector(0 downto 0);
          gtyrxn_in                          : in  std_logic_vector(0 downto 0);
          gtyrxp_in                          : in  std_logic_vector(0 downto 0);
@@ -150,11 +146,12 @@ architecture rtl of XpmGtUltrascaleWrapper is
          rxresetdone_out                    : out std_logic_vector(0 downto 0);
          rxsyncdone_out                     : out std_logic_vector(0 downto 0);
          txoutclk_out                       : out std_logic_vector(0 downto 0);
-         txpmaresetdone_out                 : out std_logic_vector(0 downto 0)
+         txpmaresetdone_out                 : out std_logic_vector(0 downto 0);
+         txresetdone_out                    : out std_logic_vector(0 downto 0)
          );
    end component;
-  
-  type RegType is record
+
+   type RegType is record
     clkcnt  : slv(5 downto 0);
     errdet  : sl;
     reset   : sl;
@@ -245,19 +242,10 @@ begin
   rxErr    <= rxErrL;
   txClk    <= txUsrClk(0);
   txOutClk <= txUsrClk;
-  
-  gtRefClk   <= devClkIn;
-  devClkOut  <= gtRefClk;
-  devClkBuf  <= gRefClk;
 
-   U_Clk186 : BUFGCE_DIV
-     generic map (
-       BUFGCE_DIVIDE => 2 )
-     port map (
-       I   => gtRefClk,
-       CE  => '1',
-       CLR => '0',
-       O   => gtRefClkDiv2 );
+  devClkOut    <= devClkBuf;
+  gtRefClk     <= devClkBuf;
+  gtRefClkDiv2 <= devClkBuf;
   
   GEN_CTRL : for i in 0 to NLINKS_G-1 generate
     rxErrIn   (i) <= '0' when (rxCtrl1Out(i)(1 downto 0)="00" and rxCtrl3Out(i)(1 downto 0)="00") else '1';
@@ -399,7 +387,7 @@ begin
                  syncRst  => rxbypassrst(i) );
                      
     GEN_GTY : if HWTYPE_G = "GTY+" generate
-      U_TimingGtyCore : TimingGty_fixedlat
+      U_TimingGtyCore : TimingGty_extref
          port map (
             gtwiz_userclk_tx_reset_in(0)          => txbypassrst(i),
             gtwiz_userclk_tx_active_in(0)         => txUsrClkActive,
@@ -423,17 +411,15 @@ begin
             gtwiz_reset_rx_done_out(0)            => rxResetDone(i),
             gtwiz_userdata_tx_in                  => txDataS(i)(15 downto 0),
             gtwiz_userdata_rx_out                 => rxData(i),
-            cpllrefclksel_in                      => "111",
             drpaddr_in(9)                         => '0',
             drpaddr_in(8 downto 0)                => drpaddr(i),
             drpclk_in(0)                          => stableClk,
             drpdi_in                              => drpdi(i),
             drpen_in(0)                           => drpen(i),
             drpwe_in(0)                           => drpwe(i),
-            gtgrefclk_in(0)                       => gtRefClk,
+            gtrefclk0_in(0)                       => devClkIn,
             gtyrxn_in(0)                          => gtRxN(i),
             gtyrxp_in(0)                          => gtRxP(i),
-            gtrefclk0_in(0)                       => '0',
             loopback_in                           => loopback(i),
             rx8b10ben_in(0)                       => '1',
             rxcommadeten_in(0)                    => '1',
@@ -462,10 +448,15 @@ begin
             rxctrl1_out                           => rxCtrl1Out(i),
             rxctrl2_out                           => open,
             rxctrl3_out                           => rxCtrl3Out(i),
+            rxdlysresetdone_out                   => open,
             rxoutclk_out(0)                       => rxOutClk(i),
+            rxphaligndone_out                     => open,
             rxpmaresetdone_out(0)                 => rxpmarstdone(i),
+            rxresetdone_out                       => open,
+            rxsyncdone_out                        => open,
             txoutclk_out(0)                       => txOutClkO(i),
-            txpmaresetdone_out(0)                 => txpmarstdone(i));
+            txpmaresetdone_out(0)                 => txpmarstdone(i),
+            txresetdone_out                       => open);
     end generate GEN_GTY;
         
     txpllreset(i) <= config(i).txPllReset;

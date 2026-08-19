@@ -86,7 +86,7 @@ begin
                  AXIL_BASE_ADDR_G  => AXIL_BASE_ADDR_G,
                  GTY_DRP_OFFSET_G  => x"00004000",
                  LCLS1_ONLY_G      => false,
-                 EXTREF_G          => false)
+                 EXTREF_G          => true)
     port map (
       axilClk         => axilClk,
       axilRst         => axilRst,
@@ -96,9 +96,9 @@ begin
       axilWriteSlave  => axilWriteSlave,
       stableClk       => stableClk,
       stableRst       => stableRst,
-      gtRefClk        => '0',
+      gtRefClk        => gtRefClk,
       gtRefClkDiv2    => gtRefClkDiv2, -- 186 MHz
-      gtgRefClk       => gtRefClk,     -- 371 MHz
+      gtgRefClk       => '0',     -- 371 MHz
       cpllRefClkSel   => "111",
       gtRxP           => gtRxP,
       gtRxN           => gtRxN,

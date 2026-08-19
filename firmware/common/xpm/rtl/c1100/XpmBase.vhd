@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-04-22
+-- Last update: 2026-08-19
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -139,7 +139,7 @@ architecture top_level of XpmBase is
    signal timingPhyClk2 : sl;
    signal phyClk01  : sl;
    signal phyClk11  : sl;
-   signal gphyClk01 : sl;
+   signal gphyClk01, gphyClk01d2 : sl;
    signal gphyClk11 : sl;
    signal phyRst01  : sl;
    
@@ -225,10 +225,6 @@ architecture top_level of XpmBase is
    signal stepMaster, seqMaster, monMaster : AxiStreamMasterType;
    signal stepSlave , seqSlave , monSlave  : AxiStreamSlaveType;
 
-   signal clk371, rst371 : sl;
-   signal clk186, rst186 : sl;
-   signal clk78,  rst78  : sl;
-
    signal ipAddr   : slv(31 downto 0);
 
    signal groupLinkClear         : slv(XPM_PARTITIONS_C-1 downto 0);
@@ -304,46 +300,8 @@ begin
    idsRxP(1)(3 downto 0) <= qsfp1RxP;
    idsRxN(1)(3 downto 0) <= qsfp1RxN;
 
-   -- U_371MHz : entity surf.ClockManagerUltraScale
-   --   generic map(
-   --     TPD_G              => TPD_G,
-   --     TYPE_G             => "MMCM",
-   --     INPUT_BUFG_G       => false,
-   --     FB_BUFG_G          => true,
-   --     RST_IN_POLARITY_G  => '1',
-   --     NUM_CLOCKS_G       => 1,
-   --     -- MMCM attributes
-   --     BANDWIDTH_G        => "OPTIMIZED",
-   --     CLKIN_PERIOD_G     => 6.4,     -- 156.25 MHz
-   --     DIVCLK_DIVIDE_G    => 7,       -- 22.321 MHz = 156.25MHz/7
-   --     CLKFBOUT_MULT_F_G  => 52.000,  -- 1160.714 MHz = 22.321 MHz x 52
-   --     CLKOUT0_DIVIDE_F_G => 3.125)   -- 371.429 MHz = 1160.714 MHz/3.125
-   --   port map(
-   --     clkIn     => phyClk01,
-   --     rstIn     => phyRst01,
-   --     clkOut(0) => clk371,
-   --     rstOut(0) => rst371,
-   --     locked    => mmcmLocked);
+   timingPhyClk   <= phyClk01;
 
-   U_Clk186 : BUFGCE_DIV
-     generic map (
-       BUFGCE_DIVIDE => 2 )
-     port map (
-       I   => clk371,
-       CE  => '1',
-       CLR => '0',
-       O   => clk186 );
-   
-   timingPhyClk   <= clk186;
-
-   U_Rst186 : entity surf.RstSync
-     generic map (
-       TPD_G => TPD_G)
-     port map (
-       clk      => clk186,
-       asyncRst => rst371,
-       syncRst  => rst186 );
-   
    IBUFDS_GTE4_REFCLK01 : IBUFDS_GTE4
       generic map (
         REFCLK_EN_TX_PATH  => '0',
@@ -353,17 +311,8 @@ begin
         I     => qsfp0RefClkP,
         IB    => qsfp0RefClkN,
         CEB   => '0',
-        ODIV2 => gphyClk01,
-        O     => open);
-
-   U_BUFG3  : BUFG_GT
-     port map (  I       => gphyClk01,
-                 CE      => '1',
-                 CEMASK  => '1',
-                 CLR     => '0',
-                 CLRMASK => '1',
-                 DIV     => "000",
-                 O       => phyClk01 );
+        ODIV2 => gphyClk01d2,
+        O     => gphyClk01);
 
    U_PhyRst01 : entity surf.RstSync
      port map (
@@ -374,10 +323,6 @@ begin
    ---------------------------------------
    -- AXI-Lite and reference 25 MHz clocks
    ---------------------------------------
-   -- U_BUFG : BUFG
-   --    port map (
-   --       I => userClk,
-   --       O => userClkBuf);
 
    U_axilClk : entity surf.ClockManagerUltraScale
       generic map(
@@ -411,34 +356,6 @@ begin
     --      I  => uregRst,
     --      O  => regRst );
 
-   U_GTGCLK : entity surf.ClockManagerUltraScale
-      generic map(
-         TPD_G              => TPD_G,
-         SIMULATION_G       => false,
-         TYPE_G             => "MMCM",
-         INPUT_BUFG_G       => false,
-         FB_BUFG_G          => true,
-         RST_IN_POLARITY_G  => '1',
-         NUM_CLOCKS_G       => 1,
-         -- MMCM attributes
-         BANDWIDTH_G        => "OPTIMIZED",
-         --CLKIN_PERIOD_G     => 4.0,    -- 250MHz
-         CLKIN_PERIOD_G     => 5.384,    -- 185.7MHz
-         DIVCLK_DIVIDE_G    => 1,       -- 
-         CLKFBOUT_MULT_F_G  => 7.0,    -- 1300MHz VCO
-         CLKOUT0_DIVIDE_F_G => 3.5)     -- 371MHz = 1.3GHz/3.5
-      port map(
-         -- Clock Input
-         --clkIn     => dmaClk,
-         --rstIn     => dmaRst,
-         clkIn     => phyClk01,
-         rstIn     => phyRst01,
-         -- Clock Outputs
-         clkOut(0) => clk371,
-         -- Reset Outputs
-         rstOut(0) => rst371,
-         locked    => mmcmLocked );
-   
     IBUFDS_GTE4_REFCLK11 : IBUFDS_GTE4
       generic map (
         REFCLK_EN_TX_PATH  => '0',
@@ -720,7 +637,7 @@ begin
 
    GEN_XPMGEN : if XPM_MODE_G = "XpmGen" generate
      recStream      <= recStreamSim;
-     timingFbClk    <= clk186;
+     timingFbClk    <= phyClk01;
      timingFbStatus <= TIMING_PHY_STATUS_INIT_C;
      dsLinkConfig   <= xpmConfig.dsLink(NUM_DS_LINKS_C-1 downto 0);
    end generate;
@@ -757,8 +674,8 @@ begin
          usTxP                 => idsTxP(0)(0),
          usTxN                 => idsTxN(0)(0),
          usRefClk              => '0', -- timingPhyClk,
-         usRefClkGt            => clk371,
-         usRefClkGtDiv2        => clk186,
+         usRefClkGt            => gphyClk01,
+         usRefClkGtDiv2        => phyclk01,
          usLoopback            => tmpReg(3 downto 1),
          stableClk             => stableClk,
          stableRst             => stableRst,
@@ -805,6 +722,15 @@ begin
    --   dsRxClk(0)   <= timingPhyClk;
    --   dsRxRst(0)   <= timingPhyRst;
    -- end generate GEN_XPMSYNC;
+
+  U_BUFG3  : BUFG_GT
+    port map (  I       => gphyClk01d2,
+                CE      => '1',
+                CEMASK  => '1',
+                CLR     => '0',
+                CLRMASK => '1',
+                DIV     => "000",
+                O       => phyClk01 );
    
    GEN_AMC_MGT : for i in 0 to 1 generate
      GEN_AMC : if AMC_DS_LINKS_C(i)>0 generate
@@ -821,11 +747,8 @@ begin
            gtTxN     => idsTxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
            gtRxP     => idsRxP (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
            gtRxN     => idsRxN (i)(AMC_DS_PORTN_C(i) downto AMC_DS_PORT0_C(i)),
-           devClkP   => '0', -- dsClockP (i),
-           devClkN   => '0', -- dsClockN (i),
-           devClkIn  => clk371,  -- gtgrefclk
-           devClkOut => open,
-           devClkBuf => open,
+           devClkIn  => gphyClk01,
+           devClkBuf => phyClk01,
            txData    => dsTxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
            txDataK   => dsTxDataK (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),
            rxData    => dsRxData  (AMC_DS_LAST_C(i) downto AMC_DS_FIRST_C(i)),

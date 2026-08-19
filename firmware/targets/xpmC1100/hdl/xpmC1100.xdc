@@ -29,10 +29,12 @@ set_clock_groups -asynchronous \
   -group [get_clocks -of_objects [get_pins -hier -filter {NAME =~ U_HSIO/GEN_AMC_MGT[?].GEN_AMC.U_Rcvr/*/TXOUTCLKPCS}]] \
   -group [get_clocks -of_objects [get_pins U_HSIO/U_axilClk/MmcmGen.U_Mmcm/CLKOUT0]] \
   -group [get_clocks -of_objects [get_pins U_HSIO/U_axilClk/MmcmGen.U_Mmcm/CLKOUT1]] \
-  -group [get_clocks -include_generated_clocks -of_objects [get_pins U_HSIO/U_GTGCLK/*/CLKOUT0]]
+  -group [get_clocks qsfp0RefClkP]
 
 set_clock_groups -asynchronous \
-  -group [get_clocks -of_objects [get_pins U_HSIO/U_Clk186/O]] \
-  -group [get_clocks -of_objects [get_pins -hier -filter {NAME =~ U_HSIO/GEN_XPMASYNC.U_XpmAsync/TimingGtCoreWrapper_1/U_Core/LOCREF_G.U_TimingGtyCore/*/RXOUTCLK}]] \
-  -group [get_clocks -of_objects [get_pins -hier -filter {NAME =~ U_HSIO/GEN_XPMASYNC.U_XpmAsync/TimingGtCoreWrapper_1/U_Core/LOCREF_G.U_TimingGtyCore/*/TXOUTCLKPCS}]]
-  
+  -group [get_clocks -of_objects [get_pins -hier -filter {NAME =~ U_HSIO/GEN_XPMASYNC.U_XpmAsync/TimingGtCoreWrapper_1/U_Core/*/RXOUTCLK}]] \
+  -group [get_clocks -of_objects [get_pins -hier -filter {NAME =~ U_HSIO/GEN_XPMASYNC.U_XpmAsync/TimingGtCoreWrapper_1/U_Core/*/TXOUTCLK}]] \
+  -group [get_clocks -of_objects [get_pins -hier -filter {NAME =~ U_HSIO/GEN_XPMASYNC.U_XpmAsync/TimingGtCoreWrapper_1/U_Core/*/TXOUTCLKPCS}]] \
+  -group [get_clocks -of_objects [get_pins U_HSIO/U_axilClk/MmcmGen.U_Mmcm/CLKOUT0]] \
+  -group [get_clocks -of_objects [get_pins U_HSIO/U_axilClk/MmcmGen.U_Mmcm/CLKOUT1]] \
+  -group [get_clocks qsfp0RefClkP]
