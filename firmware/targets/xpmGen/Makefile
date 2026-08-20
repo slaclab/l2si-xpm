@@ -73,6 +73,7 @@ target: prom
 export PRJ_PART = XCKU040-FFVA1156-2-E
 export BOARD_PART = 
 export PRJ_FMC =
+export LCLS_TIMING_GTH_XCI = 1
 
 # Use top level makefile
 include ../shared_config.mk

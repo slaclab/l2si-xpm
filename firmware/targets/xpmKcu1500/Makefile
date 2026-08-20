@@ -12,6 +12,7 @@ export PCIE_HW_TYPE = XilinxKcu1500
 
 # Define target part
 export PRJ_PART = xcku115-flvb2104-2-e
+export LCLS_TIMING_GTH_XCI = 1
 
 export BOARD_PART = xilinx.com:kcu1500:part0:1.1
 

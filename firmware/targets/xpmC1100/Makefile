@@ -3,6 +3,7 @@ export PARALLEL_SYNTH = 8
 
 # Define target part
 export PRJ_PART = XCU55N-FSVH2892-2L-E
+export LCLS_TIMING_GTY_XCI = 1
 
 export REMOVE_UNUSED_CODE = 1
 export USE_XVC_DEBUG = 1
