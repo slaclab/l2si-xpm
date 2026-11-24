@@ -5,6 +5,12 @@
 # Load RUCKUS environment and library
 source -quiet $::env(RUCKUS_DIR)/vivado_proc.tcl
 
+# Check for Vivado version earlier than 2025.1
+# Needed to prevent errors from IP core upgrade of lcls-timing-core/timing_extref.xci
+if { [VersionCheck 2025.1 ] >= 0 } {
+   exit -1
+}
+
 # Need to constrain TimingGtCore ports early (conflict at X0Y3)
 loadConstraints -path $::env(TOP_DIR)/common/xpm/xdc/AmcCarrierAppPorts.xdc
 
