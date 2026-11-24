@@ -5,7 +5,7 @@
 -- Author     : Matt Weaver
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-12-14
--- Last update: 2026-04-22
+-- Last update: 2026-11-23
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -394,6 +394,7 @@ begin
       variable groupMsgInsert : slv(XPM_PARTITIONS_C-1 downto 0);
       variable paddr          : slv(XPM_PARTITION_ADDR_LENGTH_C-1 downto 0);
       variable stepDone       : sl;
+      variable dummy          : sl := '1';
    begin
       v                             := r;
       -- reset strobing signals
@@ -420,6 +421,11 @@ begin
          v.config.partition(ip) := r.partitionCfg;
          v.config.pll (ia)      := r.pllCfg;
       end if;
+
+      -- Make sure this never gets disabled
+      for i in r.config.dsLink'range loop
+        v.config.dsLink(i).enable := '1';
+      end loop;
 
       --  strobing signals only set by group registers
       for i in 0 to XPM_PARTITIONS_C-1 loop
@@ -451,9 +457,8 @@ begin
       -- Read/write to the configuration registers
       -- Read only from status registers
 
-
-      paddr := status.paddr;
-      axiSlaveRegister(axilEp, X"000", 0, paddr);
+      axiSlaveRegister (axilEp, X"000", 0, v.config.paddr);
+      axiSlaveRegisterR(axilEp, X"00C", 0, status.paddr);
 
       axiSlaveRegister(axilEp, X"004", 0, v.partition);
       axiSlaveRegister(axilEp, X"004", 4, v.link);
@@ -464,13 +469,6 @@ begin
 --    axiSlaveRegister(axilEp, X"004", 26, v.cuRxEnable);
       axiSlaveRegisterR(axilEp, X"004", 25, toSl(US_RX_ENABLE_INIT_G));
       axiSlaveRegisterR(axilEp, X"004", 26, toSl(CU_RX_ENABLE_INIT_G));
-
-      v.load := '0';
-
-      axiWrDetect(axilEp, X"000", v.load);
-      if (v.load = '1') then
-         v.config.paddr := paddr;
-      end if;
 
       v.load := '0';
       axiWrDetect(axilEp, X"004", v.load);
@@ -488,7 +486,7 @@ begin
       axiSlaveRegister(axilEp, X"008", 29, v.linkCfg.txReset);
       axiSlaveRegister(axilEp, X"008", 30, v.linkCfg.rxReset);
       axiSlaveRegister(axilEp, X"008", 31, v.linkCfg.enable);
-
+      
       axiSlaveRegister(axilEp, X"014", 0, v.pllCfg.bwSel);
       axiSlaveRegister(axilEp, X"014", 4, v.pllCfg.frqTbl);
       axiSlaveRegister(axilEp, X"014", 8, v.pllCfg.frqSel);

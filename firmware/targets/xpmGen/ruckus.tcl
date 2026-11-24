@@ -5,6 +5,9 @@
 # Load RUCKUS environment and library
 source -quiet $::env(RUCKUS_DIR)/vivado_proc.tcl
 
+# Need to constrain TimingGtCore ports early (conflict at X0Y3)
+loadConstraints -path $::env(TOP_DIR)/common/xpm/xdc/AmcCarrierAppPorts.xdc
+
 # Load submodules' code and constraints
 loadRuckusTcl $::env(TOP_DIR)/submodules
 

@@ -479,9 +479,10 @@ begin
 
          v.allocTag := msg.valid;
          if msg.valid='1' then
-            v.result   := toSlv(msg);
+            msg.l0Reject := pword.valid and pword.l0Accept;
+            v.result     := toSlv(msg);
          else
-            v.result   := toSlv(pword);
+            v.result     := toSlv(pword);
          end if;
       end if;
 
