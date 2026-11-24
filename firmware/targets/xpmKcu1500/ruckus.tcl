@@ -7,7 +7,7 @@ source -quiet $::env(RUCKUS_DIR)/vivado_proc.tcl
 
 # Check for Vivado version 2026.1 (or later)
 # Needed to prevent errors from IP core upgrade of lcls-timing-core/timing_extref.xci
-if { [VersionCheck 2026.1 ] < 0 } {
+if { [VersionCheck 2025.1 ] < 0 } {
    exit -1
 }
 
